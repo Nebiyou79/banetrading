@@ -1,0 +1,210 @@
+/*
+ * theme.css
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Maps color.ts semantic tokens → CSS custom properties.
+ *
+ * Dark  → Combo B "Midnight / Indigo / Steel"
+ *         Deep midnight blues with indigo accent, teal gain, rose loss
+ *
+ * Light → Combo G "Aubergine / Plum / Violet"
+ *         Warm lavender backgrounds with violet accent, forest gain, crimson loss
+ *
+ * Apply the correct [data-theme] attribute to <html>:
+ *   <html data-theme="dark">  or  <html data-theme="light">
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* DARK — Combo B: Midnight / Indigo / Steel                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="dark"] {
+
+  /* ── Backgrounds (3-layer system) ────────────────────────────────────────── */
+  --background:           #090C14;   /* midnight base      — page shell        */
+  --surface:              #0F1322;   /* midnight panel     — sidebar / topbar   */
+  --card:                 #161D35;   /* midnight card      — widgets / cards    */
+  --card-elevated:        #1E2645;   /* elevated card      — hover / modals     */
+  --overlay:              rgba(9, 12, 20, 0.82);
+
+  /* ── Borders ─────────────────────────────────────────────────────────────── */
+  --border:               #222B48;   /* default divider                         */
+  --border-subtle:        #161D35;   /* faint separator (same as card)          */
+  --border-strong:        #6366F1;   /* active / focused border (indigo)        */
+
+  /* ── Text ────────────────────────────────────────────────────────────────── */
+  --text-primary:         #E4E9F8;   /* headings, key values                    */
+  --text-secondary:       #6E7EA8;   /* labels, secondary info                  */
+  --text-muted:           #374060;   /* placeholder, disabled                   */
+  --text-inverse:         #090C14;   /* text on colored surfaces                */
+
+  /* ── Primary — Indigo ────────────────────────────────────────────────────── */
+  --primary:              #6366F1;   /* indigo[500] — CTA, active nav           */
+  --primary-hover:        #818CF8;   /* indigo[400]                             */
+  --primary-active:       #4F46E5;   /* indigo[600]                             */
+  --primary-muted:        rgba(99, 102, 241, 0.14);
+
+  /* ── Secondary — steel shimmer ───────────────────────────────────────────── */
+  --secondary:            #818CF8;   /* indigo[400]                             */
+  --secondary-hover:      #A5B4FC;   /* indigo[300]                             */
+  --secondary-active:     #6366F1;   /* indigo[500]                             */
+  --secondary-muted:      rgba(129, 140, 248, 0.12);
+
+  /* ── Accent alias ─────────────────────────────────────────────────────────── */
+  --accent:               #6366F1;
+
+  /* ── Success — teal-bright (gain / buy) ─────────────────────────────────── */
+  --success:              #10D98A;
+  --success-muted:        rgba(16, 217, 138, 0.12);
+  --success-foreground:   #34D399;
+
+  /* ── Warning ─────────────────────────────────────────────────────────────── */
+  --warning:              #FACC15;
+  --warning-muted:        rgba(250, 204, 21, 0.12);
+  --warning-foreground:   #FDE047;
+
+  /* ── Error / Danger — rose (loss / sell) ────────────────────────────────── */
+  --error:                #F43F5E;
+  --error-muted:          rgba(244, 63, 94, 0.12);
+  --error-foreground:     #FB7185;
+  --danger:               #F43F5E;
+  --danger-muted:         rgba(244, 63, 94, 0.12);
+
+  /* ── Info — steel blue ───────────────────────────────────────────────────── */
+  --info:                 #60A5FA;
+  --info-muted:           rgba(96, 165, 250, 0.12);
+  --info-foreground:      #93C5FD;
+
+  /* ── Interactive states ──────────────────────────────────────────────────── */
+  --hover-bg:             rgba(255, 255, 255, 0.05);
+  --active-bg:            rgba(255, 255, 255, 0.09);
+  --focus-ring:           #818CF8;
+  --disabled:             #161D35;
+  --disabled-text:        #374060;
+
+  /* ── Sidebar ─────────────────────────────────────────────────────────────── */
+  --sidebar-bg:           #0C1020;
+  --sidebar-active-bg:    #161D35;
+  --sidebar-active-border:#6366F1;
+
+  /* ── Chart / Data Viz ────────────────────────────────────────────────────── */
+  --chart-up:             #10D98A;
+  --chart-up-muted:       rgba(16, 217, 138, 0.15);
+  --chart-down:           #F43F5E;
+  --chart-down-muted:     rgba(244, 63, 94, 0.15);
+  --chart-neutral:        #6E7EA8;
+  --chart-grid:           rgba(255, 255, 255, 0.04);
+  --chart-crosshair:      #6E7EA8;
+  --chart-volume:         rgba(99, 102, 241, 0.22);
+  --chart-ma1:            #818CF8;
+  --chart-ma2:            #60A5FA;
+
+  /* ── Chart series palette ────────────────────────────────────────────────── */
+  --chart-series-0:       #818CF8;   /* indigo    */
+  --chart-series-1:       #10D98A;   /* teal      */
+  --chart-series-2:       #60A5FA;   /* blue      */
+  --chart-series-3:       #A78BFA;   /* violet    */
+  --chart-series-4:       #FB7185;   /* rose      */
+  --chart-series-5:       #22D3EE;   /* cyan      */
+  --chart-series-6:       #FBBF24;   /* amber     */
+
+  color-scheme: dark;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* LIGHT — Combo G: Aubergine / Plum / Violet                                 */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] {
+
+  /* ── Backgrounds (3-layer system) ────────────────────────────────────────── */
+  --background:           #F3EEF9;   /* plum base   — page shell               */
+  --surface:              #FFFFFF;   /* white panel — sidebar / topbar          */
+  --card:                 #EAE0F5;   /* plum card   — widgets / cards           */
+  --card-elevated:        #E0D2F0;   /* elevated    — hover / modals            */
+  --overlay:              rgba(21, 8, 48, 0.60);
+
+  /* ── Borders ─────────────────────────────────────────────────────────────── */
+  --border:               #C8B0E4;   /* default divider                         */
+  --border-subtle:        #DDD6FE;   /* faint separator                         */
+  --border-strong:        #7C3AED;   /* active / focused border (violet)        */
+
+  /* ── Text ────────────────────────────────────────────────────────────────── */
+  --text-primary:         #150830;   /* near-black with violet undertone        */
+  --text-secondary:       #5B3A8C;   /* plum mid-tone                           */
+  --text-muted:           #9B7CC0;   /* light plum                              */
+  --text-inverse:         #FFFFFF;
+
+  /* ── Primary — Violet ────────────────────────────────────────────────────── */
+  --primary:              #7C3AED;   /* violet[600] — CTA, active nav           */
+  --primary-hover:        #6D28D9;   /* violet[700]                             */
+  --primary-active:       #5B21B6;   /* violet[800]                             */
+  --primary-muted:        rgba(124, 58, 237, 0.10);
+
+  /* ── Secondary — soft plum ───────────────────────────────────────────────── */
+  --secondary:            #8B5CF6;   /* violet[500]                             */
+  --secondary-hover:      #7C3AED;   /* violet[600]                             */
+  --secondary-active:     #6D28D9;   /* violet[700]                             */
+  --secondary-muted:      rgba(139, 92, 246, 0.10);
+
+  /* ── Accent alias ─────────────────────────────────────────────────────────── */
+  --accent:               #7C3AED;
+
+  /* ── Success — forest green (gain / buy) ─────────────────────────────────── */
+  --success:              #16A34A;
+  --success-muted:        rgba(22, 163, 74, 0.10);
+  --success-foreground:   #15803D;
+
+  /* ── Warning ─────────────────────────────────────────────────────────────── */
+  --warning:              #EAB308;
+  --warning-muted:        rgba(234, 179, 8, 0.10);
+  --warning-foreground:   #A16207;
+
+  /* ── Error / Danger — deep crimson (loss / sell) ─────────────────────────── */
+  --error:                #9F1239;
+  --error-muted:          rgba(159, 18, 57, 0.10);
+  --error-foreground:     #BE123C;
+  --danger:               #9F1239;
+  --danger-muted:         rgba(159, 18, 57, 0.10);
+
+  /* ── Info ─────────────────────────────────────────────────────────────────── */
+  --info:                 #2563EB;
+  --info-muted:           rgba(37, 99, 235, 0.10);
+  --info-foreground:      #1D4ED8;
+
+  /* ── Interactive states ──────────────────────────────────────────────────── */
+  --hover-bg:             rgba(124, 58, 237, 0.06);
+  --active-bg:            rgba(124, 58, 237, 0.10);
+  --focus-ring:           #7C3AED;
+  --disabled:             #EDE9FE;
+  --disabled-text:        #C4B5FD;
+
+  /* ── Sidebar ─────────────────────────────────────────────────────────────── */
+  --sidebar-bg:           #F9F5FD;
+  --sidebar-active-bg:    #EDE9FE;
+  --sidebar-active-border:#7C3AED;
+
+  /* ── Chart / Data Viz ────────────────────────────────────────────────────── */
+  --chart-up:             #15803D;
+  --chart-up-muted:       rgba(21, 128, 61, 0.12);
+  --chart-down:           #9F1239;
+  --chart-down-muted:     rgba(159, 18, 57, 0.12);
+  --chart-neutral:        #9B7CC0;
+  --chart-grid:           rgba(124, 58, 237, 0.06);
+  --chart-crosshair:      #9B7CC0;
+  --chart-volume:         rgba(124, 58, 237, 0.15);
+  --chart-ma1:            #7C3AED;
+  --chart-ma2:            #2563EB;
+
+  /* ── Chart series palette ────────────────────────────────────────────────── */
+  --chart-series-0:       #7C3AED;   /* violet    */
+  --chart-series-1:       #15803D;   /* forest    */
+  --chart-series-2:       #2563EB;   /* blue      */
+  --chart-series-3:       #A78BFA;   /* lavender  */
+  --chart-series-4:       #BE123C;   /* crimson   */
+  --chart-series-5:       #0891B2;   /* cyan-dark */
+  --chart-series-6:       #D97706;   /* amber     */
+
+  color-scheme: light;
+}

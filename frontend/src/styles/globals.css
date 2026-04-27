@@ -1,0 +1,335 @@
+/* globals.css
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Dark  → Combo B "Midnight / Indigo / Steel"
+ * Light → Combo G "Aubergine / Plum / Violet"
+ *
+ * Import order: tailwind → theme tokens → base styles → utilities
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Next.js / Geist font bridge ─────────────────────────────────────────── */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* DARK THEME — Combo B: Midnight / Indigo / Steel (default)                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="dark"] {
+
+  /* ── 3-Layer background system ────────────────────────────────────────────── */
+  --bg-base:              #090C14;   /* page shell                              */
+  --bg-elevated:          #0F1322;   /* sidebar, topbar, panels                 */
+  --bg-muted:             #161D35;   /* cards, widgets, table rows              */
+  --bg-card-hover:        #1E2645;   /* elevated on hover / modals              */
+
+  /* ── Alias for legacy components ─────────────────────────────────────────── */
+  --background:           #090C14;
+  --surface:              #0F1322;
+  --card:                 #161D35;
+  --overlay:              rgba(9, 12, 20, 0.82);
+
+  /* ── Borders ──────────────────────────────────────────────────────────────── */
+  --border:               #222B48;
+  --border-subtle:        #161D35;
+  --border-strong:        #6366F1;
+
+  /* ── Text ─────────────────────────────────────────────────────────────────── */
+  --text-primary:         #E4E9F8;
+  --text-secondary:       #6E7EA8;
+  --text-muted:           #374060;
+  --text-inverse:         #090C14;
+
+  /* ── Brand — Indigo ──────────────────────────────────────────────────────── */
+  --accent:               #6366F1;
+  --accent-hover:         #818CF8;
+  --accent-active:        #4F46E5;
+  --accent-muted:         rgba(99, 102, 241, 0.14);
+
+  /* ── Semantic states ─────────────────────────────────────────────────────── */
+  --success:              #10D98A;
+  --success-muted:        rgba(16, 217, 138, 0.12);
+  --success-fg:           #34D399;
+
+  --danger:               #F43F5E;
+  --danger-muted:         rgba(244, 63, 94, 0.12);
+  --danger-fg:            #FB7185;
+
+  --warning:              #FACC15;
+  --warning-muted:        rgba(250, 204, 21, 0.12);
+  --warning-fg:           #FDE047;
+
+  --info:                 #60A5FA;
+  --info-muted:           rgba(96, 165, 250, 0.12);
+  --info-fg:              #93C5FD;
+
+  /* ── Interactive ─────────────────────────────────────────────────────────── */
+  --hover-bg:             rgba(255, 255, 255, 0.05);
+  --active-bg:            rgba(255, 255, 255, 0.09);
+  --focus-ring:           #818CF8;
+  --disabled:             #161D35;
+  --disabled-text:        #374060;
+
+  /* ── Sidebar ─────────────────────────────────────────────────────────────── */
+  --sidebar-bg:           #0C1020;
+  --sidebar-active-bg:    #161D35;
+  --sidebar-active-border:#6366F1;
+
+  /* ── Chart ───────────────────────────────────────────────────────────────── */
+  --chart-up:             #10D98A;
+  --chart-up-muted:       rgba(16, 217, 138, 0.15);
+  --chart-down:           #F43F5E;
+  --chart-down-muted:     rgba(244, 63, 94, 0.15);
+  --chart-neutral:        #6E7EA8;
+  --chart-grid:           rgba(255, 255, 255, 0.04);
+  --chart-crosshair:      #6E7EA8;
+  --chart-volume:         rgba(99, 102, 241, 0.22);
+  --chart-ma1:            #818CF8;
+  --chart-ma2:            #60A5FA;
+  --chart-series-0:       #818CF8;
+  --chart-series-1:       #10D98A;
+  --chart-series-2:       #60A5FA;
+  --chart-series-3:       #A78BFA;
+  --chart-series-4:       #FB7185;
+  --chart-series-5:       #22D3EE;
+  --chart-series-6:       #FBBF24;
+
+  color-scheme: dark;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* LIGHT THEME — Combo G: Aubergine / Plum / Violet                           */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+[data-theme="light"] {
+
+  /* ── 3-Layer background system ────────────────────────────────────────────── */
+  --bg-base:              #F3EEF9;   /* lavender-plum page shell                */
+  --bg-elevated:          #FFFFFF;   /* white panels / topbar                   */
+  --bg-muted:             #EAE0F5;   /* cards, widgets                          */
+  --bg-card-hover:        #E0D2F0;   /* hover / elevated modals                 */
+
+  /* ── Alias for legacy components ─────────────────────────────────────────── */
+  --background:           #F3EEF9;
+  --surface:              #FFFFFF;
+  --card:                 #EAE0F5;
+  --overlay:              rgba(21, 8, 48, 0.60);
+
+  /* ── Borders ──────────────────────────────────────────────────────────────── */
+  --border:               #C8B0E4;
+  --border-subtle:        #DDD6FE;
+  --border-strong:        #7C3AED;
+
+  /* ── Text ─────────────────────────────────────────────────────────────────── */
+  --text-primary:         #150830;
+  --text-secondary:       #5B3A8C;
+  --text-muted:           #9B7CC0;
+  --text-inverse:         #FFFFFF;
+
+  /* ── Brand — Violet ──────────────────────────────────────────────────────── */
+  --accent:               #7C3AED;
+  --accent-hover:         #6D28D9;
+  --accent-active:        #5B21B6;
+  --accent-muted:         rgba(124, 58, 237, 0.10);
+
+  /* ── Semantic states ─────────────────────────────────────────────────────── */
+  --success:              #16A34A;
+  --success-muted:        rgba(22, 163, 74, 0.10);
+  --success-fg:           #15803D;
+
+  --danger:               #9F1239;
+  --danger-muted:         rgba(159, 18, 57, 0.10);
+  --danger-fg:            #BE123C;
+
+  --warning:              #EAB308;
+  --warning-muted:        rgba(234, 179, 8, 0.10);
+  --warning-fg:           #A16207;
+
+  --info:                 #2563EB;
+  --info-muted:           rgba(37, 99, 235, 0.10);
+  --info-fg:              #1D4ED8;
+
+  /* ── Interactive ─────────────────────────────────────────────────────────── */
+  --hover-bg:             rgba(124, 58, 237, 0.06);
+  --active-bg:            rgba(124, 58, 237, 0.10);
+  --focus-ring:           #7C3AED;
+  --disabled:             #EDE9FE;
+  --disabled-text:        #C4B5FD;
+
+  /* ── Sidebar ─────────────────────────────────────────────────────────────── */
+  --sidebar-bg:           #F9F5FD;
+  --sidebar-active-bg:    #EDE9FE;
+  --sidebar-active-border:#7C3AED;
+
+  /* ── Chart ───────────────────────────────────────────────────────────────── */
+  --chart-up:             #15803D;
+  --chart-up-muted:       rgba(21, 128, 61, 0.12);
+  --chart-down:           #9F1239;
+  --chart-down-muted:     rgba(159, 18, 57, 0.12);
+  --chart-neutral:        #9B7CC0;
+  --chart-grid:           rgba(124, 58, 237, 0.06);
+  --chart-crosshair:      #9B7CC0;
+  --chart-volume:         rgba(124, 58, 237, 0.15);
+  --chart-ma1:            #7C3AED;
+  --chart-ma2:            #2563EB;
+  --chart-series-0:       #7C3AED;
+  --chart-series-1:       #15803D;
+  --chart-series-2:       #2563EB;
+  --chart-series-3:       #A78BFA;
+  --chart-series-4:       #BE123C;
+  --chart-series-5:       #0891B2;
+  --chart-series-6:       #D97706;
+
+  color-scheme: light;
+}
+
+/* ─── System preference fallback (no [data-theme] set) ───────────────────── */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg-base:              #F3EEF9;
+    --bg-elevated:          #FFFFFF;
+    --bg-muted:             #EAE0F5;
+    --background:           #F3EEF9;
+    --surface:              #FFFFFF;
+    --card:                 #EAE0F5;
+    --border:               #C8B0E4;
+    --border-subtle:        #DDD6FE;
+    --border-strong:        #7C3AED;
+    --text-primary:         #150830;
+    --text-secondary:       #5B3A8C;
+    --text-muted:           #9B7CC0;
+    --text-inverse:         #FFFFFF;
+    --accent:               #7C3AED;
+    --accent-hover:         #6D28D9;
+    --accent-muted:         rgba(124, 58, 237, 0.10);
+    --success:              #16A34A;
+    --danger:               #9F1239;
+    --warning:              #EAB308;
+    --info:                 #2563EB;
+    --hover-bg:             rgba(124, 58, 237, 0.06);
+    --focus-ring:           #7C3AED;
+    --sidebar-bg:           #F9F5FD;
+    --sidebar-active-bg:    #EDE9FE;
+    --sidebar-active-border:#7C3AED;
+    --chart-up:             #15803D;
+    --chart-down:           #9F1239;
+    color-scheme: light;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* BASE STYLES                                                                 */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+html,
+body,
+#__next {
+  height: 100%;
+}
+
+body {
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system,
+               'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Numeric / price data — prevent layout shifts on live updates */
+.tabular,
+[data-numeric] {
+  font-family: 'Roboto Mono', 'JetBrains Mono', 'Geist Mono',
+               ui-monospace, 'Courier New', monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* UTILITY CLASSES                                                             */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Gain / Loss semantic colors */
+.text-gain  { color: var(--success); }
+.text-loss  { color: var(--danger);  }
+.bg-gain    { background-color: var(--chart-up-muted); }
+.bg-loss    { background-color: var(--chart-down-muted); }
+
+/* Selection highlight */
+*::selection {
+  background: var(--accent-muted);
+  color: var(--text-primary);
+}
+
+/* ── Input / Form normalization ───────────────────────────────────────────── */
+input,
+select,
+textarea,
+button {
+  font-family: inherit;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-muted) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ── Scrollbars ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar          { width: 6px; height: 6px; }
+::-webkit-scrollbar-track    { background: transparent; }
+::-webkit-scrollbar-thumb    { background: var(--border); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ═══════════════════════════════════════════════════════════════════════════ */
+/* ANIMATIONS                                                                  */
+/* ═══════════════════════════════════════════════════════════════════════════ */
+
+/* OTP / input error shake */
+@keyframes otp-shake {
+  0%, 100% { transform: translateX(0); }
+  20%       { transform: translateX(-6px); }
+  40%       { transform: translateX(6px); }
+  60%       { transform: translateX(-4px); }
+  80%       { transform: translateX(4px); }
+}
+.animate-otp-shake { animation: otp-shake 0.38s ease-in-out; }
+
+/* Modal enter */
+@keyframes modal-fade-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+.animate-modal-in { animation: modal-fade-in 0.18s ease-out forwards; }
+
+/* Backdrop fade */
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-backdrop-in { animation: backdrop-fade-in 0.18s ease-out forwards; }
+
+/* Price flash up (gain) */
+@keyframes flash-up {
+  0%   { background-color: var(--chart-up-muted); }
+  100% { background-color: transparent; }
+}
+.flash-up { animation: flash-up 0.6s ease-out; }
+
+/* Price flash down (loss) */
+@keyframes flash-down {
+  0%   { background-color: var(--chart-down-muted); }
+  100% { background-color: transparent; }
+}
+.flash-down { animation: flash-down 0.6s ease-out; }
