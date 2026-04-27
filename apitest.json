@@ -1,0 +1,1422 @@
+{
+  "info": {
+    "name": "LunoTrading V2 — Full API Test Suite",
+    "description": "Complete Postman collection for LunoTrading V2. Import this file, then set the BASE_URL environment variable to http://localhost:5000. After a successful login, copy the accessToken into ACCESS_TOKEN and the refreshToken into REFRESH_TOKEN. Use the Admin login to populate ADMIN_TOKEN.",
+    "_postman_id": "lunotrading-v2-2025",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "BASE_URL",       "value": "http://localhost:5000",   "type": "string" },
+    { "key": "ACCESS_TOKEN",   "value": "PASTE_AFTER_LOGIN",        "type": "string" },
+    { "key": "REFRESH_TOKEN",  "value": "PASTE_AFTER_LOGIN",        "type": "string" },
+    { "key": "ADMIN_TOKEN",    "value": "PASTE_AFTER_ADMIN_LOGIN",  "type": "string" },
+    { "key": "USER_ID",        "value": "PASTE_MONGO_OBJECT_ID",    "type": "string" },
+    { "key": "DEPOSIT_ID",     "value": "PASTE_MONGO_OBJECT_ID",    "type": "string" },
+    { "key": "WITHDRAWAL_ID",  "value": "PASTE_MONGO_OBJECT_ID",    "type": "string" },
+    { "key": "TRADE_ID",       "value": "PASTE_MONGO_OBJECT_ID",    "type": "string" },
+    { "key": "VERIFY_TOKEN",   "value": "PASTE_FROM_EMAIL_OR_DB",   "type": "string" },
+    { "key": "RESET_TOKEN",    "value": "PASTE_FROM_EMAIL_OR_DB",   "type": "string" },
+    { "key": "KYC_USER_ID",    "value": "PASTE_MONGO_OBJECT_ID",    "type": "string" },
+    { "key": "ANNOUNCEMENT_ID","value": "PASTE_MONGO_OBJECT_ID",    "type": "string" }
+  ],
+  "item": [
+
+    {
+      "name": "🔐 Auth",
+      "item": [
+
+        {
+          "name": "Register — Valid User",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Has success message', () => {",
+            "  const body = pm.response.json();",
+            "  pm.expect(body.message).to.include('Registration successful');",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@test.com\",\n  \"password\": \"Test@1234\",\n  \"country\": \"US\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/register", "host": ["{{BASE_URL}}"], "path": ["api","auth","register"] }
+          }
+        },
+
+        {
+          "name": "Register — Weak Password (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Has validation errors', () => {",
+            "  const body = pm.response.json();",
+            "  pm.expect(body.message).to.equal('Validation failed');",
+            "  pm.expect(body.errors).to.be.an('array');",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"John\",\n  \"email\": \"j@test.com\",\n  \"password\": \"weak\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/register", "host": ["{{BASE_URL}}"], "path": ["api","auth","register"] }
+          }
+        },
+
+        {
+          "name": "Register — No Uppercase (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Validation failed', () => pm.expect(pm.response.json().message).to.equal('Validation failed'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john2@test.com\",\n  \"password\": \"test@1234\",\n  \"country\": \"US\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/register", "host": ["{{BASE_URL}}"], "path": ["api","auth","register"] }
+          }
+        },
+
+        {
+          "name": "Register — Duplicate Email (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Email already registered', () => pm.expect(pm.response.json().message).to.equal('Email already registered'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john@test.com\",\n  \"password\": \"Test@1234\",\n  \"country\": \"US\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/register", "host": ["{{BASE_URL}}"], "path": ["api","auth","register"] }
+          }
+        },
+
+        {
+          "name": "Register — Admin Account (for admin tests)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"admin@lunotrading.com\",\n  \"password\": \"Admin@1234\",\n  \"country\": \"US\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/register", "host": ["{{BASE_URL}}"], "path": ["api","auth","register"] },
+            "description": "STEP: After this, go to MongoDB and manually set role: 'admin' and emailVerified: true for this user. Then login as admin."
+          }
+        },
+
+        {
+          "name": "Verify Email — Valid Token",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Email verified message', () => pm.expect(pm.response.json().message).to.include('Email verified'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/auth/verify-email?token={{VERIFY_TOKEN}}", "host": ["{{BASE_URL}}"], "path": ["api","auth","verify-email"], "query": [{ "key": "token", "value": "{{VERIFY_TOKEN}}" }] },
+            "description": "Get the token from MongoDB: db.users.findOne({email:'john@test.com'}).emailVerificationToken"
+          }
+        },
+
+        {
+          "name": "Verify Email — Expired / Invalid Token (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Invalid link message', () => pm.expect(pm.response.json().message).to.include('Invalid or expired'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/auth/verify-email?token=thisisafakeinvalidtoken123456", "host": ["{{BASE_URL}}"], "path": ["api","auth","verify-email"], "query": [{ "key": "token", "value": "thisisafakeinvalidtoken123456" }] }
+          }
+        },
+
+        {
+          "name": "Verify Email — Missing Token (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/auth/verify-email", "host": ["{{BASE_URL}}"], "path": ["api","auth","verify-email"] }
+          }
+        },
+
+        {
+          "name": "Login — Before Email Verify (expect 403)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 403', () => pm.response.to.have.status(403));",
+            "pm.test('Action is VERIFY_EMAIL', () => pm.expect(pm.response.json().action).to.equal('VERIFY_EMAIL'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@test.com\",\n  \"password\": \"Test@1234\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/login", "host": ["{{BASE_URL}}"], "path": ["api","auth","login"] },
+            "description": "Use this BEFORE verifying email via the verify-email endpoint"
+          }
+        },
+
+        {
+          "name": "Login — Valid (saves tokens automatically)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Has accessToken', () => pm.expect(body).to.have.property('accessToken'));",
+            "pm.test('Has refreshToken', () => pm.expect(body).to.have.property('refreshToken'));",
+            "pm.test('User object present', () => {",
+            "  pm.expect(body.user).to.have.property('id');",
+            "  pm.expect(body.user).to.have.property('email');",
+            "  pm.expect(body.user).to.have.property('role');",
+            "  pm.expect(body.user).to.have.property('kycTier');",
+            "  pm.expect(body.user).to.have.property('balance');",
+            "  pm.expect(body.user).to.not.have.property('password');",
+            "});",
+            "if (body.accessToken) { pm.collectionVariables.set('ACCESS_TOKEN', body.accessToken); }",
+            "if (body.refreshToken) { pm.collectionVariables.set('REFRESH_TOKEN', body.refreshToken); }",
+            "if (body.user && body.user.id) { pm.collectionVariables.set('USER_ID', body.user.id); }",
+            "console.log('✅ Tokens saved to collection variables');"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@test.com\",\n  \"password\": \"Test@1234\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/login", "host": ["{{BASE_URL}}"], "path": ["api","auth","login"] }
+          }
+        },
+
+        {
+          "name": "Login — Admin (saves ADMIN_TOKEN)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Role is admin', () => pm.expect(body.user.role).to.equal('admin'));",
+            "if (body.accessToken) { pm.collectionVariables.set('ADMIN_TOKEN', body.accessToken); }",
+            "console.log('✅ Admin token saved');"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@lunotrading.com\",\n  \"password\": \"Admin@1234\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/login", "host": ["{{BASE_URL}}"], "path": ["api","auth","login"] },
+            "description": "Requires: admin account exists AND emailVerified=true AND role='admin' in MongoDB"
+          }
+        },
+
+        {
+          "name": "Login — Wrong Password (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Invalid credentials', () => pm.expect(pm.response.json().message).to.equal('Invalid credentials'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@test.com\",\n  \"password\": \"WrongPassword@99\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/login", "host": ["{{BASE_URL}}"], "path": ["api","auth","login"] }
+          }
+        },
+
+        {
+          "name": "Login — Non-Existent Email (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Does not reveal email existence', () => pm.expect(pm.response.json().message).to.equal('Invalid credentials'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"nobody@nowhere.com\",\n  \"password\": \"Test@1234\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/login", "host": ["{{BASE_URL}}"], "path": ["api","auth","login"] }
+          }
+        },
+
+        {
+          "name": "Refresh Token — Valid",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Has new accessToken', () => pm.expect(body).to.have.property('accessToken'));",
+            "if (body.accessToken) { pm.collectionVariables.set('ACCESS_TOKEN', body.accessToken); }",
+            "console.log('✅ Access token refreshed');"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{REFRESH_TOKEN}}\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/refresh", "host": ["{{BASE_URL}}"], "path": ["api","auth","refresh"] }
+          }
+        },
+
+        {
+          "name": "Refresh Token — Invalid (expect 401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"this.is.not.a.valid.jwt.token\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/refresh", "host": ["{{BASE_URL}}"], "path": ["api","auth","refresh"] }
+          }
+        },
+
+        {
+          "name": "Refresh Token — Missing Body (expect 401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));",
+            "pm.test('No refresh token message', () => pm.expect(pm.response.json().message).to.equal('No refresh token provided'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/refresh", "host": ["{{BASE_URL}}"], "path": ["api","auth","refresh"] }
+          }
+        },
+
+        {
+          "name": "Forgot Password — Registered Email",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Always returns success', () => pm.expect(pm.response.json().message).to.include('If that email is registered'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@test.com\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/forgot-password", "host": ["{{BASE_URL}}"], "path": ["api","auth","forgot-password"] }
+          }
+        },
+
+        {
+          "name": "Forgot Password — Unregistered Email (still 200)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200 (never reveals if email exists)', () => pm.response.to.have.status(200));",
+            "pm.test('Same message as registered', () => pm.expect(pm.response.json().message).to.include('If that email is registered'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"notregistered@example.com\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/forgot-password", "host": ["{{BASE_URL}}"], "path": ["api","auth","forgot-password"] }
+          }
+        },
+
+        {
+          "name": "Forgot Password — Invalid Email Format (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Validation failed', () => pm.expect(pm.response.json().message).to.equal('Validation failed'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"notanemail\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/forgot-password", "host": ["{{BASE_URL}}"], "path": ["api","auth","forgot-password"] }
+          }
+        },
+
+        {
+          "name": "Reset Password — Valid Token",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Password reset message', () => pm.expect(pm.response.json().message).to.include('Password reset successfully'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{RESET_TOKEN}}\",\n  \"newPassword\": \"NewPass@1234\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/reset-password", "host": ["{{BASE_URL}}"], "path": ["api","auth","reset-password"] },
+            "description": "Get RESET_TOKEN from MongoDB: db.users.findOne({email:'john@test.com'}).passwordResetToken"
+          }
+        },
+
+        {
+          "name": "Reset Password — Expired Token (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Invalid or expired message', () => pm.expect(pm.response.json().message).to.include('Invalid or expired'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"thisisafakeexpiredresettoken12345678\",\n  \"newPassword\": \"NewPass@1234\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/reset-password", "host": ["{{BASE_URL}}"], "path": ["api","auth","reset-password"] }
+          }
+        },
+
+        {
+          "name": "Reset Password — Reuse Same Token (expect 400 — security check)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400 (single-use token)', () => pm.response.to.have.status(400));",
+            "pm.test('Token already cleared from DB', () => pm.expect(pm.response.json().message).to.include('Invalid or expired'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{RESET_TOKEN}}\",\n  \"newPassword\": \"AnotherPass@5678\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/reset-password", "host": ["{{BASE_URL}}"], "path": ["api","auth","reset-password"] },
+            "description": "Run AFTER the valid reset succeeds. Same token must be rejected."
+          }
+        },
+
+        {
+          "name": "Logout — Valid",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Logged out message', () => pm.expect(pm.response.json().message).to.equal('Logged out successfully'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/auth/logout", "host": ["{{BASE_URL}}"], "path": ["api","auth","logout"] }
+          }
+        },
+
+        {
+          "name": "Logout — No Token (expect 401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));",
+            "pm.test('No token message', () => pm.expect(pm.response.json().message).to.equal('No token provided'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "url": { "raw": "{{BASE_URL}}/api/auth/logout", "host": ["{{BASE_URL}}"], "path": ["api","auth","logout"] }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "👤 User Profile",
+      "item": [
+
+        {
+          "name": "Get My Profile",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has user object', () => {",
+            "  const body = pm.response.json();",
+            "  pm.expect(body.user).to.have.property('name');",
+            "  pm.expect(body.user).to.have.property('email');",
+            "  pm.expect(body.user).to.not.have.property('password');",
+            "  pm.expect(body.user).to.not.have.property('refreshToken');",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/user/profile", "host": ["{{BASE_URL}}"], "path": ["api","user","profile"] }
+          }
+        },
+
+        {
+          "name": "Get Profile — No Token (expect 401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/user/profile", "host": ["{{BASE_URL}}"], "path": ["api","user","profile"] }
+          }
+        },
+
+        {
+          "name": "Update Profile — Valid",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Updated name', () => pm.expect(pm.response.json().user.name).to.equal('John Updated'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"John Updated\",\n  \"country\": \"GB\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/user/profile", "host": ["{{BASE_URL}}"], "path": ["api","user","profile"] }
+          }
+        },
+
+        {
+          "name": "Update Profile — Try to Change Email (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Cannot change email directly', () => pm.expect(pm.response.json().message).to.include('Email address cannot be changed'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"newemail@test.com\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/user/profile", "host": ["{{BASE_URL}}"], "path": ["api","user","profile"] }
+          }
+        },
+
+        {
+          "name": "Change Password — Valid",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Password changed', () => pm.expect(pm.response.json().message).to.include('Password changed successfully'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"oldPassword\": \"Test@1234\",\n  \"newPassword\": \"NewTest@5678\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/user/change-password", "host": ["{{BASE_URL}}"], "path": ["api","user","change-password"] }
+          }
+        },
+
+        {
+          "name": "Change Password — Wrong Old Password (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Incorrect password message', () => pm.expect(pm.response.json().message).to.include('Incorrect current password'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"oldPassword\": \"WrongPassword@99\",\n  \"newPassword\": \"NewTest@5678\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/user/change-password", "host": ["{{BASE_URL}}"], "path": ["api","user","change-password"] }
+          }
+        },
+
+        {
+          "name": "Change Password — Same Password (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Must be different', () => pm.expect(pm.response.json().message).to.include('different'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"oldPassword\": \"Test@1234\",\n  \"newPassword\": \"Test@1234\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/user/change-password", "host": ["{{BASE_URL}}"], "path": ["api","user","change-password"] }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "💰 Funds",
+      "item": [
+
+        {
+          "name": "Get Balance",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has balance field', () => pm.expect(pm.response.json()).to.have.property('balance'));",
+            "pm.test('Balance is a number', () => pm.expect(pm.response.json().balance).to.be.a('number'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/funds/balance", "host": ["{{BASE_URL}}"], "path": ["api","funds","balance"] }
+          }
+        },
+
+        {
+          "name": "Get Balance — No Token (expect 401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/funds/balance", "host": ["{{BASE_URL}}"], "path": ["api","funds","balance"] }
+          }
+        },
+
+        {
+          "name": "Deposit — Valid (multipart with proof file)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Deposit submitted message', () => pm.expect(pm.response.json().message).to.include('submitted successfully'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "amount", "value": "100", "type": "text" },
+                { "key": "currency", "value": "USDT", "type": "text" },
+                { "key": "proof", "type": "file", "src": [], "description": "Select any JPG, PNG, or PDF file from your computer" }
+              ]
+            },
+            "url": { "raw": "{{BASE_URL}}/api/funds/deposit", "host": ["{{BASE_URL}}"], "path": ["api","funds","deposit"] },
+            "description": "IMPORTANT: Select a real JPG/PNG/PDF file in the 'proof' field. The file picker appears when you click on the field in Postman."
+          }
+        },
+
+        {
+          "name": "Deposit — No File Attached (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Proof required message', () => pm.expect(pm.response.json().message).to.include('Proof of deposit file is required'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "amount", "value": "100", "type": "text" },
+                { "key": "currency", "value": "USDT", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{BASE_URL}}/api/funds/deposit", "host": ["{{BASE_URL}}"], "path": ["api","funds","deposit"] }
+          }
+        },
+
+        {
+          "name": "Deposit — Invalid Currency (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "amount", "value": "100", "type": "text" },
+                { "key": "currency", "value": "DOGECOIN", "type": "text" },
+                { "key": "proof", "type": "file", "src": [] }
+              ]
+            },
+            "url": { "raw": "{{BASE_URL}}/api/funds/deposit", "host": ["{{BASE_URL}}"], "path": ["api","funds","deposit"] }
+          }
+        },
+
+        {
+          "name": "Deposit — Negative Amount (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Invalid amount message', () => pm.expect(pm.response.json().message).to.include('Invalid deposit amount'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "amount", "value": "-100", "type": "text" },
+                { "key": "currency", "value": "USDT", "type": "text" },
+                { "key": "proof", "type": "file", "src": [] }
+              ]
+            },
+            "url": { "raw": "{{BASE_URL}}/api/funds/deposit", "host": ["{{BASE_URL}}"], "path": ["api","funds","deposit"] }
+          }
+        },
+
+        {
+          "name": "Withdraw — Valid",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Withdrawal submitted', () => pm.expect(pm.response.json().message).to.include('submitted successfully'));",
+            "pm.test('Updated balance in response', () => pm.expect(pm.response.json()).to.have.property('updatedBalance'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 50,\n  \"address\": \"TRX1234567890abcdefghijklmnopqrstuvwx\",\n  \"network\": \"USDT-TRC20\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/funds/withdraw", "host": ["{{BASE_URL}}"], "path": ["api","funds","withdraw"] },
+            "description": "Requires user to have sufficient balance. First approve a deposit via admin endpoints."
+          }
+        },
+
+        {
+          "name": "Withdraw — Insufficient Balance (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Insufficient balance message', () => pm.expect(pm.response.json().message).to.equal('Insufficient balance.'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 9999999,\n  \"address\": \"TRX1234567890abcdefghijklmnopqrstuvwx\",\n  \"network\": \"USDT-TRC20\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/funds/withdraw", "host": ["{{BASE_URL}}"], "path": ["api","funds","withdraw"] }
+          }
+        },
+
+        {
+          "name": "Withdraw — Missing Address (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Validation failed', () => pm.expect(pm.response.json().message).to.equal('Validation failed'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 50,\n  \"network\": \"USDT-TRC20\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/funds/withdraw", "host": ["{{BASE_URL}}"], "path": ["api","funds","withdraw"] }
+          }
+        },
+
+        {
+          "name": "Withdraw — Invalid Network (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Validation failed', () => pm.expect(pm.response.json().message).to.equal('Validation failed'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 50,\n  \"address\": \"TRX1234567890abcdefghijklmnopqrstuvwx\",\n  \"network\": \"MATIC\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/funds/withdraw", "host": ["{{BASE_URL}}"], "path": ["api","funds","withdraw"] }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "🪪 KYC",
+      "item": [
+
+        {
+          "name": "Get KYC Status — Not Submitted",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Status field present', () => pm.expect(body).to.have.property('status'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/kyc/status", "host": ["{{BASE_URL}}"], "path": ["api","kyc","status"] }
+          }
+        },
+
+        {
+          "name": "Submit KYC — Valid (3 files)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('KYC submitted message', () => pm.expect(pm.response.json().message).to.include('KYC submitted successfully'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "idFront", "type": "file", "src": [], "description": "Upload ID front image" },
+                { "key": "idBack", "type": "file", "src": [], "description": "Upload ID back image" },
+                { "key": "selfie", "type": "file", "src": [], "description": "Upload selfie image" }
+              ]
+            },
+            "url": { "raw": "{{BASE_URL}}/api/kyc/submit", "host": ["{{BASE_URL}}"], "path": ["api","kyc","submit"] }
+          }
+        },
+
+        {
+          "name": "Submit KYC — Missing Selfie (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('All documents required message', () => pm.expect(pm.response.json().message).to.include('All three documents are required'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "idFront", "type": "file", "src": [] },
+                { "key": "idBack", "type": "file", "src": [] }
+              ]
+            },
+            "url": { "raw": "{{BASE_URL}}/api/kyc/submit", "host": ["{{BASE_URL}}"], "path": ["api","kyc","submit"] }
+          }
+        },
+
+        {
+          "name": "Submit KYC — Already Approved (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Already approved message', () => pm.expect(pm.response.json().message).to.include('already approved'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "idFront", "type": "file", "src": [] },
+                { "key": "idBack", "type": "file", "src": [] },
+                { "key": "selfie", "type": "file", "src": [] }
+              ]
+            },
+            "url": { "raw": "{{BASE_URL}}/api/kyc/submit", "host": ["{{BASE_URL}}"], "path": ["api","kyc","submit"] },
+            "description": "Run this AFTER admin approves the KYC submission"
+          }
+        },
+
+        {
+          "name": "Get KYC Status — After Submission",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Status is pending', () => pm.expect(body.status).to.equal('pending'));",
+            "pm.test('Has documents flags', () => {",
+            "  pm.expect(body.documents).to.have.property('idFront');",
+            "  pm.expect(body.documents).to.have.property('idBack');",
+            "  pm.expect(body.documents).to.have.property('selfie');",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/kyc/status", "host": ["{{BASE_URL}}"], "path": ["api","kyc","status"] }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "📍 Deposit Addresses",
+      "item": [
+
+        {
+          "name": "Get Deposit Addresses",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200 or 404', () => {",
+            "  pm.expect([200, 404]).to.include(pm.response.code);",
+            "});",
+            "if (pm.response.code === 200) {",
+            "  const body = pm.response.json();",
+            "  pm.test('Has all 3 addresses', () => {",
+            "    pm.expect(body).to.have.property('usdtAddress');",
+            "    pm.expect(body).to.have.property('btcAddress');",
+            "    pm.expect(body).to.have.property('ethAddress');",
+            "  });",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/deposit/addresses", "host": ["{{BASE_URL}}"], "path": ["api","deposit","addresses"] }
+          }
+        },
+
+        {
+          "name": "Update Deposit Addresses — Admin Full Update",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Updated successfully', () => pm.expect(pm.response.json().message).to.include('updated successfully'));",
+            "pm.test('Addresses in response', () => pm.expect(pm.response.json()).to.have.property('addresses'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"usdtAddress\": \"TRXusdtTestAddress1234567890abcdef\",\n  \"btcAddress\": \"bc1qx5evvnp7yvlayy03l0phnk8rjt5ktfdy2tzhgk\",\n  \"ethAddress\": \"0xEthTestAddress1234567890abcdef1234\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/deposit/addresses", "host": ["{{BASE_URL}}"], "path": ["api","deposit","addresses"] }
+          }
+        },
+
+        {
+          "name": "Update Deposit Addresses — Admin Partial Update (USDT only)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"usdtAddress\": \"TRXusdtUpdatedAddress9876543210\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/deposit/addresses", "host": ["{{BASE_URL}}"], "path": ["api","deposit","addresses"] }
+          }
+        },
+
+        {
+          "name": "Update Deposit Addresses — Non-Admin (expect 403)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 403', () => pm.response.to.have.status(403));",
+            "pm.test('Admin required message', () => pm.expect(pm.response.json().message).to.equal('Admin access required'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"usdtAddress\": \"ShouldNotWork\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/deposit/addresses", "host": ["{{BASE_URL}}"], "path": ["api","deposit","addresses"] }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "📊 Prices (Public)",
+      "item": [
+
+        {
+          "name": "Get Live Prices",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Has data array', () => pm.expect(body.data).to.be.an('array'));",
+            "pm.test('Source field present', () => pm.expect(body).to.have.property('source'));",
+            "pm.test('First coin has required fields', () => {",
+            "  if (body.data && body.data.length > 0) {",
+            "    pm.expect(body.data[0]).to.have.property('id');",
+            "    pm.expect(body.data[0]).to.have.property('price');",
+            "    pm.expect(body.data[0]).to.have.property('change24h');",
+            "  }",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/prices", "host": ["{{BASE_URL}}"], "path": ["api","prices"] },
+            "description": "Public endpoint — no auth required"
+          }
+        },
+
+        {
+          "name": "Get BTC Historical — 1D",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "const body = pm.response.json();",
+            "pm.test('Has OHLCV data', () => pm.expect(body.data).to.be.an('array'));",
+            "if (body.data && body.data.length > 0) {",
+            "  pm.test('Candle has time and OHLC', () => {",
+            "    pm.expect(body.data[0]).to.have.property('time');",
+            "    pm.expect(body.data[0]).to.have.property('open');",
+            "    pm.expect(body.data[0]).to.have.property('high');",
+            "    pm.expect(body.data[0]).to.have.property('low');",
+            "    pm.expect(body.data[0]).to.have.property('close');",
+            "  });",
+            "}"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/prices/bitcoin/history?interval=1d", "host": ["{{BASE_URL}}"], "path": ["api","prices","bitcoin","history"], "query": [{ "key": "interval", "value": "1d" }] }
+          }
+        },
+
+        {
+          "name": "Get ETH Historical — 1H",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/prices/ethereum/history?interval=1h", "host": ["{{BASE_URL}}"], "path": ["api","prices","ethereum","history"], "query": [{ "key": "interval", "value": "1h" }] }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "🛡️ Admin",
+      "item": [
+
+        {
+          "name": "Get Dashboard Stats",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has all stat fields', () => {",
+            "  const body = pm.response.json();",
+            "  pm.expect(body).to.have.property('totalUsers');",
+            "  pm.expect(body).to.have.property('newToday');",
+            "  pm.expect(body).to.have.property('pendingDeposits');",
+            "  pm.expect(body).to.have.property('pendingWithdrawals');",
+            "  pm.expect(body).to.have.property('activeTrades');",
+            "  pm.expect(body).to.have.property('platformBalance');",
+            "  pm.expect(body).to.have.property('totalFeesCollected');",
+            "});",
+            "pm.test('pendingDeposits has count and totalValue', () => {",
+            "  pm.expect(pm.response.json().pendingDeposits).to.have.property('count');",
+            "  pm.expect(pm.response.json().pendingDeposits).to.have.property('totalValue');",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/stats", "host": ["{{BASE_URL}}"], "path": ["api","admin","stats"] }
+          }
+        },
+
+        {
+          "name": "Get Dashboard Stats — Non-Admin (expect 403)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 403', () => pm.response.to.have.status(403));",
+            "pm.test('Admin required', () => pm.expect(pm.response.json().message).to.equal('Admin access required'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/stats", "host": ["{{BASE_URL}}"], "path": ["api","admin","stats"] }
+          }
+        },
+
+        {
+          "name": "Get All Users",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+            "pm.test('No passwords in response', () => {",
+            "  const users = pm.response.json();",
+            "  if (users.length > 0) {",
+            "    pm.expect(users[0]).to.not.have.property('password');",
+            "    pm.expect(users[0]).to.not.have.property('refreshToken');",
+            "  }",
+            "});",
+            "const users = pm.response.json();",
+            "if (users.length > 0) { pm.collectionVariables.set('USER_ID', users[0]._id); }",
+            "console.log('USER_ID set to:', pm.collectionVariables.get('USER_ID'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/users", "host": ["{{BASE_URL}}"], "path": ["api","admin","users"] }
+          }
+        },
+
+        {
+          "name": "Get User By ID",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Has user fields', () => {",
+            "  const body = pm.response.json();",
+            "  pm.expect(body).to.have.property('name');",
+            "  pm.expect(body).to.have.property('email');",
+            "  pm.expect(body).to.have.property('balance');",
+            "  pm.expect(body).to.have.property('autoMode');",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/users/{{USER_ID}}", "host": ["{{BASE_URL}}"], "path": ["api","admin","users","{{USER_ID}}"] }
+          }
+        },
+
+        {
+          "name": "Set User — Always Win",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('autoMode set to alwaysWin', () => pm.expect(pm.response.json().user.autoMode).to.equal('alwaysWin'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"autoMode\": \"alwaysWin\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/users/{{USER_ID}}", "host": ["{{BASE_URL}}"], "path": ["api","admin","users","{{USER_ID}}"] }
+          }
+        },
+
+        {
+          "name": "Set User — Always Lose",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('autoMode set to alwaysLose', () => pm.expect(pm.response.json().user.autoMode).to.equal('alwaysLose'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"autoMode\": \"alwaysLose\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/users/{{USER_ID}}", "host": ["{{BASE_URL}}"], "path": ["api","admin","users","{{USER_ID}}"] }
+          }
+        },
+
+        {
+          "name": "Set User — Random (off)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('autoMode set to off', () => pm.expect(pm.response.json().user.autoMode).to.equal('off'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"autoMode\": \"off\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/users/{{USER_ID}}", "host": ["{{BASE_URL}}"], "path": ["api","admin","users","{{USER_ID}}"] }
+          }
+        },
+
+        {
+          "name": "Set User Balance",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Balance updated to 5000', () => pm.expect(pm.response.json().user.balance).to.equal(5000));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"balance\": 5000\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/users/{{USER_ID}}", "host": ["{{BASE_URL}}"], "path": ["api","admin","users","{{USER_ID}}"] }
+          }
+        },
+
+        {
+          "name": "Freeze User Account",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Account is frozen', () => pm.expect(pm.response.json().user.isFrozen).to.be.true);",
+            "pm.test('Freeze reason saved', () => pm.expect(pm.response.json().user.freezeReason).to.equal('Suspicious activity detected'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"isFrozen\": true,\n  \"freezeReason\": \"Suspicious activity detected\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/users/{{USER_ID}}", "host": ["{{BASE_URL}}"], "path": ["api","admin","users","{{USER_ID}}"] }
+          }
+        },
+
+        {
+          "name": "Login as Frozen User (expect 403)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 403', () => pm.response.to.have.status(403));",
+            "pm.test('Account frozen message', () => pm.expect(pm.response.json().message).to.equal('Account frozen'));",
+            "pm.test('Freeze reason returned', () => pm.expect(pm.response.json()).to.have.property('reason'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"john@test.com\",\n  \"password\": \"Test@1234\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/auth/login", "host": ["{{BASE_URL}}"], "path": ["api","auth","login"] },
+            "description": "Run AFTER freezing the user. The 403 should include the freeze reason."
+          }
+        },
+
+        {
+          "name": "Unfreeze User Account",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Account is not frozen', () => pm.expect(pm.response.json().user.isFrozen).to.be.false);"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"isFrozen\": false,\n  \"freezeReason\": \"\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/users/{{USER_ID}}", "host": ["{{BASE_URL}}"], "path": ["api","admin","users","{{USER_ID}}"] }
+          }
+        },
+
+        {
+          "name": "Get All Deposits",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+            "const deposits = pm.response.json();",
+            "const pending = deposits.find(d => d.status === 'pending');",
+            "if (pending) { pm.collectionVariables.set('DEPOSIT_ID', pending._id); }",
+            "console.log('DEPOSIT_ID set to:', pm.collectionVariables.get('DEPOSIT_ID'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/deposits", "host": ["{{BASE_URL}}"], "path": ["api","admin","deposits"] }
+          }
+        },
+
+        {
+          "name": "Get Pending Deposits",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('All results are pending', () => {",
+            "  const deposits = pm.response.json();",
+            "  deposits.forEach(d => pm.expect(d.status).to.equal('pending'));",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/deposits/pending", "host": ["{{BASE_URL}}"], "path": ["api","admin","deposits","pending"] }
+          }
+        },
+
+        {
+          "name": "Approve Deposit",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Deposit approved', () => pm.expect(pm.response.json().message).to.include('approved successfully'));",
+            "pm.test('Has updatedBalance', () => pm.expect(pm.response.json()).to.have.property('updatedBalance'));",
+            "pm.test('Deposit status is approved', () => pm.expect(pm.response.json().deposit.status).to.equal('approved'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/deposits/{{DEPOSIT_ID}}/approve", "host": ["{{BASE_URL}}"], "path": ["api","admin","deposits","{{DEPOSIT_ID}}","approve"] }
+          }
+        },
+
+        {
+          "name": "Approve Deposit — Already Approved (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Already approved message', () => pm.expect(pm.response.json().message).to.include('already approved'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/deposits/{{DEPOSIT_ID}}/approve", "host": ["{{BASE_URL}}"], "path": ["api","admin","deposits","{{DEPOSIT_ID}}","approve"] },
+            "description": "Run AFTER approving the deposit. Should reject double-approval."
+          }
+        },
+
+        {
+          "name": "Reject Deposit (PUT — not DELETE)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Deposit rejected message', () => pm.expect(pm.response.json().message).to.include('rejected successfully'));",
+            "pm.test('Rejection reason saved', () => pm.expect(pm.response.json().deposit.rejectionReason).to.equal('Unable to verify proof of payment'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"rejectionReason\": \"Unable to verify proof of payment\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/deposits/{{DEPOSIT_ID}}/reject", "host": ["{{BASE_URL}}"], "path": ["api","admin","deposits","{{DEPOSIT_ID}}","reject"] },
+            "description": "FIX B4 confirmed: This is PUT not DELETE"
+          }
+        },
+
+        {
+          "name": "Get All Withdrawals",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+            "const withdrawals = pm.response.json();",
+            "const pending = withdrawals.find(w => w.status === 'pending');",
+            "if (pending) { pm.collectionVariables.set('WITHDRAWAL_ID', pending._id); }",
+            "console.log('WITHDRAWAL_ID set to:', pm.collectionVariables.get('WITHDRAWAL_ID'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/withdrawals", "host": ["{{BASE_URL}}"], "path": ["api","admin","withdrawals"] }
+          }
+        },
+
+        {
+          "name": "Get Pending Withdrawals",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('All results are pending', () => {",
+            "  pm.response.json().forEach(w => pm.expect(w.status).to.equal('pending'));",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/withdrawals/pending", "host": ["{{BASE_URL}}"], "path": ["api","admin","withdrawals","pending"] }
+          }
+        },
+
+        {
+          "name": "Approve Withdrawal",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Withdrawal approved', () => pm.expect(pm.response.json().message).to.include('approved successfully'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/withdrawals/{{WITHDRAWAL_ID}}/approve", "host": ["{{BASE_URL}}"], "path": ["api","admin","withdrawals","{{WITHDRAWAL_ID}}","approve"] }
+          }
+        },
+
+        {
+          "name": "Reject Withdrawal — Balance is REFUNDED (FIX B2)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Withdrawal rejected', () => pm.expect(pm.response.json().message).to.include('rejected successfully'));",
+            "pm.test('FIX B2: No balance in response (refund handled server side)', () => {",
+            "  pm.expect(pm.response.json().withdrawal.status).to.equal('rejected');",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"rejectionReason\": \"Wallet address appears invalid.\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/withdrawals/{{WITHDRAWAL_ID}}/reject", "host": ["{{BASE_URL}}"], "path": ["api","admin","withdrawals","{{WITHDRAWAL_ID}}","reject"] },
+            "description": "FIX B2: Rejection REFUNDS the balance that was held. Balance is restored to user."
+          }
+        },
+
+        {
+          "name": "Get All KYC Requests",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Returns array', () => pm.expect(pm.response.json()).to.be.an('array'));",
+            "const kycs = pm.response.json();",
+            "const pending = kycs.find(k => k.status === 'pending');",
+            "if (pending && pending.userId) { pm.collectionVariables.set('KYC_USER_ID', pending.userId._id || pending.userId); }",
+            "console.log('KYC_USER_ID set to:', pm.collectionVariables.get('KYC_USER_ID'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/kyc", "host": ["{{BASE_URL}}"], "path": ["api","admin","kyc"] }
+          }
+        },
+
+        {
+          "name": "Approve KYC (FIX B1)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('KYC approved', () => pm.expect(pm.response.json().message).to.include('approved successfully'));",
+            "pm.test('FIX B1: Did not crash (UserModel bug fixed)', () => pm.expect(pm.response.code).to.equal(200));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/kyc/{{KYC_USER_ID}}/approve", "host": ["{{BASE_URL}}"], "path": ["api","admin","kyc","{{KYC_USER_ID}}","approve"] },
+            "description": "FIX B1: This was crashing because it used UserModel (undefined). Now uses User correctly."
+          }
+        },
+
+        {
+          "name": "Reject KYC — With Reason",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('KYC rejected', () => pm.expect(pm.response.json().message).to.include('rejected successfully'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"rejectionReason\": \"ID documents were not clearly visible. Please resubmit with better lighting.\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/kyc/{{KYC_USER_ID}}/reject", "host": ["{{BASE_URL}}"], "path": ["api","admin","kyc","{{KYC_USER_ID}}","reject"] }
+          }
+        },
+
+        {
+          "name": "Reject KYC — Missing Reason (expect 400)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 400', () => pm.response.to.have.status(400));",
+            "pm.test('Reason required message', () => pm.expect(pm.response.json().message).to.equal('Rejection reason is required'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/kyc/{{KYC_USER_ID}}/reject", "host": ["{{BASE_URL}}"], "path": ["api","admin","kyc","{{KYC_USER_ID}}","reject"] }
+          }
+        },
+
+        {
+          "name": "Get All Trades",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Returns array sorted newest first', () => {",
+            "  const trades = pm.response.json();",
+            "  pm.expect(trades).to.be.an('array');",
+            "  if (trades.length > 1) {",
+            "    pm.expect(new Date(trades[0].createdAt) >= new Date(trades[1].createdAt)).to.be.true;",
+            "  }",
+            "});"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/trades", "host": ["{{BASE_URL}}"], "path": ["api","admin","trades"] }
+          }
+        },
+
+        {
+          "name": "Create Announcement",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 201', () => pm.response.to.have.status(201));",
+            "pm.test('Announcement created', () => pm.expect(pm.response.json().message).to.include('created'));",
+            "const body = pm.response.json();",
+            "if (body.announcement && body.announcement._id) {",
+            "  pm.collectionVariables.set('ANNOUNCEMENT_ID', body.announcement._id);",
+            "}",
+            "console.log('ANNOUNCEMENT_ID set to:', pm.collectionVariables.get('ANNOUNCEMENT_ID'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Platform Maintenance Notice\",\n  \"message\": \"We will be performing maintenance on Sunday from 02:00 to 04:00 UTC. Trading will be unavailable.\",\n  \"type\": \"warning\"\n}" },
+            "url": { "raw": "{{BASE_URL}}/api/admin/announcements", "host": ["{{BASE_URL}}"], "path": ["api","admin","announcements"] }
+          }
+        },
+
+        {
+          "name": "Delete Announcement",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Announcement deactivated', () => pm.expect(pm.response.json().message).to.include('deactivated'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ADMIN_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/announcements/{{ANNOUNCEMENT_ID}}", "host": ["{{BASE_URL}}"], "path": ["api","admin","announcements","{{ANNOUNCEMENT_ID}}"] }
+          }
+        }
+
+      ]
+    },
+
+    {
+      "name": "🔒 Security Tests",
+      "item": [
+
+        {
+          "name": "Access Protected Route — No Token (expect 401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));",
+            "pm.test('No token provided', () => pm.expect(pm.response.json().message).to.equal('No token provided'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/funds/balance", "host": ["{{BASE_URL}}"], "path": ["api","funds","balance"] }
+          }
+        },
+
+        {
+          "name": "Access Admin Route as Regular User (expect 403)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 403', () => pm.response.to.have.status(403));",
+            "pm.test('Admin access required', () => pm.expect(pm.response.json().message).to.equal('Admin access required'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{ACCESS_TOKEN}}" }],
+            "url": { "raw": "{{BASE_URL}}/api/admin/users", "host": ["{{BASE_URL}}"], "path": ["api","admin","users"] }
+          }
+        },
+
+        {
+          "name": "Use Invalid Token (expect 401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));",
+            "pm.test('Invalid or expired token', () => pm.expect(pm.response.json().message).to.equal('Invalid or expired token'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImZha2VpZCIsImlhdCI6MTYwMDAwMDAwMH0.fakesignature" }],
+            "url": { "raw": "{{BASE_URL}}/api/funds/balance", "host": ["{{BASE_URL}}"], "path": ["api","funds","balance"] }
+          }
+        },
+
+        {
+          "name": "Malformed Bearer Token (expect 401)",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 401', () => pm.response.to.have.status(401));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "notabearer token" }],
+            "url": { "raw": "{{BASE_URL}}/api/funds/balance", "host": ["{{BASE_URL}}"], "path": ["api","funds","balance"] }
+          }
+        },
+
+        {
+          "name": "Health Check",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 200', () => pm.response.to.have.status(200));",
+            "pm.test('Status ok', () => pm.expect(pm.response.json().status).to.equal('ok'));",
+            "pm.test('Has timestamp', () => pm.expect(pm.response.json()).to.have.property('timestamp'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/health", "host": ["{{BASE_URL}}"], "path": ["health"] }
+          }
+        },
+
+        {
+          "name": "404 — Unknown Route",
+          "event": [{ "listen": "test", "script": { "exec": [
+            "pm.test('Status 404', () => pm.response.to.have.status(404));",
+            "pm.test('Route not found message', () => pm.expect(pm.response.json().message).to.include('not found'));"
+          ], "type": "text/javascript" }}],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{BASE_URL}}/api/this-route-does-not-exist", "host": ["{{BASE_URL}}"], "path": ["api","this-route-does-not-exist"] }
+          }
+        }
+
+      ]
+    }
+
+  ]
+}
