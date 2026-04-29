@@ -21,6 +21,11 @@ const promoCodeField = z.string()
   .max(12, 'Promo code must be 6–12 characters')
   .regex(/^[A-Z0-9]+$/, 'Promo code must be alphanumeric');
 
+// ── Currency constants ──
+const ALL_CURRENCIES = ['USDT', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
+const DEPOSIT_CURRENCIES = ['USDT', 'BTC', 'ETH'];
+const WITHDRAW_CURRENCIES = ['USDT', 'BTC', 'ETH'];
+
 // ── Auth schemas ──
 const registerSchema = z.object({
   name:      z.string().trim().min(1, 'Name is required').max(80),
@@ -115,25 +120,18 @@ const changePasswordSchema = z.object({
   message: 'New password must differ from your current password',
 });
 
-// ── Funds: Deposit / Withdraw ──
-const COINS = ['USDT', 'BTC', 'ETH'];
-const DEPOSIT_NETWORKS  = ['ERC20', 'TRC20', 'BEP20', 'Bitcoin', 'Ethereum'];
-const WITHDRAW_NETWORKS = ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH'];
+// ── Funds: Deposit ──
+const DEPOSIT_NETWORKS = ['ERC20', 'TRC20', 'BEP20', 'Bitcoin', 'Ethereum'];
 
 const DEPOSIT_NETWORKS_FOR_COIN = {
   USDT: ['ERC20', 'TRC20', 'BEP20'],
   BTC:  ['Bitcoin'],
   ETH:  ['Ethereum'],
 };
-const WITHDRAW_NETWORKS_FOR_COIN = {
-  USDT: ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20'],
-  BTC:  ['BTC'],
-  ETH:  ['ETH'],
-};
 
 const depositSchema = z.object({
   amount:   z.coerce.number({ invalid_type_error: 'Amount must be a number' }).positive('Amount must be greater than 0'),
-  currency: z.enum(COINS, { errorMap: () => ({ message: 'Invalid coin' }) }),
+  currency: z.enum(DEPOSIT_CURRENCIES, { errorMap: () => ({ message: 'Invalid coin' }) }),
   network:  z.enum(DEPOSIT_NETWORKS, { errorMap: () => ({ message: 'Invalid network' }) }),
   note:     z.string().trim().max(500, 'Note must be at most 500 characters').optional(),
 }).refine(
@@ -141,9 +139,18 @@ const depositSchema = z.object({
   { path: ['network'], message: 'Selected network is not valid for this coin' },
 );
 
+// ── Funds: Withdraw ──
+const WITHDRAW_NETWORKS = ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH'];
+
+const WITHDRAW_NETWORKS_FOR_COIN = {
+  USDT: ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20'],
+  BTC:  ['BTC'],
+  ETH:  ['ETH'],
+};
+
 const withdrawSchema = z.object({
   amount:    z.coerce.number({ invalid_type_error: 'Amount must be a number' }).positive('Amount must be greater than 0'),
-  currency:  z.enum(COINS, { errorMap: () => ({ message: 'Invalid coin' }) }),
+  currency:  z.enum(WITHDRAW_CURRENCIES, { errorMap: () => ({ message: 'Invalid coin' }) }),
   network:   z.enum(WITHDRAW_NETWORKS, { errorMap: () => ({ message: 'Invalid network' }) }),
   toAddress: z.string().trim().min(8, 'Destination address is too short').max(120, 'Destination address is too long'),
   note:      z.string().trim().max(500).optional(),
@@ -154,6 +161,7 @@ const withdrawSchema = z.object({
 
 // ── Admin: deposit addresses + network fees ──
 const addressEntry = z.union([z.string().trim().min(8, 'Address is too short').max(120, 'Address is too long'), z.literal('')]);
+
 const updateAddressesSchema = z.object({
   'USDT-ERC20': addressEntry.optional(),
   'USDT-TRC20': addressEntry.optional(),
@@ -184,13 +192,16 @@ const ageAtLeast18 = (d) => {
 
 const kycLevel2Schema = z.object({
   fullName:    z.string().trim().min(2, 'Full name is required').max(120),
-  dateOfBirth: isoDate.refine((d) => d.getTime() < Date.now(), { message: 'Date of birth must be in the past' })
-                       .refine((d) => ageAtLeast18(d), { message: 'You must be at least 18 years old' }),
+  dateOfBirth: isoDate
+    .refine((d) => d.getTime() < Date.now(), { message: 'Date of birth must be in the past' })
+    .refine((d) => ageAtLeast18(d), { message: 'You must be at least 18 years old' }),
   country:     z.string().trim().min(2, 'Country is required').max(80),
-  idType:      z.enum(['passport', 'national_id', 'drivers_license'], { errorMap: () => ({ message: 'Invalid ID type' }) }),
+  idType:      z.enum(['passport', 'national_id', 'drivers_license'], {
+    errorMap: () => ({ message: 'Invalid ID type' }),
+  }),
   idNumber:    z.string().trim().min(2, 'ID number is required').max(60),
   expiryDate:  z.union([z.literal(''), isoDate]).optional()
-                .transform((v) => (v === '' || v === undefined ? undefined : v)),
+    .transform((v) => (v === '' || v === undefined ? undefined : v)),
 });
 
 const kycLevel3Schema = z.object({
@@ -203,6 +214,34 @@ const kycLevel3Schema = z.object({
 
 const kycRejectSchema = z.object({
   reason: z.string().trim().min(2, 'Reason is required').max(500, 'Reason is too long'),
+});
+
+// ── Asset Conversion (Module 6) ──
+const convertQuoteSchema = z.object({
+  from:       z.enum(ALL_CURRENCIES, { errorMap: () => ({ message: 'Invalid source currency' }) }),
+  to:         z.enum(ALL_CURRENCIES, { errorMap: () => ({ message: 'Invalid target currency' }) }),
+  fromAmount: z.coerce.number({ invalid_type_error: 'Amount must be a number' }).positive('Amount must be greater than 0'),
+}).refine((d) => d.from !== d.to, {
+  path: ['to'],
+  message: 'Cannot convert same currency',
+});
+
+const convertExecuteSchema = z.object({
+  from:       z.enum(ALL_CURRENCIES),
+  to:         z.enum(ALL_CURRENCIES),
+  fromAmount: z.coerce.number().positive(),
+  quotedRate: z.coerce.number().positive('Quoted rate is required'),
+}).refine((d) => d.from !== d.to, {
+  path: ['to'],
+  message: 'Cannot convert same currency',
+});
+
+const convertConfigSchema = z.object({
+  feeBps:        z.coerce.number().min(0, 'Fee cannot be negative').max(1000, 'Fee cannot exceed 1000 bps (10%)').optional(),
+  minConvertUsd: z.coerce.number().positive('Minimum must be greater than 0').optional(),
+  enabledPairs:  z.array(z.string()).optional(),
+}).refine((d) => Object.values(d).some((v) => v !== undefined), {
+  message: 'No fields to update',
 });
 
 module.exports = {
@@ -224,4 +263,7 @@ module.exports = {
   kycLevel2Schema,
   kycLevel3Schema,
   kycRejectSchema,
+  convertQuoteSchema,
+  convertExecuteSchema,
+  convertConfigSchema,
 };

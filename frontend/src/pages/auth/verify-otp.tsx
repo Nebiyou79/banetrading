@@ -32,6 +32,7 @@ function formatMMSS(s: number): string {
 
 export default function VerifyOtpPage(): JSX.Element {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [otp, setOtp] = useState('');
   const [invalid, setInvalid] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -41,6 +42,8 @@ export default function VerifyOtpPage(): JSX.Element {
 
   const expiry = useCountdown(OTP_TTL_SECONDS);
   const resend = useCountdown(0);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const email = typeof router.query.email === 'string' ? router.query.email : '';
   const purposeRaw = router.query.purpose;
@@ -109,10 +112,14 @@ export default function VerifyOtpPage(): JSX.Element {
     ? `We sent a 6-digit code to ${email}. Enter it below to continue.`
     : "We sent a 6-digit code to your email. Enter it below to continue.";
 
-  // Step context for password reset flow
   const stepInfo = isPasswordReset
     ? { current: 2, total: 3, label: 'Step 2 of 3 — Verify code' }
     : null;
+
+  const timerColor = expiry.secondsLeft < 30 ? 'var(--danger)' :
+                     expiry.secondsLeft < 60 ? 'var(--warning)' : 'var(--text-primary)';
+
+  if (!mounted) return <div className="min-h-screen bg-[var(--background)]" />;
 
   return (
     <>
@@ -141,21 +148,24 @@ export default function VerifyOtpPage(): JSX.Element {
         }
       >
         <div className="flex flex-col gap-5">
-
           {/* Email hint banner */}
           <div
             className="flex items-center gap-3 rounded-xl border px-4 py-3"
-            style={{ borderColor: 'var(--page-accent-muted)', background: 'var(--page-accent-muted)' }}
+            style={{
+              borderColor: 'var(--page-accent-muted)',
+              background: 'var(--page-accent-muted)',
+              animation: 'authFadeUp 0.4s 0.2s both',
+            }}
           >
-            <MailCheck className="h-4 w-4 shrink-0" style={{ color: 'var(--page-accent)' }} />
+            <MailCheck className="h-4 w-4 shrink-0 animate-pulse" style={{ color: 'var(--page-accent)' }} />
             <div className="flex-1 min-w-0">
               <p className="truncate text-xs font-medium text-[var(--text-primary)]">{email}</p>
-              <p className="text-[11px] text-[var(--text-secondary)]">Can't find it? Check your spam folder.</p>
+              <p className="text-[11px] text-[var(--text-secondary)]">Can&apos;t find it? Check your spam folder.</p>
             </div>
           </div>
 
           {/* OTP boxes */}
-          <div className="py-2">
+          <div className="py-2" style={{ animation: 'authFadeUp 0.4s 0.28s both' }}>
             <OtpInput
               ref={inputRef}
               value={otp}
@@ -167,14 +177,14 @@ export default function VerifyOtpPage(): JSX.Element {
           </div>
 
           {/* Timer + resend row */}
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between text-xs" style={{ animation: 'authFadeUp 0.4s 0.34s both' }}>
             <span className="text-[var(--text-secondary)]">
               {expiry.isDone ? (
                 <span className="font-medium text-[var(--danger)]">Code expired — please resend</span>
               ) : (
                 <>
                   Expires in{' '}
-                  <span className="tabular font-semibold text-[var(--text-primary)]">
+                  <span className="tabular font-semibold" style={{ color: timerColor }}>
                     {formatMMSS(expiry.secondsLeft)}
                   </span>
                 </>
@@ -184,7 +194,7 @@ export default function VerifyOtpPage(): JSX.Element {
               type="button"
               onClick={handleResend}
               disabled={!resend.isDone || resending}
-              className="font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40"
+              className="font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--page-accent)] rounded-sm"
               style={{ color: resend.isDone && !resending ? 'var(--page-accent)' : undefined }}
             >
               {resending
@@ -197,11 +207,11 @@ export default function VerifyOtpPage(): JSX.Element {
 
           {/* Segmented progress (password reset) */}
           {stepInfo && (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5" style={{ animation: 'authFadeUp 0.4s 0.40s both' }}>
               {Array.from({ length: stepInfo.total }).map((_, i) => (
                 <div
                   key={i}
-                  className="h-1 flex-1 rounded-full transition-all duration-300"
+                  className="h-1 flex-1 rounded-full transition-all duration-500"
                   style={{
                     background: i < stepInfo.current
                       ? 'var(--page-accent)'
@@ -219,7 +229,8 @@ export default function VerifyOtpPage(): JSX.Element {
           {serverError && (
             <div
               role="alert"
-              className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-center gap-2 animate-otp-shake"
+              className="rounded-lg border border-[var(--danger-muted)] bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-center gap-2 animate-otp-shake"
+              style={{ animation: 'authFadeUp 0.4s 0.44s both' }}
             >
               <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 4a.75.75 0 0 0-1.5 0v3.5a.75.75 0 0 0 1.5 0V5zm-.75 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
@@ -229,24 +240,27 @@ export default function VerifyOtpPage(): JSX.Element {
           )}
 
           {/* CTA */}
-          <Button
-            type="button"
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={submitting}
-            disabled={otp.length !== 6 || expiry.isDone}
-            onClick={() => handleVerify(otp)}
-            style={{
-              background: otp.length === 6 && !expiry.isDone ? 'var(--page-accent)' : undefined,
-              boxShadow: otp.length === 6 && !expiry.isDone ? '0 0 20px var(--page-accent-muted)' : undefined,
-            }}
-          >
-            {isPasswordReset ? 'Verify & continue' : 'Verify email'}
-          </Button>
+          <div style={{ animation: 'authFadeUp 0.4s 0.50s both' }}>
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={submitting}
+              disabled={otp.length !== 6 || expiry.isDone}
+              onClick={() => handleVerify(otp)}
+              className="transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: otp.length === 6 && !expiry.isDone ? 'var(--page-accent)' : undefined,
+                boxShadow: otp.length === 6 && !expiry.isDone ? '0 0 20px var(--page-accent-muted)' : undefined,
+              }}
+            >
+              {isPasswordReset ? 'Verify & continue' : 'Verify email'}
+            </Button>
+          </div>
 
           {/* Helper tip */}
-          <p className="text-center text-[11px] text-[var(--text-muted)]">
+          <p className="text-center text-[11px] text-[var(--text-muted)]" style={{ animation: 'authFadeUp 0.4s 0.56s both' }}>
             The code is valid for 10 minutes. Codes are single-use and expire immediately after verification.
           </p>
         </div>

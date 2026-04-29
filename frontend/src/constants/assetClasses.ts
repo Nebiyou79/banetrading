@@ -1,46 +1,33 @@
 // constants/assetClasses.ts
-// ── FRONTEND ASSET CLASS METADATA ──
-// Mirrors backend config/forex.js and config/metals.js so the client
-// can detect asset class without an API call.
+// ── FRONTEND MIRROR OF BACKEND FOREX/METALS CONFIG ──
+// Used to detect asset class client-side without an API call.
 
-interface AssetMeta {
-  symbol: string;
-  display: string;
-  decimals: number;
-  name: string;
-  class: 'forex' | 'metals';
-}
+export const FX_PAIRS = [
+  { symbol: 'EURUSD', display: 'EUR/USD', base: 'EUR', quote: 'USD', decimals: 4, name: 'Euro / US Dollar',              color: '#3B82F6' },
+  { symbol: 'GBPUSD', display: 'GBP/USD', base: 'GBP', quote: 'USD', decimals: 4, name: 'British Pound / US Dollar',    color: '#8B5CF6' },
+  { symbol: 'USDJPY', display: 'USD/JPY', base: 'USD', quote: 'JPY', decimals: 3, name: 'US Dollar / Japanese Yen',     color: '#EF4444' },
+  { symbol: 'USDCHF', display: 'USD/CHF', base: 'USD', quote: 'CHF', decimals: 4, name: 'US Dollar / Swiss Franc',      color: '#F97316' },
+  { symbol: 'AUDUSD', display: 'AUD/USD', base: 'AUD', quote: 'USD', decimals: 4, name: 'Australian Dollar / US Dollar',color: '#10B981' },
+] as const;
 
-const FOREX_META: AssetMeta[] = [
-  { symbol: 'EURUSD', display: 'EUR/USD', decimals: 4, name: 'Euro / US Dollar', class: 'forex' },
-  { symbol: 'GBPUSD', display: 'GBP/USD', decimals: 4, name: 'British Pound / US Dollar', class: 'forex' },
-  { symbol: 'USDJPY', display: 'USD/JPY', decimals: 3, name: 'US Dollar / Japanese Yen', class: 'forex' },
-  { symbol: 'USDCHF', display: 'USD/CHF', decimals: 4, name: 'US Dollar / Swiss Franc', class: 'forex' },
-  { symbol: 'AUDUSD', display: 'AUD/USD', decimals: 4, name: 'Australian Dollar / US Dollar', class: 'forex' },
-];
+export const METAL_PAIRS = [
+  { symbol: 'XAUUSD', display: 'XAU/USD', base: 'XAU', quote: 'USD', decimals: 2, name: 'Gold / US Dollar',   color: '#FBBF24' },
+  { symbol: 'XAGUSD', display: 'XAG/USD', base: 'XAG', quote: 'USD', decimals: 3, name: 'Silver / US Dollar', color: '#9CA3AF' },
+] as const;
 
-const METALS_META: AssetMeta[] = [
-  { symbol: 'XAUUSD', display: 'XAU/USD', decimals: 2, name: 'Gold / US Dollar', class: 'metals' },
-  { symbol: 'XAGUSD', display: 'XAG/USD', decimals: 3, name: 'Silver / US Dollar', class: 'metals' },
-];
-
-export const FX_BY_SYMBOL: Record<string, AssetMeta> = Object.fromEntries(
-  [...FOREX_META, ...METALS_META].map(m => [m.symbol, m]),
-);
+export const FX_BY_SYMBOL  = Object.fromEntries(FX_PAIRS.map(p    => [p.symbol, p]));
+export const METAL_BY_SYMBOL = Object.fromEntries(METAL_PAIRS.map(p => [p.symbol, p]));
 
 export const TIER_1_SYMBOLS = new Set([
   'BTC', 'ETH', 'USDT', 'BNB', 'SOL', 'XRP', 'ADA', 'DOGE',
   'TRX', 'MATIC', 'DOT', 'LTC', 'AVAX', 'LINK', 'BCH',
 ]);
 
-export function getAssetClass(symbol: string): 'crypto' | 'forex' | 'metals' {
-  const upper = symbol.toUpperCase();
-  if (TIER_1_SYMBOLS.has(upper)) return 'crypto';
-  const meta = FX_BY_SYMBOL[upper];
-  if (meta) return meta.class;
-  return 'crypto'; // fallback
-}
+export type AssetClass = 'crypto' | 'forex' | 'metals';
 
-export function getAssetMeta(symbol: string): AssetMeta | null {
-  return FX_BY_SYMBOL[symbol.toUpperCase()] || null;
+export function getAssetClass(symbol: string): AssetClass {
+  const s = symbol.toUpperCase();
+  if (FX_BY_SYMBOL[s])    return 'forex';
+  if (METAL_BY_SYMBOL[s]) return 'metals';
+  return 'crypto';
 }

@@ -1,7 +1,7 @@
 // pages/auth/login.tsx
 // ── BaneTrading · Login — Indigo / Candlestick theme ──
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -23,8 +23,12 @@ const BRAND = 'BaneTrading';
 export default function LoginPage(): JSX.Element {
   const router = useRouter();
   const { login } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [notVerified, setNotVerified] = useState<{ email: string } | null>(null);
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMounted(true); }, []);
 
   const {
     register,
@@ -51,6 +55,8 @@ export default function LoginPage(): JSX.Element {
       setServerError(normalized.message || 'Login failed');
     }
   };
+
+  if (!mounted) return <div className="min-h-screen bg-[var(--background)]" />;
 
   return (
     <>
@@ -79,36 +85,39 @@ export default function LoginPage(): JSX.Element {
         }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-
           {/* Email */}
-          <FormField label="Email address" htmlFor="email" error={errors.email?.message}>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              leading={<Mail className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
-              error={errors.email?.message}
-              {...register('email')}
-            />
-          </FormField>
+          <div style={{ animation: 'authFadeUp 0.4s 0.2s both' }}>
+            <FormField label="Email address" htmlFor="email" error={errors.email?.message}>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                leading={<Mail className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
+                error={errors.email?.message}
+                {...register('email')}
+              />
+            </FormField>
+          </div>
 
           {/* Password */}
-          <FormField label="Password" htmlFor="password" error={errors.password?.message}>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="Enter your password"
-              showPasswordToggle
-              leading={<Lock className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
-              error={errors.password?.message}
-              {...register('password')}
-            />
-          </FormField>
+          <div style={{ animation: 'authFadeUp 0.4s 0.28s both' }}>
+            <FormField label="Password" htmlFor="password" error={errors.password?.message}>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                showPasswordToggle
+                leading={<Lock className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
+                error={errors.password?.message}
+                {...register('password')}
+              />
+            </FormField>
+          </div>
 
           {/* Remember + Forgot */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between" style={{ animation: 'authFadeUp 0.4s 0.34s both' }}>
             <label className="inline-flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
@@ -120,7 +129,7 @@ export default function LoginPage(): JSX.Element {
             </label>
             <Link
               href="/auth/forgot-password"
-              className="text-xs font-medium transition-colors duration-150 hover:underline"
+              className="text-xs font-medium transition-colors duration-150 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--page-accent)] rounded-sm"
               style={{ color: 'var(--page-accent)' }}
             >
               Forgot password?
@@ -131,7 +140,8 @@ export default function LoginPage(): JSX.Element {
           {serverError && (
             <div
               role="alert"
-              className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-start gap-2"
+              className="rounded-lg border border-[var(--danger-muted)] bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-start gap-2"
+              style={{ animation: 'authFadeUp 0.4s 0.38s both' }}
             >
               <svg className="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 4a.75.75 0 0 0-1.5 0v3.5a.75.75 0 0 0 1.5 0V5zm-.75 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
@@ -155,23 +165,25 @@ export default function LoginPage(): JSX.Element {
           )}
 
           {/* CTA */}
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={isSubmitting}
-            className="mt-1"
-            style={{
-              background: 'var(--page-accent)',
-              boxShadow: '0 0 20px var(--page-accent-muted)',
-            }}
-          >
-            Log in to BaneTrading
-          </Button>
+          <div style={{ animation: 'authFadeUp 0.4s 0.42s both' }}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={isSubmitting}
+              className="mt-1 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: 'var(--page-accent)',
+                boxShadow: '0 0 20px var(--page-accent-muted)',
+              }}
+            >
+              Log in to BaneTrading
+            </Button>
+          </div>
 
           {/* Divider */}
-          <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
+          <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]" style={{ animation: 'authFadeUp 0.4s 0.48s both' }}>
             <div className="flex-1 h-px bg-[var(--border)]" />
             <span>or continue with</span>
             <div className="flex-1 h-px bg-[var(--border)]" />
@@ -180,7 +192,8 @@ export default function LoginPage(): JSX.Element {
           {/* Social placeholder */}
           <button
             type="button"
-            className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition-all duration-150 hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
+            className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition-all duration-150 hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] hover:shadow-[0_0_16px_var(--page-accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--page-accent)]"
+            style={{ animation: 'authFadeUp 0.4s 0.52s both' }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/>

@@ -1,4 +1,4 @@
 // pages/wallet.tsx
-// ── Wallet — alias for /balance ──
+// ── BaneTrading — Wallet alias → /balance ──
 
 export { default } from './balance';

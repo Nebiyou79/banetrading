@@ -2,7 +2,8 @@
 // ── Mobile slide-in drawer (≤ lg). Mirrors the desktop sidebar. ──
 
 import { useEffect } from 'react';
-import { X, LogOut } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, LogOut, Coins, Globe } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { Avatar } from '@/components/ui/Avatar';
 import { useAuth } from '@/hooks/useAuth';
@@ -31,92 +32,115 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps): JSX.Element 
     };
   }, [open, onClose]);
 
-  if (!open) return null;
-
   const label = user ? (user.displayName || user.name) : 'Guest';
+  let globalIndex = 0;
 
   return (
-    <div className="fixed inset-0 z-[90] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
-      {/* Backdrop */}
-      <button
-        type="button"
-        aria-label="Close navigation"
-        onClick={onClose}
-        className="absolute inset-0 bg-overlay backdrop-blur-sm animate-backdrop-in"
-      />
-
-      {/* Drawer */}
-      <aside
-        className={cn(
-          'absolute left-0 top-0 h-full w-[280px] bg-sidebar border-r border-border shadow-card',
-          'flex flex-col',
-        )}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-4 h-16 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-text-inverse font-bold">
-              P
-            </span>
-            <span className="text-sm font-semibold tracking-tight text-text-primary">{BRAND}</span>
-          </div>
-          <button
+    <AnimatePresence>
+      {open && (
+        <div className="fixed inset-0 z-[90] lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
+          {/* Backdrop */}
+          <motion.button
             type="button"
-            onClick={onClose}
             aria-label="Close navigation"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-button text-text-muted hover:text-text-primary hover:bg-hover-bg transition-colors"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="absolute inset-0 bg-overlay backdrop-blur-sm"
+          />
+
+          {/* Drawer */}
+          <motion.aside
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', stiffness: 400, damping: 40 }}
+            className={cn(
+              'absolute left-0 top-0 h-full w-[300px] bg-sidebar border-r border-border shadow-2xl',
+              'flex flex-col',
+            )}
           >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* User card */}
-        {user && (
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3 shrink-0">
-            <Avatar src={user.avatarUrl} name={label} size="md" />
-            <div className="min-w-0">
-              <div className="text-sm font-semibold text-text-primary truncate">{label}</div>
-              <div className="text-xs text-text-muted truncate">{user.email}</div>
-            </div>
-          </div>
-        )}
-
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3 flex flex-col gap-5" aria-label="Main navigation">
-          {SIDEBAR_GROUPS.map((group) => (
-            <div key={group.id} className="flex flex-col gap-1">
-              <div className="px-3 pt-1 pb-1 text-[10px] uppercase tracking-wider text-text-muted">
-                {group.title}
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border px-4 h-16 shrink-0">
+              <div className="flex items-center gap-2">
+                <motion.span
+                  whileTap={{ scale: 0.95 }}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-text-inverse font-bold shadow-sm"
+                >
+                  P
+                </motion.span>
+                <span className="text-sm font-semibold tracking-tight text-text-primary">{BRAND}</span>
               </div>
-              <ul className="flex flex-col gap-0.5">
-                {group.items.map((item) => (
-                  <li key={item.href}>
-                    <SidebarItem
-                      href={item.href}
-                      label={item.label}
-                      icon={item.icon}
-                      collapsed={false}
-                      onNavigate={onClose}
-                    />
-                  </li>
-                ))}
-              </ul>
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close navigation"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-button text-text-muted hover:text-text-primary hover:bg-hover-bg transition-colors active:scale-90"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          ))}
-        </nav>
 
-        {/* Logout */}
-        <div className="border-t border-border p-2 shrink-0">
-          <button
-            type="button"
-            onClick={() => { onClose(); logout(); }}
-            className="flex w-full items-center gap-3 rounded-button px-3 h-10 text-sm text-danger hover:bg-hover-bg transition-colors"
-          >
-            <LogOut className="h-[18px] w-[18px]" />
-            Log out
-          </button>
+            {/* User card */}
+            {user && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="flex items-center gap-3 border-b border-border px-4 py-3 shrink-0"
+              >
+                <Avatar src={user.avatarUrl} name={label} size="md" />
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-text-primary truncate">{label}</div>
+                  <div className="text-xs text-text-muted truncate">{user.email}</div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Nav */}
+            <nav className="flex-1 overflow-y-auto px-2 py-3 flex flex-col gap-5 scrollbar-thin" aria-label="Main navigation">
+              {SIDEBAR_GROUPS.map((group) => (
+                <div key={group.id} className="flex flex-col gap-1">
+                  <div className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-widest text-text-muted">
+                    {group.title}
+                  </div>
+                  <ul className="flex flex-col gap-0.5">
+                    {group.items.map((item) => {
+                      const idx = globalIndex++;
+                      return (
+                        <li key={item.href}>
+                          <SidebarItem
+                            href={item.href}
+                            label={item.label}
+                            icon={item.icon}
+                            collapsed={false}
+                            onNavigate={onClose}
+                            index={idx}
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))}
+            </nav>
+
+            {/* Logout */}
+            <div className="border-t border-border p-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => { onClose(); logout(); }}
+                className="flex w-full items-center gap-3 rounded-button px-3 h-10 text-sm text-danger hover:bg-hover-bg transition-colors active:scale-[0.98]"
+              >
+                <LogOut className="h-[18px] w-[18px]" />
+                Log out
+              </button>
+            </div>
+          </motion.aside>
         </div>
-      </aside>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }

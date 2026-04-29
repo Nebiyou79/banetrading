@@ -7,29 +7,53 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { WelcomeStats } from './WelcomeStats';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BaneTrading';
 const TOTAL_MS = 1200;
 
 /**
  * Logo mark — gradient uses:
- *   var(--primary)       → gold[400] dark | gold[500] light
- *   var(--secondary)     → amber[400] dark | amber[500] light
- *   var(--text-inverse)  → near-black for P letter contrast
+ *   var(--accent)       → gold/indigo accent
+ *   var(--info)         → blue accent
+ *   var(--text-inverse) → contrast for text
  */
-function PrimeLogo(): JSX.Element {
+function BaneLogoMark(): JSX.Element {
   return (
     <svg viewBox="0 0 80 80" width="64" height="64" aria-hidden="true">
       <defs>
-        <linearGradient id="brand-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%"   stopColor="var(--primary)"   />
-          <stop offset="100%" stopColor="var(--secondary)"  />
+        <linearGradient id="welcome-brand-grad" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%"   stopColor="var(--accent)"   />
+          <stop offset="100%" stopColor="var(--info)"  />
         </linearGradient>
       </defs>
-      <rect x="4" y="4" width="72" height="72" rx="18" fill="url(#brand-grad)" />
-      <path
-        d="M 28 22 H 46 a 12 12 0 1 1 0 24 H 32 v 12 H 26 V 22 z M 32 28 v 12 h 14 a 6 6 0 1 0 0 -12 H 32 z"
-        fill="var(--text-inverse)"
+      <rect x="4" y="4" width="72" height="72" rx="18" fill="url(#welcome-brand-grad)" />
+      {/* Stylized B + chart bar */}
+      <polyline
+        points="22,22 28,36 34,30 42,44 54,28"
+        stroke="rgba(255,255,255,0.35)"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
       />
+      <polyline
+        points="22,22 28,36 34,30 42,44 54,28"
+        stroke="rgba(255,255,255,0.92)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {/* B letter overlay */}
+      <text
+        x="40"
+        y="62"
+        textAnchor="middle"
+        fontSize="14"
+        fontWeight="900"
+        fill="var(--text-inverse)"
+        fontFamily="system-ui, sans-serif"
+        style={{ opacity: 0.95 }}
+      >
+        BT
+      </text>
     </svg>
   );
 }
@@ -62,30 +86,48 @@ export function WelcomeAnimation(): JSX.Element {
      */
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[var(--background)]">
 
-      {/* Radial glow — primary color bloom */}
+      {/* Radial glow — accent color bloom */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(60% 50% at 50% 35%, var(--primary-muted) 0%, transparent 65%)',
+            'radial-gradient(60% 50% at 50% 35%, var(--accent-muted) 0%, transparent 65%)',
         }}
       />
+
+      {/* Animated background blobs */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        <div
+          className="absolute top-[15%] left-[15%] h-64 w-64 rounded-full blur-[100px] opacity-10"
+          style={{ background: 'var(--accent)', animation: 'blobFloat 12s ease-in-out infinite' }}
+        />
+        <div
+          className="absolute bottom-[20%] right-[15%] h-48 w-48 rounded-full blur-[80px] opacity-8"
+          style={{ background: 'var(--info)', animation: 'blobFloat 15s 3s ease-in-out infinite reverse' }}
+        />
+        <div
+          className="absolute top-[50%] left-[45%] h-36 w-36 rounded-full blur-[60px] opacity-6"
+          style={{ background: 'var(--success)', animation: 'blobFloat 10s 6s ease-in-out infinite' }}
+        />
+      </div>
 
       {/* Skip button */}
       <button
         type="button"
         onClick={onSkip}
         className="
-          absolute right-5 top-5 z-10 rounded-button
+          absolute right-5 top-5 z-10 rounded-xl
           border border-[var(--border)]
-          bg-[var(--surface)]
-          px-3 py-1.5 text-xs
+          bg-[var(--bg-muted)]
+          px-3 py-1.5 text-xs font-medium
           text-[var(--text-secondary)]
           hover:text-[var(--text-primary)]
           hover:border-[var(--border-strong)]
-          hover:bg-[var(--hover-bg)]
-          transition-colors duration-150
+          hover:bg-[var(--bg-card-hover)]
+          hover:shadow-[0_2px_12px_var(--accent-muted)]
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]
+          transition-all duration-150
         "
       >
         Skip
@@ -107,7 +149,7 @@ export function WelcomeAnimation(): JSX.Element {
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.4, delay: 0.2, ease: [0.2, 0.7, 0.3, 1] }}
             >
-              <PrimeLogo />
+              <BaneLogoMark />
             </motion.div>
 
             {/* Brand + welcome copy */}
@@ -124,9 +166,9 @@ export function WelcomeAnimation(): JSX.Element {
                 Welcome back,{' '}
                 {/*
                  * First-name highlight:
-                 *   text-[var(--primary)] → gold
+                 *   text-[var(--accent)] → indigo/violet
                  */}
-                <span className="text-[var(--primary)]">{firstName}</span>
+                <span className="text-[var(--accent)]">{firstName}</span>
               </h1>
             </motion.div>
 

@@ -1,7 +1,8 @@
 // controllers/fundsController.js
 // ── Funds controller ──
+// DEPRECATED: user.balance — use user.balances[currency]
 // Handles user-facing balance + deposit submission + withdrawal submission.
-// Withdrawal deducts the user's balance immediately (held pending admin
+// Withdrawal debits balances[currency] immediately (held pending admin
 // review); rejection refunds it via adminController.
 
 const fs = require('fs');
@@ -24,8 +25,8 @@ async function getBalance(req, res) {
   try {
     const user = req.user;
     return res.status(200).json({
-      balance: Number(user.balance || 0),
-      currency: 'USDT',
+      balances: user.balances,
+      currency: 'multi',
       isFrozen: !!user.isFrozen,
     });
   } catch (err) {
@@ -65,6 +66,9 @@ async function depositFunds(req, res) {
       proofFilePath: proofPath,
       status:   'pending',
     });
+
+    // ── Credit balances[currency] on approval — not here ──
+    // Admin approval in adminController.approveDeposit handles the credit.
 
     return res.status(201).json({
       message: 'Deposit submitted — pending review',
@@ -107,17 +111,21 @@ async function withdrawFunds(req, res) {
       return res.status(400).json({ message: `Amount must be greater than the network fee (${fee}).` });
     }
 
-    // Reload the user so we don't trample any concurrent balance changes.
+    // ── Validate balances[currency] BEFORE debiting ──
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
-    if (Number(user.balance || 0) < numericAmount) {
-      return res.status(400).json({ message: 'Insufficient balance' });
+
+    const available = Number(user.balances[currency] || 0);
+    if (available < numericAmount) {
+      return res.status(400).json({
+        message: `Insufficient ${currency} balance. Available: ${available}`,
+      });
     }
 
     const netAmount = Math.max(0, numericAmount - fee);
 
-    // Hold the funds — debit immediately. Admin rejection refunds.
-    user.balance = Number(user.balance || 0) - numericAmount;
+    // ── Debit balances[currency] immediately ──
+    user.balances[currency] = available - numericAmount;
     await user.save();
 
     const withdrawal = await Withdrawal.create({
@@ -135,7 +143,7 @@ async function withdrawFunds(req, res) {
     return res.status(201).json({
       message: 'Withdrawal submitted — pending review',
       withdrawal,
-      newBalance: user.balance,
+      newBalances: user.balances,
     });
   } catch (err) {
     console.error(err);

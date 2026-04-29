@@ -1,8 +1,10 @@
 // components/auth/AuthLayout.tsx
 // ── BaneTrading — Split-screen auth layout with per-page accent themes ──
-// Each page gets a unique background SVG + accent override via props
+// Each page gets a unique background image + accent override via props
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
+import Image from 'next/image';
+import { useTheme } from 'next-themes';
 import { useResponsive } from '@/hooks/useResponsive';
 import { AuthHeader } from './AuthHeader';
 
@@ -19,6 +21,15 @@ export interface AuthLayoutProps {
   backgroundVariant?: 'candlestick' | 'grid' | 'network' | 'waves' | 'hexagon';
   pillLabel?: string;
 }
+
+// ── Per-page background images ──
+const PAGE_BG_IMAGES: Record<PageTheme, { dark: string; light: string }> = {
+  indigo: { dark: '/assets/auth/login-dark.jpg',           light: '/assets/auth/login-light.jpg'          },
+  teal:   { dark: '/assets/auth/register-dark.jpg',        light: '/assets/auth/register-light.jpg'       },
+  violet: { dark: '/assets/auth/verify-dark.jpg',          light: '/assets/auth/verify-light.jpg'         },
+  amber:  { dark: '/assets/auth/forgot-dark.jpg',          light: '/assets/auth/forgot-light.jpg'         },
+  rose:   { dark: '/assets/auth/reset-dark.jpg',           light: '/assets/auth/reset-light.jpg'          },
+};
 
 // ── Per-page accent overrides ──
 const PAGE_THEME_VARS: Record<PageTheme, Record<string, string>> = {
@@ -108,225 +119,34 @@ const PAGE_THEME_LIGHT_VARS: Record<PageTheme, Record<string, string>> = {
   },
 };
 
-// ── SVG Background Components ──
-
-function CandlestickBg({ accent, isDark }: { accent: string; isDark: boolean }): JSX.Element {
-  const gridOpacity = isDark ? '0.05' : '0.08';
-  const lineOpacity = isDark ? '0.45' : '0.35';
-  const areaOpacity = isDark ? '0.6' : '0.4';
-
+// ── Animated Candlestick Overlay ──
+function CandlestickOverlay({ isDark }: { isDark: boolean }): JSX.Element {
   return (
-    <svg viewBox="0 0 700 500" xmlns="http://www.w3.org/2000/svg"
-      className="absolute inset-0 h-full w-full" aria-hidden preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <linearGradient id="cg-area" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={accent} stopOpacity="0.12" />
-          <stop offset="100%" stopColor={accent} stopOpacity="0.01" />
-        </linearGradient>
-        <filter id="cg-glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-        <radialGradient id="cg-spot" cx="65%" cy="25%" r="55%">
-          <stop offset="0%" stopColor={accent} stopOpacity={isDark ? '0.1' : '0.08'} />
-          <stop offset="100%" stopColor={accent} stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <rect width="700" height="500" fill="url(#cg-spot)" />
-      {Array.from({ length: 13 }).map((_, i) => (
-        <line key={`h${i}`} x1="0" y1={i * 40} x2="700" y2={i * 40}
-          stroke={accent} strokeOpacity={gridOpacity} strokeWidth="1" />
-      ))}
-      {Array.from({ length: 18 }).map((_, i) => (
-        <line key={`v${i}`} x1={i * 40} y1="0" x2={i * 40} y2="500"
-          stroke={accent} strokeOpacity="0.03" strokeWidth="1" />
-      ))}
-      <polyline
-        points="40,360 80,320 130,280 180,230 230,240 280,195 340,210 390,170 440,135 490,150 540,105 590,70 650,80 700,45"
-        fill="none" stroke={accent} strokeWidth="2.5" strokeOpacity={lineOpacity} filter="url(#cg-glow)" />
-      <polygon
-        points="40,360 80,320 130,280 180,230 230,240 280,195 340,210 390,170 440,135 490,150 540,105 590,70 650,80 700,45 700,500 40,500"
-        fill="url(#cg-area)" opacity={areaOpacity} />
+    <svg
+      viewBox="0 0 700 500"
+      className="absolute inset-0 h-full w-full pointer-events-none z-10"
+      style={{ opacity: isDark ? 0.35 : 0.2 }}
+      aria-hidden="true"
+    >
       {[
-        { x:60,  up:true,  o:340, c:295, hi:275, lo:360 },
-        { x:105, up:false, o:295, c:330, hi:280, lo:355 },
-        { x:150, up:true,  o:330, c:270, hi:255, lo:350 },
-        { x:195, up:true,  o:270, c:215, hi:200, lo:290 },
-        { x:240, up:false, o:215, c:255, hi:205, lo:280 },
-        { x:285, up:true,  o:255, c:188, hi:175, lo:270 },
-        { x:330, up:false, o:188, c:225, hi:178, lo:250 },
-        { x:375, up:true,  o:225, c:165, hi:155, lo:240 },
-        { x:420, up:true,  o:165, c:125, hi:112, lo:180 },
-        { x:465, up:false, o:125, c:158, hi:118, lo:175 },
-        { x:510, up:true,  o:158, c:98,  hi:85,  lo:172 },
-        { x:555, up:true,  o:98,  c:62,  hi:48,  lo:115 },
-        { x:600, up:false, o:62,  c:88,  hi:52,  lo:105 },
-        { x:645, up:true,  o:88,  c:42,  hi:30,  lo:100 },
-      ].map((c) => {
-        const color = c.up
-          ? (isDark ? '#10D98A' : '#059669')
-          : (isDark ? '#F43F5E' : '#E11D48');
-        const top = Math.min(c.o, c.c);
-        const h = Math.max(Math.abs(c.o - c.c), 3);
+        { x: 200, top: 180, h: 60, up: true  },
+        { x: 260, top: 220, h: 40, up: false },
+        { x: 320, top: 140, h: 80, up: true  },
+        { x: 380, top: 160, h: 55, up: false },
+        { x: 440, top: 100, h: 90, up: true  },
+      ].map((c, i) => {
+        const color = c.up ? (isDark ? '#10D98A' : '#059669') : (isDark ? '#F43F5E' : '#E11D48');
         return (
-          <g key={c.x} opacity={isDark ? '0.6' : '0.55'}>
-            <line x1={c.x} y1={c.hi} x2={c.x} y2={c.lo} stroke={color} strokeWidth="1.5" />
-            <rect x={c.x - 8} y={top} width="16" height={h} fill={color} rx="1.5" />
+          <g key={i} style={{ animation: `candlePulse 3s ${i * 0.4}s ease-in-out infinite` }}>
+            <line x1={c.x} y1={c.top - 15} x2={c.x} y2={c.top + c.h + 15}
+              stroke={color} strokeWidth="1.5" />
+            <rect x={c.x - 9} y={c.top} width="18" height={c.h}
+              fill={color} rx="2" opacity="0.85" />
           </g>
         );
       })}
     </svg>
   );
-}
-
-function NetworkBg({ accent, isDark }: { accent: string; isDark: boolean }): JSX.Element {
-  const nodes: [number, number][] = [
-    [120,100],[300,80],[520,120],[680,200],[600,320],[420,400],[200,380],[80,260],
-    [350,220],[480,160],[160,200],[540,300],
-  ];
-  const edges = [[0,1],[1,2],[2,3],[3,4],[4,5],[5,6],[6,7],[7,0],[1,8],[8,4],[2,9],[9,8],[7,10],[10,8],[4,11],[11,8]];
-  return (
-    <svg viewBox="0 0 760 480" xmlns="http://www.w3.org/2000/svg"
-      className="absolute inset-0 h-full w-full" aria-hidden preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <radialGradient id="ng-glow" cx="50%" cy="50%" r="60%">
-          <stop offset="0%" stopColor={accent} stopOpacity={isDark ? '0.12' : '0.09'} />
-          <stop offset="100%" stopColor={accent} stopOpacity="0" />
-        </radialGradient>
-        <filter id="ng-blur"><feGaussianBlur stdDeviation="2"/></filter>
-      </defs>
-      <rect width="760" height="480" fill="url(#ng-glow)" />
-      {edges.map(([a, b], i) => (
-        <line key={i}
-          x1={nodes[a][0]} y1={nodes[a][1]} x2={nodes[b][0]} y2={nodes[b][1]}
-          stroke={accent} strokeOpacity={isDark ? '0.15' : '0.12'} strokeWidth="1" />
-      ))}
-      {nodes.map(([x, y], i) => (
-        <g key={i}>
-          <circle cx={x} cy={y} r={i === 8 ? 10 : 4.5} fill={accent} opacity={i === 8 ? (isDark ? 0.6 : 0.5) : 0.3} />
-          <circle cx={x} cy={y} r={i === 8 ? 20 : 10} fill={accent} opacity="0.05" />
-        </g>
-      ))}
-      {Array.from({ length: 8 }).map((_, i) => (
-        <line key={i} x1={0} y1={60 * i + 30} x2={760} y2={60 * i + 30}
-          stroke={accent} strokeOpacity="0.03" strokeWidth="1" strokeDasharray="4 8" />
-      ))}
-    </svg>
-  );
-}
-
-function WavesBg({ accent, isDark }: { accent: string; isDark: boolean }): JSX.Element {
-  return (
-    <svg viewBox="0 0 700 500" xmlns="http://www.w3.org/2000/svg"
-      className="absolute inset-0 h-full w-full" aria-hidden preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <radialGradient id="wv-center" cx="60%" cy="40%" r="60%">
-          <stop offset="0%" stopColor={accent} stopOpacity={isDark ? '0.14' : '0.1'} />
-          <stop offset="100%" stopColor={accent} stopOpacity="0" />
-        </radialGradient>
-        <filter id="wv-glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      </defs>
-      <rect width="700" height="500" fill="url(#wv-center)" />
-      {[0, 60, 120, 180, 240].map((offset, i) => (
-        <path key={i}
-          d={`M0,${200 + offset} Q175,${150 + offset - i * 10} 350,${200 + offset} Q525,${250 + offset + i * 10} 700,${200 + offset}`}
-          fill="none" stroke={accent}
-          strokeOpacity={isDark ? (0.18 - i * 0.025) : (0.14 - i * 0.02)}
-          strokeWidth={3 - i * 0.4}
-          filter={i === 0 ? 'url(#wv-glow)' : undefined}
-        />
-      ))}
-      {/* Concentric rings */}
-      {[60, 120, 180, 240, 300].map((r, i) => (
-        <circle key={r} cx="420" cy="200" r={r}
-          fill="none" stroke={accent}
-          strokeOpacity={isDark ? (0.06 - i * 0.008) : (0.05 - i * 0.007)}
-          strokeWidth="1" />
-      ))}
-    </svg>
-  );
-}
-
-function HexagonBg({ accent, isDark }: { accent: string; isDark: boolean }): JSX.Element {
-  const hexPoints = (cx: number, cy: number, r: number) => {
-    return Array.from({ length: 6 }, (_, i) => {
-      const a = (Math.PI / 180) * (60 * i - 30);
-      return `${cx + r * Math.cos(a)},${cy + r * Math.sin(a)}`;
-    }).join(' ');
-  };
-
-  const hexagons = [
-    [100, 100, 45], [200, 100, 30], [320, 80, 50], [460, 110, 35], [580, 90, 42], [660, 150, 28],
-    [140, 220, 35], [280, 200, 55], [440, 230, 38], [600, 210, 45], [700, 280, 32],
-    [80, 340, 40], [220, 360, 32], [380, 340, 48], [530, 360, 36], [660, 330, 44],
-    [160, 460, 28], [320, 440, 42], [500, 460, 30], [640, 430, 38],
-  ];
-
-  return (
-    <svg viewBox="0 0 760 500" xmlns="http://www.w3.org/2000/svg"
-      className="absolute inset-0 h-full w-full" aria-hidden preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <radialGradient id="hex-glow" cx="55%" cy="40%" r="55%">
-          <stop offset="0%" stopColor={accent} stopOpacity={isDark ? '0.12' : '0.09'} />
-          <stop offset="100%" stopColor={accent} stopOpacity="0" />
-        </radialGradient>
-      </defs>
-      <rect width="760" height="500" fill="url(#hex-glow)" />
-      {hexagons.map(([cx, cy, r], i) => (
-        <polygon key={i} points={hexPoints(cx, cy, r)}
-          fill="none" stroke={accent}
-          strokeOpacity={isDark ? (0.1 - (i % 4) * 0.015) : (0.08 - (i % 4) * 0.012)}
-          strokeWidth="1" />
-      ))}
-      {/* Filled accent hexagons */}
-      {[[320, 80, 50], [440, 230, 38]].map(([cx, cy, r], i) => (
-        <polygon key={`f${i}`} points={hexPoints(cx, cy, r * 0.4)}
-          fill={accent} opacity={isDark ? '0.18' : '0.12'} />
-      ))}
-    </svg>
-  );
-}
-
-function GridBg({ accent, isDark }: { accent: string; isDark: boolean }): JSX.Element {
-  return (
-    <svg viewBox="0 0 700 500" xmlns="http://www.w3.org/2000/svg"
-      className="absolute inset-0 h-full w-full" aria-hidden preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <pattern id="gp-pat" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path d="M40 0H0V40" fill="none" stroke={accent}
-            strokeOpacity={isDark ? '0.07' : '0.06'} strokeWidth="0.75" />
-        </pattern>
-        <radialGradient id="gp-spot" cx="65%" cy="30%" r="55%">
-          <stop offset="0%" stopColor={accent} stopOpacity={isDark ? '0.14' : '0.1'} />
-          <stop offset="100%" stopColor={accent} stopOpacity="0" />
-        </radialGradient>
-        <filter id="gp-glow"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-      </defs>
-      <rect width="700" height="500" fill="url(#gp-pat)" />
-      <rect width="700" height="500" fill="url(#gp-spot)" />
-      {/* Trend line */}
-      <polyline points="0,350 100,280 200,300 300,220 400,180 500,120 600,90 700,60"
-        fill="none" stroke={accent} strokeWidth="2.5" strokeOpacity={isDark ? '0.5' : '0.4'}
-        filter="url(#gp-glow)" />
-      {/* Dot markers */}
-      {[[100,280],[300,220],[500,120],[700,60]].map(([x,y], i) => (
-        <circle key={i} cx={x} cy={y} r="5" fill={accent} opacity={isDark ? '0.6' : '0.5'} />
-      ))}
-    </svg>
-  );
-}
-
-function BackgroundSVG({
-  variant, accent, isDark
-}: {
-  variant: AuthLayoutProps['backgroundVariant'];
-  accent: string;
-  isDark: boolean;
-}): JSX.Element {
-  switch (variant) {
-    case 'network':  return <NetworkBg accent={accent} isDark={isDark} />;
-    case 'waves':    return <WavesBg accent={accent} isDark={isDark} />;
-    case 'hexagon':  return <HexagonBg accent={accent} isDark={isDark} />;
-    case 'grid':     return <GridBg accent={accent} isDark={isDark} />;
-    default:         return <CandlestickBg accent={accent} isDark={isDark} />;
-  }
 }
 
 function BaneLogo({ size = 32 }: { size?: number }): JSX.Element {
@@ -340,7 +160,6 @@ function BaneLogo({ size = 32 }: { size?: number }): JSX.Element {
       }}
     >
       <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-        {/* Stylized B + chart icon */}
         <polyline points="6,22 10,14 14,18 19,10 26,13"
           stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         <polyline points="6,22 10,14 14,18 19,10 26,13"
@@ -352,12 +171,17 @@ function BaneLogo({ size = 32 }: { size?: number }): JSX.Element {
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }): JSX.Element {
+function StatCard({ label, value, isDark }: { label: string; value: string; isDark: boolean }): JSX.Element {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--background)]/40 px-3 py-2.5 backdrop-blur-sm"
-      style={{ borderColor: 'var(--page-accent-muted)' }}>
-      <div className="tabular text-sm font-bold text-[var(--text-primary)]">{value}</div>
-      <div className="mt-0.5 text-[10px] uppercase tracking-widest text-[var(--text-muted)]">{label}</div>
+    <div
+      className="rounded-xl border px-3 py-2.5 backdrop-blur-sm transition-colors duration-200"
+      style={{
+        borderColor: 'var(--page-accent-muted)',
+        background: isDark ? 'var(--bg-muted)/40' : 'rgba(255,255,255,0.2)',
+      }}
+    >
+      <div className="tabular text-sm font-bold" style={{ color: isDark ? 'var(--text-primary)' : '#1E1B4B' }}>{value}</div>
+      <div className="mt-0.5 text-[10px] uppercase tracking-widest" style={{ color: isDark ? 'var(--text-secondary)' : '#4C3B6B' }}>{label}</div>
     </div>
   );
 }
@@ -373,29 +197,30 @@ export function AuthLayout({
 }: AuthLayoutProps): JSX.Element {
   const { isMobile, isTablet } = useResponsive();
   const stacked = isMobile || isTablet;
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
-  // Detect dark vs light to pick correct theme vars
-  // We inject both sets and let CSS cascade via data-theme
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted) return <div className="min-h-screen bg-[var(--background)]" />;
+
+  const isDark = resolvedTheme !== 'light';
   const darkVars = PAGE_THEME_VARS[pageTheme];
   const lightVars = PAGE_THEME_LIGHT_VARS[pageTheme];
+  const themeVars = isDark ? darkVars : lightVars;
+  const accent = themeVars['--page-accent'];
+  const bgImages = PAGE_BG_IMAGES[pageTheme];
+  const currentImage = isDark ? bgImages.dark : bgImages.light;
 
-  // We use the dark vars as JS inline style defaults;
-  // light theme overrides happen via CSS [data-theme="light"] vars
-  const themeVars = darkVars;
-  const accent = darkVars['--page-accent'];
-
-  // Left panel gradient (dark only — light panel is white surface)
-  const leftBg = `linear-gradient(160deg, ${darkVars['--page-gradient-from']} 0%, ${darkVars['--page-gradient-to']} 100%)`;
+  const leftPanelTextColor = isDark ? 'var(--text-primary)' : darkVars['--page-gradient-from'] === '#EEF2FF' ? '#1E1B4B' : 'var(--text-primary)';
+  const leftPanelMutedColor = isDark ? 'var(--text-muted)' : '#4C3B6B';
 
   return (
     <div
       className="min-h-screen w-full bg-[var(--background)] text-[var(--text-primary)] transition-colors duration-200"
-      style={{
-        ...themeVars as React.CSSProperties,
-        // Light mode overrides for page-accent via CSS custom props
-      } as React.CSSProperties}
+      style={{ ...themeVars as React.CSSProperties }}
     >
-      {/* Light mode accent override via style tag approach via CSS vars */}
       <style>{`
         [data-theme="light"] {
           --page-accent: ${lightVars['--page-accent']};
@@ -405,36 +230,76 @@ export function AuthLayout({
           --page-gradient-from: ${lightVars['--page-gradient-from']};
           --page-gradient-to: ${lightVars['--page-gradient-to']};
         }
+        @keyframes authFadeUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes authFadeIn {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes candlePulse {
+          0%, 100% { opacity: 0.35; }
+          50%       { opacity: 0.85; }
+        }
       `}</style>
 
       <div className="flex min-h-screen w-full flex-col lg:flex-row">
-
         {/* ── LEFT brand column (desktop only) ── */}
         {!stacked && (
-          <aside
-            className="relative hidden lg:flex lg:w-[44%] xl:w-[46%] flex-col justify-between overflow-hidden"
-            style={{ background: leftBg }}
-          >
+          <aside className="relative hidden lg:flex lg:w-[44%] xl:w-[46%] flex-col justify-between overflow-hidden">
+            {/* Background image */}
+            <div className="absolute inset-0">
+              <Image
+                src={currentImage}
+                alt=""
+                fill
+                priority
+                className="object-cover transition-opacity duration-500"
+                style={{ opacity: isDark ? 0.55 : 0.45 }}
+              />
+              {/* Gradient overlay for text readability */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: isDark
+                    ? `linear-gradient(160deg, ${darkVars['--page-gradient-from']}CC 0%, ${darkVars['--page-gradient-to']}99 50%, transparent 100%)`
+                    : `linear-gradient(160deg, ${lightVars['--page-gradient-from']}E6 0%, ${lightVars['--page-gradient-to']}B3 60%, transparent 100%)`,
+                }}
+              />
+              {/* Accent glow overlay */}
+              <div
+                className="absolute inset-0"
+                style={{ background: `radial-gradient(ellipse at 60% 30%, ${accent}20 0%, transparent 65%)` }}
+              />
+            </div>
+
+            {/* Animated candles */}
+            <CandlestickOverlay isDark={isDark} />
+
             {/* Right edge glow line */}
-            <div className="absolute inset-y-0 right-0 w-px"
+            <div className="absolute inset-y-0 right-0 w-px z-20"
               style={{ background: `linear-gradient(180deg, transparent 0%, ${accent}50 50%, transparent 100%)` }} />
 
-            {/* Background pattern */}
-            <BackgroundSVG variant={backgroundVariant} accent={accent} isDark={true} />
-
             {/* Top: Logo */}
-            <div className="relative z-10 p-10">
+            <div className="relative z-20 p-10">
               <div className="flex items-center gap-3">
                 <BaneLogo size={40} />
                 <div>
-                  <div className="text-lg font-extrabold tracking-tight text-[var(--text-primary)]">{BRAND}</div>
-                  <div className="text-[10px] uppercase tracking-widest text-[var(--text-muted)]">Pro Trading Platform</div>
+                  <div className="text-lg font-extrabold tracking-tight" style={{ color: leftPanelTextColor }}>{BRAND}</div>
+                  <div className="text-[10px] uppercase tracking-widest" style={{ color: leftPanelMutedColor }}>Pro Trading Platform</div>
                 </div>
               </div>
             </div>
 
             {/* Middle: hero copy */}
-            <div className="relative z-10 px-10 pb-6">
+            <div className="relative z-20 px-10 pb-6"
+              style={{
+                background: isDark ? 'transparent' : 'rgba(255,255,255,0.15)',
+                borderRadius: '1rem',
+                backdropFilter: isDark ? 'none' : 'blur(4px)',
+              }}
+            >
               {/* Live badge */}
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] uppercase tracking-widest"
                 style={{ borderColor: `${accent}40`, color: accent, background: `${accent}12` }}>
@@ -442,22 +307,22 @@ export function AuthLayout({
                 Live Markets · 240+ Assets
               </div>
 
-              <h2 className="text-4xl xl:text-[2.75rem] font-extrabold tracking-tight leading-[1.1] text-[var(--text-primary)]">
+              <h2 className="text-4xl xl:text-[2.75rem] font-extrabold tracking-tight leading-[1.1]" style={{ color: leftPanelTextColor }}>
                 Trade the{' '}
                 <span style={{ color: accent }}>edge.</span>
                 <br />
-                <span className="text-[var(--text-secondary)]">Own the outcome.</span>
+                <span style={{ color: leftPanelMutedColor }}>Own the outcome.</span>
               </h2>
 
-              <p className="mt-4 max-w-[300px] text-sm leading-relaxed text-[var(--text-secondary)]">
+              <p className="mt-4 max-w-[300px] text-sm leading-relaxed" style={{ color: leftPanelMutedColor }}>
                 Institutional-grade execution, transparent pricing, and real-time analytics — built for serious traders.
               </p>
 
               {/* Stats */}
               <div className="mt-8 grid grid-cols-3 gap-3 max-w-[320px]">
-                <StatCard label="24h Volume" value="$2.4B" />
-                <StatCard label="Assets" value="240+" />
-                <StatCard label="Uptime" value="99.99%" />
+                <StatCard label="24h Volume" value="$2.4B" isDark={isDark} />
+                <StatCard label="Assets" value="240+" isDark={isDark} />
+                <StatCard label="Uptime" value="99.99%" isDark={isDark} />
               </div>
 
               {/* Live ticker strip */}
@@ -468,8 +333,8 @@ export function AuthLayout({
                   { sym: 'SOL/USDT', px: '142.5',  chg: '-0.6%', up: false },
                 ].map((t) => (
                   <div key={t.sym} className="flex flex-col gap-0.5">
-                    <span className="text-[10px] font-medium text-[var(--text-muted)] uppercase tracking-wide">{t.sym}</span>
-                    <span className="tabular font-bold text-[var(--text-primary)] text-sm">{t.px}</span>
+                    <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: leftPanelMutedColor }}>{t.sym}</span>
+                    <span className="tabular font-bold text-sm" style={{ color: leftPanelTextColor }}>{t.px}</span>
                     <span className={`tabular text-[11px] font-semibold ${t.up ? 'text-gain' : 'text-loss'}`}>{t.chg}</span>
                   </div>
                 ))}
@@ -477,7 +342,7 @@ export function AuthLayout({
             </div>
 
             {/* Bottom: copyright */}
-            <div className="relative z-10 px-10 pb-8 text-[11px] text-[var(--text-muted)]">
+            <div className="relative z-20 px-10 pb-8 text-[11px]" style={{ color: leftPanelMutedColor }}>
               © {new Date().getFullYear()} {BRAND}. All rights reserved.{' '}
               <span className="opacity-60">Trading involves significant risk.</span>
             </div>
@@ -486,7 +351,6 @@ export function AuthLayout({
 
         {/* ── RIGHT form column ── */}
         <main className="flex w-full flex-1 flex-col bg-[var(--background)]">
-
           {/* Mobile header */}
           {stacked && (
             <div className="px-5 pt-5 pb-2">
@@ -496,8 +360,10 @@ export function AuthLayout({
 
           {/* Form area */}
           <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6">
-            <div className="w-full max-w-[420px]">
-
+            <div
+              className="w-full max-w-[420px]"
+              style={{ animation: 'authFadeUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both' }}
+            >
               {/* Desktop mini-header (right panel) */}
               {!stacked && (
                 <div className="mb-6">
@@ -507,8 +373,15 @@ export function AuthLayout({
 
               {/* Title block */}
               <div className="mb-6">
-                <div className="mb-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] uppercase tracking-widest font-medium"
-                  style={{ borderColor: 'var(--page-accent-muted)', color: 'var(--page-accent)', background: 'var(--page-accent-muted)' }}>
+                <div
+                  className="mb-3 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] uppercase tracking-widest font-medium"
+                  style={{
+                    borderColor: 'var(--page-accent-muted)',
+                    color: 'var(--page-accent)',
+                    background: 'var(--page-accent-muted)',
+                    animation: 'authFadeIn 0.4s 0.05s both',
+                  }}
+                >
                   <span className="h-1 w-1 rounded-full animate-pulse" style={{ background: 'var(--page-accent)' }} />
                   {pillLabel}
                 </div>
@@ -522,9 +395,15 @@ export function AuthLayout({
 
               {/* Form card */}
               <div
-                className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8 shadow-2xl"
-                style={{ boxShadow: `0 8px 48px var(--page-accent-glow), 0 0 0 1px var(--border)` }}
+                className="relative overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 sm:p-8 shadow-2xl transition-shadow duration-300 hover:shadow-[0_12px_60px_var(--page-accent-glow)]"
+                style={{
+                  boxShadow: `0 8px 48px var(--page-accent-glow), 0 0 0 1px var(--border)`,
+                  animation: 'authFadeUp 0.5s 0.1s cubic-bezier(0.16,1,0.3,1) both',
+                }}
               >
+                {/* Accent top border */}
+                <div className="absolute inset-x-0 top-0 h-0.5 rounded-t-2xl"
+                  style={{ background: 'linear-gradient(90deg, transparent, var(--page-accent), transparent)' }} />
                 {children}
               </div>
 

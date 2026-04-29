@@ -4,10 +4,10 @@
 // refunding live here — fundsController only HOLDS funds at submit time.
 //
 // Balance rules:
-//   • approveDeposit    → user.balance += deposit.amount
+//   • approveDeposit    → user.balances[deposit.currency] += deposit.amount
 //   • rejectDeposit     → no balance change (deposit was never credited)
 //   • approveWithdrawal → no balance change (already debited at submit)
-//   • rejectWithdrawal  → user.balance += withdrawal.amount (refund)
+//   • rejectWithdrawal  → user.balances[withdrawal.currency] += withdrawal.amount (refund)
 
 const Deposit = require('../models/Deposit');
 const Withdrawal = require('../models/Withdrawal');
@@ -84,13 +84,14 @@ async function approveDeposit(req, res) {
     deposit.reviewedAt = new Date();
     await deposit.save();
 
-    user.balance = Number(user.balance || 0) + Number(deposit.amount);
+    // PATCHED: use per-currency balances map (Module 6)
+    user.balances[deposit.currency] = (user.balances[deposit.currency] || 0) + Number(deposit.amount);
     await user.save();
 
     return res.status(200).json({
       message: 'Deposit approved and balance credited',
       deposit,
-      newUserBalance: user.balance,
+      newBalances: user.balances,
     });
   } catch (err) {
     console.error(err);
@@ -166,14 +167,14 @@ async function rejectWithdrawal(req, res) {
     w.reviewedAt = new Date();
     await w.save();
 
-    // Refund the held funds.
-    user.balance = Number(user.balance || 0) + Number(w.amount);
+    // PATCHED: use per-currency balances map (Module 6)
+    user.balances[w.currency] = (user.balances[w.currency] || 0) + Number(w.amount);
     await user.save();
 
     return res.status(200).json({
       message: 'Withdrawal rejected and balance refunded',
       withdrawal: w,
-      newUserBalance: user.balance,
+      newBalances: user.balances,
     });
   } catch (err) {
     console.error(err);

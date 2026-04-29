@@ -20,10 +20,11 @@ export function AuthHeader({
   compact = false,
 }: AuthHeaderProps): JSX.Element {
   return (
-    <div className="flex w-full items-center justify-between gap-3">
+    <div className="flex w-full items-center justify-between gap-3"
+      style={{ animation: 'authFadeIn 0.4s 0.05s both' }}>
 
       {/* Brand wordmark */}
-      <Link href="/" className="inline-flex items-center gap-2.5 group" aria-label={`${BRAND} home`}>
+      <Link href="/" className="inline-flex items-center gap-2.5 group transition-transform duration-150 hover:scale-[1.02]" aria-label={`${BRAND} home`}>
         {/* Logo badge — uses page-accent var */}
         <div
           className="relative inline-flex h-8 w-8 items-center justify-center rounded-xl overflow-hidden shrink-0 transition-transform duration-150 group-hover:scale-105"
@@ -50,7 +51,6 @@ export function AuthHeader({
           <div>
             <span
               className="block text-sm font-extrabold tracking-tight text-[var(--text-primary)] transition-colors duration-150"
-              style={{ }}
             >
               {BRAND}
             </span>
@@ -71,7 +71,7 @@ export function AuthHeader({
         {showBackLink && (
           <Link
             href="/"
-            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 h-8 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--hover-bg)] transition-colors duration-150"
+            className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-3 h-8 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] focus-visible:ring-2 focus-visible:ring-[var(--page-accent)] focus-visible:outline-none transition-colors duration-150"
           >
             <ArrowLeft className="h-3 w-3" />
             Back

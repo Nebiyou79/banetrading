@@ -325,7 +325,7 @@ function NewsPage(): JSX.Element {
                 </div>
                 <p className="text-xs font-bold text-[var(--text-primary)]">Weekly digest</p>
                 <p className="text-[11px] leading-relaxed text-[var(--text-muted)]">
-                  Get the week&apos;s top stories and market commentary delivered every Monday.
+                  Get the week`s top stories and market commentary delivered every Monday.
                 </p>
                 <div className="flex flex-col gap-2">
                   <input

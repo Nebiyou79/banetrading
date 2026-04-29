@@ -1,7 +1,7 @@
 // pages/auth/forgot-password.tsx
 // ── BaneTrading · Forgot Password — Amber / Grid theme ──
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -22,9 +22,13 @@ const BRAND = 'BaneTrading';
 
 export default function ForgotPasswordPage(): JSX.Element {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [sentEmail, setSentEmail] = useState('');
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMounted(true); }, []);
 
   const {
     register,
@@ -51,6 +55,8 @@ export default function ForgotPasswordPage(): JSX.Element {
       setServerError(normalized.message || 'Something went wrong');
     }
   };
+
+  if (!mounted) return <div className="min-h-screen bg-[var(--background)]" />;
 
   return (
     <>
@@ -83,7 +89,11 @@ export default function ForgotPasswordPage(): JSX.Element {
           <div className="flex flex-col items-center gap-5 py-2 text-center">
             <div
               className="flex h-14 w-14 items-center justify-center rounded-2xl"
-              style={{ background: 'var(--page-accent-muted)', border: '1px solid var(--page-accent-muted)' }}
+              style={{
+                background: 'var(--page-accent-muted)',
+                border: '1px solid var(--page-accent-muted)',
+                animation: 'successBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+              }}
             >
               <Mail className="h-7 w-7" style={{ color: 'var(--page-accent)' }} />
             </div>
@@ -98,6 +108,7 @@ export default function ForgotPasswordPage(): JSX.Element {
             <Link href={{ pathname: '/auth/verify-otp', query: { email: sentEmail, purpose: 'password_reset' } }}
               className="w-full">
               <Button variant="primary" size="lg" fullWidth
+                className="transition-transform hover:scale-[1.02] active:scale-[0.98]"
                 style={{ background: 'var(--page-accent)', boxShadow: '0 0 20px var(--page-accent-muted)' }}>
                 <span>Enter verification code</span>
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -106,13 +117,13 @@ export default function ForgotPasswordPage(): JSX.Element {
           </div>
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" noValidate>
-
             {/* Info banner */}
             <div
               className="flex items-start gap-3 rounded-xl border px-4 py-3"
               style={{
                 borderColor: 'var(--page-accent-muted)',
                 background: 'var(--page-accent-muted)',
+                animation: 'authFadeUp 0.4s 0.2s both',
               }}
             >
               <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" style={{ color: 'var(--page-accent)' }} />
@@ -123,23 +134,26 @@ export default function ForgotPasswordPage(): JSX.Element {
             </div>
 
             {/* Email */}
-            <FormField label="Email address" htmlFor="email" error={errors.email?.message}>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                leading={<Mail className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
-                error={errors.email?.message}
-                {...register('email')}
-              />
-            </FormField>
+            <div style={{ animation: 'authFadeUp 0.4s 0.3s both' }}>
+              <FormField label="Email address" htmlFor="email" error={errors.email?.message}>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  leading={<Mail className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
+                  error={errors.email?.message}
+                  {...register('email')}
+                />
+              </FormField>
+            </div>
 
             {/* Server error */}
             {serverError && (
               <div
                 role="alert"
-                className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-center gap-2"
+                className="rounded-lg border border-[var(--danger-muted)] bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-center gap-2"
+                style={{ animation: 'authFadeUp 0.4s 0.34s both' }}
               >
                 <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
                   <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 4a.75.75 0 0 0-1.5 0v3.5a.75.75 0 0 0 1.5 0V5zm-.75 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
@@ -149,19 +163,22 @@ export default function ForgotPasswordPage(): JSX.Element {
             )}
 
             {/* CTA */}
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={isSubmitting}
-              style={{ background: 'var(--page-accent)', boxShadow: '0 0 20px var(--page-accent-muted)' }}
-            >
-              Send reset code
-            </Button>
+            <div style={{ animation: 'authFadeUp 0.4s 0.44s both' }}>
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                fullWidth
+                loading={isSubmitting}
+                className="transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                style={{ background: 'var(--page-accent)', boxShadow: '0 0 20px var(--page-accent-muted)' }}
+              >
+                Send reset code
+              </Button>
+            </div>
 
             {/* Step indicator */}
-            <div className="flex items-center justify-center gap-2 pt-1">
+            <div className="flex items-center justify-center gap-2 pt-1" style={{ animation: 'authFadeUp 0.4s 0.38s both' }}>
               {['Enter email', 'Verify code', 'New password'].map((step, i) => (
                 <div key={step} className="flex items-center gap-1.5">
                   <div
@@ -169,6 +186,8 @@ export default function ForgotPasswordPage(): JSX.Element {
                     style={{
                       background: i === 0 ? 'var(--page-accent)' : 'var(--bg-muted)',
                       color: i === 0 ? 'var(--text-inverse)' : 'var(--text-muted)',
+                      animation: i === 0 ? 'ctaPulse 2s ease-in-out infinite' : undefined,
+                      boxShadow: i === 0 ? '0 0 8px var(--page-accent-muted)' : undefined,
                     }}
                   >
                     {i + 1}

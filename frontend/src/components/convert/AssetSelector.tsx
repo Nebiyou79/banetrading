@@ -4,8 +4,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import CoinIcon from '@/components/markets/CoinIcon';
 import type { Currency } from '@/types/convert';
+import CoinIcon from '../crypto/CoinIcon';
 
 interface AssetSelectorProps {
   value: Currency | null;

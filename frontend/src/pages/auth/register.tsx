@@ -34,9 +34,12 @@ type PromoState =
 export default function RegisterPage(): JSX.Element {
   const router = useRouter();
   const { register: doRegister } = useAuth();
+  const [mounted, setMounted] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [promoState, setPromoState] = useState<PromoState>({ status: 'idle' });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const {
     register,
@@ -102,6 +105,8 @@ export default function RegisterPage(): JSX.Element {
 
   const countryOptions = COUNTRIES.map((c) => ({ value: c.code, label: c.name }));
 
+  if (!mounted) return <div className="min-h-screen bg-[var(--background)]" />;
+
   return (
     <>
       <Head>
@@ -129,91 +134,105 @@ export default function RegisterPage(): JSX.Element {
         }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-
           {/* Full name */}
-          <FormField label="Full name" htmlFor="name" error={errors.name?.message}>
-            <Input
-              id="name"
-              type="text"
-              autoComplete="name"
-              placeholder="Jane Trader"
-              leading={<UserIcon className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
-              error={errors.name?.message}
-              {...register('name')}
-            />
-          </FormField>
+          <div style={{ animation: 'authFadeUp 0.4s 0.2s both' }}>
+            <FormField label="Full name" htmlFor="name" error={errors.name?.message}>
+              <Input
+                id="name"
+                type="text"
+                autoComplete="name"
+                placeholder="Jane Trader"
+                leading={<UserIcon className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
+                error={errors.name?.message}
+                {...register('name')}
+              />
+            </FormField>
+          </div>
 
           {/* Email */}
-          <FormField label="Email address" htmlFor="email" error={errors.email?.message}>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              leading={<Mail className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
-              error={errors.email?.message}
-              {...register('email')}
-            />
-          </FormField>
+          <div style={{ animation: 'authFadeUp 0.4s 0.28s both' }}>
+            <FormField label="Email address" htmlFor="email" error={errors.email?.message}>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
+                leading={<Mail className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
+                error={errors.email?.message}
+                {...register('email')}
+              />
+            </FormField>
+          </div>
 
           {/* Password + strength */}
-          <FormField label="Password" htmlFor="password" error={errors.password?.message}>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              placeholder="At least 8 characters"
-              showPasswordToggle
-              leading={<Lock className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
-              error={errors.password?.message}
-              {...register('password')}
-            />
-            <PasswordStrengthMeter password={password} className="mt-2" />
-          </FormField>
+          <div style={{ animation: 'authFadeUp 0.4s 0.34s both' }}>
+            <FormField label="Password" htmlFor="password" error={errors.password?.message}>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="new-password"
+                placeholder="At least 8 characters"
+                showPasswordToggle
+                leading={<Lock className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
+                error={errors.password?.message}
+                {...register('password')}
+              />
+              <PasswordStrengthMeter password={password} className="mt-2" />
+            </FormField>
+          </div>
 
           {/* Country */}
-          <FormField label="Country of residence" htmlFor="country" error={errors.country?.message}>
-            <Controller
-              control={control}
-              name="country"
-              render={({ field }) => (
-                <Select
-                  id="country"
-                  value={field.value}
-                  onChange={field.onChange}
-                  options={countryOptions}
-                  placeholder="Select your country"
-                  error={errors.country?.message}
-                  searchable
-                />
-              )}
-            />
-          </FormField>
+          <div style={{ animation: 'authFadeUp 0.4s 0.40s both' }}>
+            <FormField label="Country of residence" htmlFor="country" error={errors.country?.message}>
+              <Controller
+                control={control}
+                name="country"
+                render={({ field }) => (
+                  <Select
+                    id="country"
+                    value={field.value}
+                    onChange={field.onChange}
+                    options={countryOptions}
+                    placeholder="Select your country"
+                    error={errors.country?.message}
+                    searchable
+                  />
+                )}
+              />
+            </FormField>
+          </div>
 
           {/* Promo code */}
-          <FormField
-            label="Promo / referral code (optional)"
-            htmlFor="promoCode"
-            error={errors.promoCode?.message}
-            helper={<PromoHelper state={promoState} />}
-          >
-            <Input
-              id="promoCode"
-              type="text"
-              autoCapitalize="characters"
-              placeholder="Enter code (6–12 characters)"
-              leading={<Tag className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
-              trailing={<PromoTrailing state={promoState} />}
+          <div style={{ animation: 'authFadeUp 0.4s 0.46s both' }}>
+            <FormField
+              label="Promo / referral code (optional)"
+              htmlFor="promoCode"
               error={errors.promoCode?.message}
-              {...register('promoCode')}
-            />
-          </FormField>
+              helper={<PromoHelper state={promoState} />}
+            >
+              <Input
+                id="promoCode"
+                type="text"
+                autoCapitalize="characters"
+                placeholder="Enter code (6–12 characters)"
+                leading={<Tag className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
+                trailing={<PromoTrailing state={promoState} />}
+                error={errors.promoCode?.message}
+                style={{
+                  boxShadow: promoState.status === 'valid' ? '0 0 12px var(--success-muted)' : undefined,
+                  transition: 'box-shadow 0.3s ease',
+                }}
+                {...register('promoCode')}
+              />
+            </FormField>
+          </div>
 
           {/* Server error */}
           {serverError && (
             <div
               role="alert"
-              className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-start gap-2"
+              className="rounded-lg border border-[var(--danger-muted)] bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-start gap-2"
+              style={{ animation: 'authFadeUp 0.4s 0.5s both' }}
             >
               <svg className="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 4a.75.75 0 0 0-1.5 0v3.5a.75.75 0 0 0 1.5 0V5zm-.75 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
@@ -223,23 +242,25 @@ export default function RegisterPage(): JSX.Element {
           )}
 
           {/* CTA */}
-          <Button
-            type="submit"
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={isSubmitting}
-            className="mt-1"
-            style={{
-              background: 'var(--page-accent)',
-              boxShadow: '0 0 20px var(--page-accent-muted)',
-            }}
-          >
-            Create free account
-          </Button>
+          <div style={{ animation: 'authFadeUp 0.4s 0.54s both' }}>
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={isSubmitting}
+              className="mt-1 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              style={{
+                background: 'var(--page-accent)',
+                boxShadow: '0 0 20px var(--page-accent-muted)',
+              }}
+            >
+              Create free account
+            </Button>
+          </div>
 
           {/* Terms */}
-          <p className="text-[11px] text-[var(--text-muted)] text-center leading-relaxed">
+          <p className="text-[11px] text-[var(--text-muted)] text-center leading-relaxed" style={{ animation: 'authFadeUp 0.4s 0.6s both' }}>
             By creating an account you agree to our{' '}
             <Link href="/terms" className="underline hover:text-[var(--text-secondary)]">Terms of Service</Link>
             {' '}and{' '}

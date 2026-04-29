@@ -42,6 +42,10 @@ app.use('/api/markets', pricesRouter);
 // serve the same router at both paths.
 app.use('/api/prices', pricesRouter);
 
+// Module 6 additions ────────────────────────────────────────────────
+app.use('/api/convert', require('./routes/convert'));
+// ───────────────────────────────────────────────────────────────────
+
 // ── Health ──
 app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
@@ -56,5 +60,11 @@ mongoose.connect(process.env.MONGO_URI).then(async () => {
   console.log('[db] MongoDB connected');
   await seedAdmin();
   await seedNetworkFees();
+
+  // Module 6 additions ──────────────────────────────────────────────
+  await require('./scripts/seedConversionConfig')();
+  await require('./scripts/migrateBalances')();
+  // ─────────────────────────────────────────────────────────────────
+
   app.listen(PORT, () => console.log(`API running on :${PORT}`));
 }).catch((e) => { console.error('DB connect failed:', e); process.exit(1); });
