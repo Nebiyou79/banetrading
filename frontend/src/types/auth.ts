@@ -23,7 +23,7 @@ export interface User {
   referralCount: number;
   bonusUnlocked: boolean;
   bonusCreditedAt?: string;
-  avatarUrl?: string;
+  passwordUpdatedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

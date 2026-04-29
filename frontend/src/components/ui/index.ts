@@ -22,3 +22,7 @@ export { Tabs } from './Tabs';
 export type { TabItem, TabsProps } from './Tabs';
 export { Pill } from './Pill';
 export type { PillProps, PillTone } from './Pill';
+export { StatusPill, KycStatusPill } from './StatusPill';
+export type { StatusPillProps, StatusPillTone } from './StatusPill';
+export { Tooltip } from './Tooltip';
+export type { TooltipProps } from './Tooltip';

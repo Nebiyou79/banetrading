@@ -95,8 +95,8 @@ export function KycStatusCard({ user }: KycStatusCardProps): JSX.Element {
       </div>
 
       <div className="flex items-center justify-end pt-2">
-        {/* TODO: KYC module page — placeholder route for now */}
-        <Link href="/kyc">
+        {/* Routes to the KYC tab in settings. */}
+        <Link href="/settings/kyc">
           <Button
             variant={user.kycStatus === 'approved' ? 'secondary' : 'primary'}
             trailingIcon={<ArrowRight className="h-4 w-4" />}

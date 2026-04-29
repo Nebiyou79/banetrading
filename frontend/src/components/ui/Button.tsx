@@ -23,15 +23,15 @@ const BASE =
   'focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/50 ' +
   'active:scale-[0.985] disabled:cursor-not-allowed disabled:opacity-60';
 
-const VARIANT: Record<Variant, string> = {
+const VARIANT = {
   primary:
-    'bg-accent text-[#0B0E11] hover:bg-accent-hover disabled:hover:bg-accent',
+    'bg-[var(--accent)] text-[var(--background)] hover:brightness-110',
   secondary:
-    'bg-elevated text-text-primary border border-border hover:bg-muted',
+    'bg-[var(--card)] text-[var(--text-primary)] border border-[var(--border)] hover:bg-[var(--card-elevated)]',
   ghost:
-    'bg-transparent text-text-primary hover:bg-muted',
+    'bg-transparent text-[var(--text-primary)] hover:bg-[var(--card)]',
   danger:
-    'bg-danger text-white hover:brightness-110',
+    'bg-[var(--danger)] text-white hover:brightness-110',
 };
 
 const SIZE: Record<Size, string> = {

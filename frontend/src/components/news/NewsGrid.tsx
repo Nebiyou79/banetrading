@@ -6,6 +6,7 @@ import type { NewsArticle } from '@/types/news';
 
 export interface NewsGridProps {
   articles: NewsArticle[];
+  showFeatured?: boolean;
 }
 
 export function NewsGrid({ articles }: NewsGridProps): JSX.Element {

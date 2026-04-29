@@ -1,5 +1,5 @@
 // pages/auth/verify-otp.tsx
-// ── OTP verification page (email_verification OR password_reset) ──
+// ── BaneTrading · OTP Verification — Violet / Waves theme ──
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -16,8 +16,7 @@ import { normalizeError, NormalizedApiError } from '../../services/apiClient';
 import { useCountdown } from '../../hooks/useCountdown';
 import type { OtpPurpose } from '../../types/auth';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
-
+const BRAND = 'BaneTrading';
 const OTP_TTL_SECONDS = 10 * 60;
 const RESEND_COOLDOWN = 60;
 
@@ -72,7 +71,7 @@ export default function VerifyOtpPage(): JSX.Element {
       }
     } catch (err) {
       const normalized = normalizeError(err) as NormalizedApiError;
-      setServerError(normalized.message || 'Invalid code');
+      setServerError(normalized.message || 'Invalid code — please try again.');
       setInvalid(true);
       inputRef.current?.shake();
       setOtp('');
@@ -104,68 +103,89 @@ export default function VerifyOtpPage(): JSX.Element {
     }
   };
 
-  const title = purpose === 'password_reset' ? 'Verify password reset' : 'Verify your email';
+  const isPasswordReset = purpose === 'password_reset';
+  const title = isPasswordReset ? 'Verify your identity' : 'Verify your email';
   const subtitle = email
-    ? `We've sent a 6-digit code to ${email}. Enter it below to continue.`
-    : 'We\'ve sent a 6-digit code to your email. Enter it below to continue.';
+    ? `We sent a 6-digit code to ${email}. Enter it below to continue.`
+    : "We sent a 6-digit code to your email. Enter it below to continue.";
+
+  // Step context for password reset flow
+  const stepInfo = isPasswordReset
+    ? { current: 2, total: 3, label: 'Step 2 of 3 — Verify code' }
+    : null;
 
   return (
     <>
-      <Head><title>{title} · {BRAND}</title></Head>
+      <Head>
+        <title>{title} · {BRAND}</title>
+        <meta name="description" content="Verify your BaneTrading account" />
+      </Head>
+
       <AuthLayout
         title={title}
         subtitle={subtitle}
-        footer={(
+        pageTheme="violet"
+        backgroundVariant="waves"
+        pillLabel={isPasswordReset ? 'Password Reset · Step 2' : 'Email Verification'}
+        footer={
           <>
             Wrong email?{' '}
-            {/* text-[var(--primary)] → gold accent link from color.ts */}
             <Link
-              href={purpose === 'password_reset' ? '/auth/forgot-password' : '/auth/register'}
-              className="text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors duration-150"
+              href={isPasswordReset ? '/auth/forgot-password' : '/auth/register'}
+              className="font-semibold transition-colors duration-150 hover:underline"
+              style={{ color: 'var(--page-accent)' }}
             >
               Go back
             </Link>
           </>
-        )}
+        }
       >
-        <div className="flex flex-col gap-6">
-          {/* bg-[var(--surface)] border-[var(--border)] → elevated panel surface from color.ts */}
-          <div className="flex items-center gap-3 rounded-input border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-xs text-[var(--text-secondary)]">
-            {/* text-[var(--primary)] → gold accent icon from color.ts */}
-            <MailCheck className="h-4 w-4 text-[var(--primary)]" />
-            <span>Can&apos;t find the email? Check your spam folder.</span>
+        <div className="flex flex-col gap-5">
+
+          {/* Email hint banner */}
+          <div
+            className="flex items-center gap-3 rounded-xl border px-4 py-3"
+            style={{ borderColor: 'var(--page-accent-muted)', background: 'var(--page-accent-muted)' }}
+          >
+            <MailCheck className="h-4 w-4 shrink-0" style={{ color: 'var(--page-accent)' }} />
+            <div className="flex-1 min-w-0">
+              <p className="truncate text-xs font-medium text-[var(--text-primary)]">{email}</p>
+              <p className="text-[11px] text-[var(--text-secondary)]">Can't find it? Check your spam folder.</p>
+            </div>
           </div>
 
-          <OtpInput
-            ref={inputRef}
-            value={otp}
-            onChange={setOtp}
-            onComplete={handleVerify}
-            invalid={invalid}
-            disabled={submitting}
-          />
+          {/* OTP boxes */}
+          <div className="py-2">
+            <OtpInput
+              ref={inputRef}
+              value={otp}
+              onChange={setOtp}
+              onComplete={handleVerify}
+              invalid={invalid}
+              disabled={submitting}
+            />
+          </div>
 
+          {/* Timer + resend row */}
           <div className="flex items-center justify-between text-xs">
-            {/* text-[var(--text-secondary)] → body label; text-[var(--error)] → expired state danger */}
             <span className="text-[var(--text-secondary)]">
               {expiry.isDone ? (
-                <span className="text-[var(--error)]">Code expired. Please resend.</span>
+                <span className="font-medium text-[var(--danger)]">Code expired — please resend</span>
               ) : (
                 <>
-                  Code expires in{' '}
-                  {/* text-[var(--text-primary)] → high-contrast countdown timer */}
-                  <span className="font-medium text-[var(--text-primary)] tabular-nums">
+                  Expires in{' '}
+                  <span className="tabular font-semibold text-[var(--text-primary)]">
                     {formatMMSS(expiry.secondsLeft)}
                   </span>
                 </>
               )}
             </span>
-            {/* text-[var(--primary)] → gold accent; disabled:text-[var(--text-muted)] → muted disabled state */}
             <button
               type="button"
               onClick={handleResend}
               disabled={!resend.isDone || resending}
-              className="text-[var(--primary)] hover:text-[var(--primary-hover)] hover:underline disabled:cursor-not-allowed disabled:text-[var(--text-muted)] disabled:no-underline transition-colors duration-150"
+              className="font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ color: resend.isDone && !resending ? 'var(--page-accent)' : undefined }}
             >
               {resending
                 ? 'Sending…'
@@ -175,16 +195,40 @@ export default function VerifyOtpPage(): JSX.Element {
             </button>
           </div>
 
+          {/* Segmented progress (password reset) */}
+          {stepInfo && (
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: stepInfo.total }).map((_, i) => (
+                <div
+                  key={i}
+                  className="h-1 flex-1 rounded-full transition-all duration-300"
+                  style={{
+                    background: i < stepInfo.current
+                      ? 'var(--page-accent)'
+                      : 'var(--border)',
+                  }}
+                />
+              ))}
+              <span className="ml-2 text-[10px] uppercase tracking-wide text-[var(--text-muted)]">
+                {stepInfo.label}
+              </span>
+            </div>
+          )}
+
+          {/* Server error */}
           {serverError && (
             <div
               role="alert"
-              // {/* border-[var(--error)] bg-[var(--error-muted)] text-[var(--error)] → semantic error state */}
-              className="rounded-input border border-[var(--error)]/40 bg-[var(--error-muted)] px-3 py-2 text-xs text-[var(--error)]"
+              className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-center gap-2 animate-otp-shake"
             >
+              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 4a.75.75 0 0 0-1.5 0v3.5a.75.75 0 0 0 1.5 0V5zm-.75 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+              </svg>
               {serverError}
             </div>
           )}
 
+          {/* CTA */}
           <Button
             type="button"
             variant="primary"
@@ -193,9 +237,18 @@ export default function VerifyOtpPage(): JSX.Element {
             loading={submitting}
             disabled={otp.length !== 6 || expiry.isDone}
             onClick={() => handleVerify(otp)}
+            style={{
+              background: otp.length === 6 && !expiry.isDone ? 'var(--page-accent)' : undefined,
+              boxShadow: otp.length === 6 && !expiry.isDone ? '0 0 20px var(--page-accent-muted)' : undefined,
+            }}
           >
-            Verify
+            {isPasswordReset ? 'Verify & continue' : 'Verify email'}
           </Button>
+
+          {/* Helper tip */}
+          <p className="text-center text-[11px] text-[var(--text-muted)]">
+            The code is valid for 10 minutes. Codes are single-use and expire immediately after verification.
+          </p>
         </div>
       </AuthLayout>
     </>

@@ -1,12 +1,12 @@
 // components/layout/AuthenticatedShell.tsx
-// ── Shell wrapping authenticated pages: top nav + side nav + footer ──
+// ── Authenticated shell: TopNav + Sidebar + Main + Footer ──
 
 import { ReactNode, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/router';
 import { TopNav } from './TopNav';
 import { MobileDrawer } from './MobileDrawer';
-import { SideNav } from './SideNav';
+import { Sidebar } from './Sidebar';
 import { Footer } from './Footer';
 
 export interface AuthenticatedShellProps {
@@ -23,9 +23,9 @@ export function AuthenticatedShell({ children, contained = true }: Authenticated
       <TopNav onOpenMobileMenu={() => setDrawerOpen(true)} />
       <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
-      <div className="flex flex-1">
-        <SideNav />
-        <main className="flex-1 min-w-0">
+      <div className="flex flex-1 min-h-0">
+        <Sidebar />
+        <main className="flex-1 min-w-0 overflow-y-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={router.asPath}
@@ -33,7 +33,7 @@ export function AuthenticatedShell({ children, contained = true }: Authenticated
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
-              className={contained ? 'mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8' : ''}
+              className={contained ? 'mx-auto w-full max-w-[1440px] px-4 py-4 sm:px-6 sm:py-6' : ''}
             >
               {children}
             </motion.div>

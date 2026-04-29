@@ -1,5 +1,5 @@
 // pages/auth/register.tsx
-// ── Registration page ──
+// ── BaneTrading · Register — Teal / Network theme ──
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -23,7 +23,7 @@ import { registerFormSchema, RegisterFormValues } from '../../lib/validators';
 import { COUNTRIES } from '../../lib/countries';
 import type { NormalizedApiError } from '../../services/apiClient';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = 'BaneTrading';
 
 type PromoState =
   | { status: 'idle' }
@@ -53,14 +53,11 @@ export default function RegisterPage(): JSX.Element {
   const password = watch('password') || '';
   const promoValue = watch('promoCode') || '';
 
-  // ── Live promo validation ──
+  // Live promo validation
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     const raw = (promoValue || '').trim();
-    if (!raw) {
-      setPromoState({ status: 'idle' });
-      return;
-    }
+    if (!raw) { setPromoState({ status: 'idle' }); return; }
     if (!/^[A-Za-z0-9]{6,12}$/.test(raw)) {
       setPromoState({ status: 'invalid', reason: 'format' });
       return;
@@ -72,23 +69,17 @@ export default function RegisterPage(): JSX.Element {
         if (resp.valid && resp.code) {
           setPromoState({ status: 'valid', code: resp.code });
         } else {
-          setPromoState({
-            status: 'invalid',
-            reason: (resp.reason as 'not_found' | 'inactive' | 'format') || 'not_found',
-          });
+          setPromoState({ status: 'invalid', reason: (resp.reason as 'not_found' | 'inactive' | 'format') || 'not_found' });
         }
       } catch {
         setPromoState({ status: 'invalid', reason: 'not_found' });
       }
     }, 350);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [promoValue]);
 
   const onSubmit = async (values: RegisterFormValues): Promise<void> => {
     setServerError(null);
-    // If user typed a promo and it's not valid, block submit.
     if (values.promoCode && promoState.status === 'invalid') {
       setServerError('The promo code you entered is not valid. Remove it or enter a different code.');
       return;
@@ -102,10 +93,7 @@ export default function RegisterPage(): JSX.Element {
         promoCode: values.promoCode || undefined,
       });
       toast.success('Account created. Verification code sent.');
-      router.push({
-        pathname: '/auth/verify-otp',
-        query: { email: values.email, purpose: 'email_verification' },
-      });
+      router.push({ pathname: '/auth/verify-otp', query: { email: values.email, purpose: 'email_verification' } });
     } catch (err) {
       const normalized = err as NormalizedApiError;
       setServerError(normalized.message || 'Registration failed');
@@ -116,45 +104,59 @@ export default function RegisterPage(): JSX.Element {
 
   return (
     <>
-      <Head><title>Create account · {BRAND}</title></Head>
+      <Head>
+        <title>Create account · {BRAND}</title>
+        <meta name="description" content="Create your BaneTrading account" />
+      </Head>
+
       <AuthLayout
         title="Create your account"
-        subtitle="It takes less than a minute. No clutter, no paperwork — just markets."
-        footer={(
+        subtitle="Start trading in under a minute. No paperwork, no clutter — just markets."
+        pageTheme="teal"
+        backgroundVariant="network"
+        pillLabel="Free Account"
+        footer={
           <>
             Already have an account?{' '}
-            {/* text-[var(--primary)] → gold accent link from color.ts */}
-            <Link href="/auth/login" className="text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors duration-150">
+            <Link
+              href="/auth/login"
+              className="font-semibold transition-colors duration-150 hover:underline"
+              style={{ color: 'var(--page-accent)' }}
+            >
               Log in
             </Link>
           </>
-        )}
+        }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+
+          {/* Full name */}
           <FormField label="Full name" htmlFor="name" error={errors.name?.message}>
             <Input
               id="name"
               type="text"
               autoComplete="name"
               placeholder="Jane Trader"
-              leading={<UserIcon className="h-4 w-4" />}
+              leading={<UserIcon className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
               error={errors.name?.message}
               {...register('name')}
             />
           </FormField>
 
-          <FormField label="Email" htmlFor="email" error={errors.email?.message}>
+          {/* Email */}
+          <FormField label="Email address" htmlFor="email" error={errors.email?.message}>
             <Input
               id="email"
               type="email"
               autoComplete="email"
               placeholder="you@example.com"
-              leading={<Mail className="h-4 w-4" />}
+              leading={<Mail className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
               error={errors.email?.message}
               {...register('email')}
             />
           </FormField>
 
+          {/* Password + strength */}
           <FormField label="Password" htmlFor="password" error={errors.password?.message}>
             <Input
               id="password"
@@ -162,14 +164,15 @@ export default function RegisterPage(): JSX.Element {
               autoComplete="new-password"
               placeholder="At least 8 characters"
               showPasswordToggle
-              leading={<Lock className="h-4 w-4" />}
+              leading={<Lock className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
               error={errors.password?.message}
               {...register('password')}
             />
             <PasswordStrengthMeter password={password} className="mt-2" />
           </FormField>
 
-          <FormField label="Country" htmlFor="country" error={errors.country?.message}>
+          {/* Country */}
+          <FormField label="Country of residence" htmlFor="country" error={errors.country?.message}>
             <Controller
               control={control}
               name="country"
@@ -187,8 +190,9 @@ export default function RegisterPage(): JSX.Element {
             />
           </FormField>
 
+          {/* Promo code */}
           <FormField
-            label="Promo code (optional)"
+            label="Promo / referral code (optional)"
             htmlFor="promoCode"
             error={errors.promoCode?.message}
             helper={<PromoHelper state={promoState} />}
@@ -197,31 +201,49 @@ export default function RegisterPage(): JSX.Element {
               id="promoCode"
               type="text"
               autoCapitalize="characters"
-              placeholder="Enter a referral or promo code"
-              leading={<Tag className="h-4 w-4" />}
+              placeholder="Enter code (6–12 characters)"
+              leading={<Tag className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
               trailing={<PromoTrailing state={promoState} />}
               error={errors.promoCode?.message}
               {...register('promoCode')}
             />
           </FormField>
 
+          {/* Server error */}
           {serverError && (
             <div
               role="alert"
-              // {/* border-[var(--error)] bg-[var(--error-muted)] text-[var(--error)] → semantic error state */}
-              className="rounded-input border border-[var(--error)]/40 bg-[var(--error-muted)] px-3 py-2 text-xs text-[var(--error)]"
+              className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-start gap-2"
             >
-              {serverError}
+              <svg className="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 4a.75.75 0 0 0-1.5 0v3.5a.75.75 0 0 0 1.5 0V5zm-.75 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+              </svg>
+              <span>{serverError}</span>
             </div>
           )}
 
-          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting}>
-            Create account
+          {/* CTA */}
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={isSubmitting}
+            className="mt-1"
+            style={{
+              background: 'var(--page-accent)',
+              boxShadow: '0 0 20px var(--page-accent-muted)',
+            }}
+          >
+            Create free account
           </Button>
 
-          {/* text-[var(--text-muted)] → placeholder / metadata color from color.ts */}
+          {/* Terms */}
           <p className="text-[11px] text-[var(--text-muted)] text-center leading-relaxed">
-            By creating an account you agree to our Terms of Service and Privacy Policy.
+            By creating an account you agree to our{' '}
+            <Link href="/terms" className="underline hover:text-[var(--text-secondary)]">Terms of Service</Link>
+            {' '}and{' '}
+            <Link href="/privacy" className="underline hover:text-[var(--text-secondary)]">Privacy Policy</Link>.
           </p>
         </form>
       </AuthLayout>
@@ -231,22 +253,22 @@ export default function RegisterPage(): JSX.Element {
 
 function PromoTrailing({ state }: { state: PromoState }): JSX.Element | null {
   if (state.status === 'checking') return <Spinner size="sm" />;
-  {/* text-[var(--success)] → green gain/pass color from color.ts */}
-  if (state.status === 'valid')    return <Check className="h-4 w-4 text-[var(--success)]" />;
-  {/* text-[var(--error)] → red danger/fail color from color.ts */}
-  if (state.status === 'invalid')  return <X className="h-4 w-4 text-[var(--error)]" />;
+  if (state.status === 'valid')    return <Check className="h-4 w-4" style={{ color: 'var(--success)' }} />;
+  if (state.status === 'invalid')  return <X className="h-4 w-4" style={{ color: 'var(--danger)' }} />;
   return null;
 }
 
 function PromoHelper({ state }: { state: PromoState }): JSX.Element | null {
-  {/* text-[var(--text-secondary)] → body label, text-[var(--success)] / text-[var(--error)] → semantic state */}
-  if (state.status === 'idle')     return <span className="text-[var(--text-secondary)]">Optional — 6–12 characters, letters and numbers.</span>;
+  if (state.status === 'idle')     return <span className="text-[var(--text-secondary)]">Optional — letters and numbers only.</span>;
   if (state.status === 'checking') return <span className="text-[var(--text-muted)]">Checking code…</span>;
-  if (state.status === 'valid')    return <span className="text-[var(--success)]">✓ Valid code</span>;
+  if (state.status === 'valid')    return <span style={{ color: 'var(--success)' }}>✓ Valid — bonus applied</span>;
   if (state.status === 'invalid') {
-    if (state.reason === 'format')   return <span className="text-[var(--error)]">✗ Invalid format</span>;
-    if (state.reason === 'inactive') return <span className="text-[var(--error)]">✗ Code is no longer active</span>;
-    return <span className="text-[var(--error)]">✗ Invalid code</span>;
+    const msgs: Record<string, string> = {
+      format: '✗ Invalid format (6–12 alphanumeric)',
+      inactive: '✗ Code is no longer active',
+      not_found: '✗ Code not found',
+    };
+    return <span style={{ color: 'var(--danger)' }}>{msgs[state.reason] ?? '✗ Invalid code'}</span>;
   }
   return null;
 }

@@ -1,59 +1,83 @@
-'use client';
 // hooks/useKyc.ts
+// ── KYC status query + submit mutations ──
 
-import { useState, useEffect, useCallback } from 'react';
-import kycService from '@/services/kycService';
-import type { KycStatus } from '@/types';
+import { useCallback } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { kycService } from '@/services/kycService';
+import { normalizeError } from '@/services/apiClient';
+import { tokenStore } from '@/lib/tokenStore';
+import { ME_QUERY_KEY } from './useAuth';
+import { PROFILE_QUERY_KEY } from './useProfile';
+import type {
+  KycStatusResponse,
+  KycSubmitLevel2Input,
+  KycSubmitLevel2Response,
+  KycSubmitLevel3Input,
+  KycSubmitLevel3Response,
+} from '@/types/kyc';
 
-export const useKyc = () => {
-  const [status, setStatus] = useState<KycStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
+export const KYC_STATUS_QUERY_KEY = ['kyc', 'status'] as const;
 
-  const fetchStatus = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await kycService.getKycStatus();
-      setStatus(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load KYC status');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+export interface UseKycReturn {
+  status: KycStatusResponse | null;
+  isLoading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  submitLevel2: (input: KycSubmitLevel2Input) => Promise<KycSubmitLevel2Response>;
+  isSubmittingLevel2: boolean;
+  submitLevel3: (input: KycSubmitLevel3Input) => Promise<KycSubmitLevel3Response>;
+  isSubmittingLevel3: boolean;
+}
 
-  useEffect(() => {
-    fetchStatus();
-  }, [fetchStatus]);
+export function useKyc(): UseKycReturn {
+  const queryClient = useQueryClient();
+  const hasToken = typeof window !== 'undefined' && !!tokenStore.getAccess();
 
-  const submitKyc = useCallback(async (formData: FormData) => {
-    setSubmitting(true);
-    setSubmitError(null);
-    setSubmitSuccess(false);
-    try {
-      await kycService.submitKyc(formData);
-      setSubmitSuccess(true);
-      await fetchStatus(); // Refresh status after submission
-    } catch (err: any) {
-      setSubmitError(err.message || 'KYC submission failed');
-      throw err;
-    } finally {
-      setSubmitting(false);
-    }
-  }, [fetchStatus]);
+  const query = useQuery<KycStatusResponse>({
+    queryKey: KYC_STATUS_QUERY_KEY,
+    queryFn: async () => kycService.getStatus(),
+    enabled: hasToken,
+    staleTime: 30 * 1000,
+  });
+
+  const invalidateAll = (): void => {
+    queryClient.invalidateQueries({ queryKey: KYC_STATUS_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: ME_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: PROFILE_QUERY_KEY });
+  };
+
+  const level2Mutation = useMutation({
+    mutationFn: async (input: KycSubmitLevel2Input) => kycService.submitLevel2(input),
+    onSuccess: invalidateAll,
+  });
+
+  const level3Mutation = useMutation({
+    mutationFn: async (input: KycSubmitLevel3Input) => kycService.submitLevel3(input),
+    onSuccess: invalidateAll,
+  });
+
+  const submitLevel2 = useCallback(async (input: KycSubmitLevel2Input) => {
+    try { return await level2Mutation.mutateAsync(input); }
+    catch (err) { throw normalizeError(err); }
+  }, [level2Mutation]);
+
+  const submitLevel3 = useCallback(async (input: KycSubmitLevel3Input) => {
+    try { return await level3Mutation.mutateAsync(input); }
+    catch (err) { throw normalizeError(err); }
+  }, [level3Mutation]);
+
+  const refetch = useCallback(async () => {
+    await query.refetch();
+  }, [query]);
 
   return {
-    status,
-    loading,
-    error,
-    submitting,
-    submitError,
-    submitSuccess,
-    fetchStatus,
-    submitKyc,
+    status: (query.data ?? null) as KycStatusResponse | null,
+    isLoading: hasToken && query.isLoading,
+    error: query.error ? normalizeError(query.error).message : null,
+    refetch,
+    submitLevel2,
+    isSubmittingLevel2: level2Mutation.isPending,
+    submitLevel3,
+    isSubmittingLevel3: level3Mutation.isPending,
   };
-};
+}

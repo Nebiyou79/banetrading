@@ -138,6 +138,8 @@ async function verifyOtp(req, res) {
     if (purpose === 'email_verification') {
       user.isEmailVerified = true;
       user.emailVerifiedAt = new Date();
+      // Email verified == KYC Level 1 reached.
+      if (!user.kycTier || user.kycTier < 1) user.kycTier = 1;
       await user.save();
       return res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
     }
@@ -329,6 +331,7 @@ async function resetPassword(req, res) {
     if (!match) return res.status(400).json({ message: 'Reset link is invalid or has already been used.' });
 
     user.password = await bcrypt.hash(newPassword, 10);
+    user.passwordUpdatedAt = new Date();
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
     // Invalidate all sessions

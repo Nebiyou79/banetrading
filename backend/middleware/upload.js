@@ -59,3 +59,54 @@ module.exports = upload;
 module.exports.uploadAvatar = uploadAvatar;
 module.exports.AVATAR_DIR = AVATAR_DIR;
 module.exports.UPLOAD_DIR = UPLOAD_DIR;
+
+// ── KYC storage (images + PDF) ──
+const KYC_DIR = path.join(UPLOAD_DIR, 'kyc');
+if (!fs.existsSync(KYC_DIR)) fs.mkdirSync(KYC_DIR, { recursive: true });
+
+const KYC_MIME = new Set([
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+]);
+
+const kycStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, KYC_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.bin';
+    const uid = req.user && req.user._id ? String(req.user._id) : 'anon';
+    const stamp = Date.now();
+    cb(null, `kyc_${uid}_${file.fieldname}_${stamp}${ext}`);
+  },
+});
+
+const kycFileFilter = (_req, file, cb) => {
+  const mimeOk = KYC_MIME.has(file.mimetype);
+  const extOk = /\.(jpg|jpeg|png|webp|pdf)$/i.test(file.originalname);
+  if (!mimeOk || !extOk) return cb(new Error('Only JPG, PNG, WEBP, or PDF files are allowed'));
+  cb(null, true);
+};
+
+// Level 2: idFront required, idBack optional, selfie optional
+const uploadKYC = multer({
+  storage: kycStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+  fileFilter: kycFileFilter,
+}).fields([
+  { name: 'idFront', maxCount: 1 },
+  { name: 'idBack',  maxCount: 1 },
+  { name: 'selfie',  maxCount: 1 },
+]);
+
+// Level 3: single document (proof of address)
+const uploadAddressDoc = multer({
+  storage: kycStorage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: kycFileFilter,
+}).single('document');
+
+module.exports.uploadKYC = uploadKYC;
+module.exports.uploadAddressDoc = uploadAddressDoc;
+module.exports.KYC_DIR = KYC_DIR;

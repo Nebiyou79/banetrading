@@ -1,5 +1,5 @@
 // pages/auth/login.tsx
-// ── Login page ──
+// ── BaneTrading · Login — Indigo / Candlestick theme ──
 
 import { useState } from 'react';
 import Link from 'next/link';
@@ -18,7 +18,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { loginFormSchema, LoginFormValues } from '@/lib/validators';
 import type { NormalizedApiError } from '@/services/apiClient';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = 'BaneTrading';
 
 export default function LoginPage(): JSX.Element {
   const router = useRouter();
@@ -54,33 +54,46 @@ export default function LoginPage(): JSX.Element {
 
   return (
     <>
-      <Head><title>Log in · {BRAND}</title></Head>
+      <Head>
+        <title>Log in · {BRAND}</title>
+        <meta name="description" content="Log in to your BaneTrading account" />
+      </Head>
+
       <AuthLayout
         title="Welcome back"
-        subtitle="Log in to access your account, balances, and open orders."
-        footer={(
+        subtitle="Log in to access your account, balances, and open positions."
+        pageTheme="indigo"
+        backgroundVariant="candlestick"
+        pillLabel="Secure Login"
+        footer={
           <>
             Don&apos;t have an account?{' '}
-            {/* text-[var(--primary)] → gold accent link from color.ts */}
-            <Link href="/auth/register" className="text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors duration-150">
-              Sign up
+            <Link
+              href="/auth/register"
+              className="font-semibold transition-colors duration-150"
+              style={{ color: 'var(--page-accent)' }}
+            >
+              Create account
             </Link>
           </>
-        )}
+        }
       >
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
-          <FormField label="Email" htmlFor="email" error={errors.email?.message}>
+
+          {/* Email */}
+          <FormField label="Email address" htmlFor="email" error={errors.email?.message}>
             <Input
               id="email"
               type="email"
               autoComplete="email"
               placeholder="you@example.com"
-              leading={<Mail className="h-4 w-4" />}
+              leading={<Mail className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
               error={errors.email?.message}
               {...register('email')}
             />
           </FormField>
 
+          {/* Password */}
           <FormField label="Password" htmlFor="password" error={errors.password?.message}>
             <Input
               id="password"
@@ -88,54 +101,95 @@ export default function LoginPage(): JSX.Element {
               autoComplete="current-password"
               placeholder="Enter your password"
               showPasswordToggle
-              leading={<Lock className="h-4 w-4" />}
+              leading={<Lock className="h-4 w-4" style={{ color: 'var(--page-accent)' }} />}
               error={errors.password?.message}
               {...register('password')}
             />
           </FormField>
 
+          {/* Remember + Forgot */}
           <div className="flex items-center justify-between">
             <label className="inline-flex items-center gap-2 cursor-pointer select-none">
               <input
                 type="checkbox"
                 {...register('remember')}
-                // {/* border-[var(--border)] bg-[var(--card)] → card surface; accent-[var(--primary)] → gold checkbox */}
-                className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)] accent-[var(--primary)]"
+                className="h-4 w-4 rounded border-[var(--border)] bg-[var(--card)]"
+                style={{ accentColor: 'var(--page-accent)' }}
               />
-              {/* text-[var(--text-secondary)] → body label color */}
               <span className="text-xs text-[var(--text-secondary)]">Remember me</span>
             </label>
-            {/* text-[var(--primary)] → gold accent for forgot password link */}
-            <Link href="/auth/forgot-password" className="text-xs text-[var(--primary)] hover:text-[var(--primary-hover)] transition-colors duration-150">
+            <Link
+              href="/auth/forgot-password"
+              className="text-xs font-medium transition-colors duration-150 hover:underline"
+              style={{ color: 'var(--page-accent)' }}
+            >
               Forgot password?
             </Link>
           </div>
 
+          {/* Server error */}
           {serverError && (
             <div
               role="alert"
-              // {/* border-[var(--error)] bg-[var(--error-muted)] text-[var(--error)] → semantic error state */}
-              className="rounded-input border border-[var(--error)]/40 bg-[var(--error-muted)] px-3 py-2 text-xs text-[var(--error)]"
+              className="rounded-lg border border-[var(--danger)]/30 bg-[var(--danger-muted)] px-4 py-3 text-xs text-[var(--danger-fg)] flex items-start gap-2"
             >
-              {serverError}
-              {notVerified && (
-                <>
-                  {' '}
-                  {/* underline link on error bg → keeps text-[var(--error)] for contrast */}
-                  <Link
-                    href={{ pathname: '/auth/verify-otp', query: { email: notVerified.email, purpose: 'email_verification' } }}
-                    className="font-medium underline"
-                  >
-                    Verify now
-                  </Link>.
-                </>
-              )}
+              <svg className="mt-0.5 h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm.75 4a.75.75 0 0 0-1.5 0v3.5a.75.75 0 0 0 1.5 0V5zm-.75 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2z" />
+              </svg>
+              <span>
+                {serverError}
+                {notVerified && (
+                  <>
+                    {' '}
+                    <Link
+                      href={{ pathname: '/auth/verify-otp', query: { email: notVerified.email, purpose: 'email_verification' } }}
+                      className="font-semibold underline"
+                    >
+                      Verify now
+                    </Link>
+                    .
+                  </>
+                )}
+              </span>
             </div>
           )}
 
-          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting}>
-            Log in
+          {/* CTA */}
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={isSubmitting}
+            className="mt-1"
+            style={{
+              background: 'var(--page-accent)',
+              boxShadow: '0 0 20px var(--page-accent-muted)',
+            }}
+          >
+            Log in to BaneTrading
           </Button>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]">
+            <div className="flex-1 h-px bg-[var(--border)]" />
+            <span>or continue with</span>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+          </div>
+
+          {/* Social placeholder */}
+          <button
+            type="button"
+            className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition-all duration-150 hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/>
+              <path fill="#34A853" d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.565 24 12.255 24z"/>
+              <path fill="#FBBC05" d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"/>
+              <path fill="#EA4335" d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.69 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/>
+            </svg>
+            Continue with Google
+          </button>
         </form>
       </AuthLayout>
     </>

@@ -1,13 +1,18 @@
 // components/ui/Skeleton.tsx
-// ── Skeleton loader ──
 
 import { HTMLAttributes } from 'react';
 import { cn } from '../../lib/cn';
 
-export function Skeleton({ className, ...rest }: HTMLAttributes<HTMLDivElement>): JSX.Element {
+export function Skeleton({
+  className,
+  ...rest
+}: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('animate-pulse rounded-md bg-muted', className)}
+      className={cn(
+        'animate-pulse rounded-md bg-[var(--card-elevated)]',
+        className
+      )}
       {...rest}
     />
   );

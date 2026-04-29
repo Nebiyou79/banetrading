@@ -1,9 +1,24 @@
 // routes/prices.js
-const router = require('express').Router();
-const prices = require('../controllers/pricesController');
+// ── MARKETS ROUTES (CRYPTO + FOREX + METALS) ──
 
-// Public — no auth required
-router.get('/',           prices.getCryptoPrices);
-router.get('/:id/history', prices.getHistoricalPrices);
+const express = require('express');
+const router = express.Router();
+const ctrl = require('../controllers/pricesController');
+
+// ── Crypto (existing) ──
+router.get('/list',              ctrl.list);
+
+// ── Forex ──
+router.get('/forex',             ctrl.forexList);
+
+// ── Metals ──
+router.get('/metals',            ctrl.metalsList);
+
+// ── All unified ──
+router.get('/all',               ctrl.allList);
+
+// ── Single symbol + OHLC (order matters) ──
+router.get('/:symbol/ohlc',      ctrl.ohlc);
+router.get('/:symbol',           ctrl.one);
 
 module.exports = router;

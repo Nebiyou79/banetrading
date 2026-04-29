@@ -27,7 +27,7 @@ function DashboardPage(): JSX.Element {
       <Head><title>Dashboard · {BRAND}</title></Head>
       <AuthenticatedShell>
         <div className="flex flex-col gap-6">
-          {user && user.kycStatus !== 'approved' && (
+          {user && user.kycTier < 3 && (
             <KycBanner status={user.kycStatus} tier={user.kycTier} />
           )}
 

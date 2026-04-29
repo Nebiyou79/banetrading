@@ -102,6 +102,43 @@ export const changePasswordFormSchema = z
   });
 export type ChangePasswordFormValues = z.infer<typeof changePasswordFormSchema>;
 
+// ── KYC form schemas (client-side; backend has its own equivalents) ──
+const isoDateString = z
+  .string()
+  .min(1, 'Required')
+  .refine((v) => !Number.isNaN(new Date(v).getTime()), 'Invalid date');
+
+const ageAtLeast18Refine = (v: string): boolean => {
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return false;
+  const eighteen = new Date(d.getFullYear() + 18, d.getMonth(), d.getDate());
+  return eighteen.getTime() <= Date.now();
+};
+
+export const kycLevel2FormSchema = z.object({
+  fullName:    z.string().trim().min(2, 'Full name is required').max(120),
+  dateOfBirth: isoDateString
+    .refine((v) => new Date(v).getTime() < Date.now(), { message: 'Date of birth must be in the past' })
+    .refine(ageAtLeast18Refine, { message: 'You must be at least 18 years old' }),
+  country:     z.string().trim().min(2, 'Country is required').max(80),
+  idType:      z.enum(['passport', 'national_id', 'drivers_license'], {
+    errorMap: () => ({ message: 'Choose an ID type' }),
+  }),
+  idNumber:    z.string().trim().min(2, 'ID number is required').max(60),
+  expiryDate:  z.union([z.literal(''), isoDateString]).optional()
+    .transform((v) => (v === '' || v === undefined ? undefined : v)),
+});
+export type KycLevel2FormValues = z.infer<typeof kycLevel2FormSchema>;
+
+export const kycLevel3FormSchema = z.object({
+  fullName:    z.string().trim().min(2, 'Full name is required').max(120),
+  addressLine: z.string().trim().min(4, 'Address is required').max(200),
+  city:        z.string().trim().min(2, 'City is required').max(80),
+  postalCode:  z.string().trim().min(2, 'Postal code is required').max(20),
+  country:     z.string().trim().min(2, 'Country is required').max(80),
+});
+export type KycLevel3FormValues = z.infer<typeof kycLevel3FormSchema>;
+
 // ── Password strength scoring (used by meter) ──
 export interface PasswordChecks {
   length:  boolean;

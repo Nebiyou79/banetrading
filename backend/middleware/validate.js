@@ -115,6 +115,96 @@ const changePasswordSchema = z.object({
   message: 'New password must differ from your current password',
 });
 
+// ── Funds: Deposit / Withdraw ──
+const COINS = ['USDT', 'BTC', 'ETH'];
+const DEPOSIT_NETWORKS  = ['ERC20', 'TRC20', 'BEP20', 'Bitcoin', 'Ethereum'];
+const WITHDRAW_NETWORKS = ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH'];
+
+const DEPOSIT_NETWORKS_FOR_COIN = {
+  USDT: ['ERC20', 'TRC20', 'BEP20'],
+  BTC:  ['Bitcoin'],
+  ETH:  ['Ethereum'],
+};
+const WITHDRAW_NETWORKS_FOR_COIN = {
+  USDT: ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20'],
+  BTC:  ['BTC'],
+  ETH:  ['ETH'],
+};
+
+const depositSchema = z.object({
+  amount:   z.coerce.number({ invalid_type_error: 'Amount must be a number' }).positive('Amount must be greater than 0'),
+  currency: z.enum(COINS, { errorMap: () => ({ message: 'Invalid coin' }) }),
+  network:  z.enum(DEPOSIT_NETWORKS, { errorMap: () => ({ message: 'Invalid network' }) }),
+  note:     z.string().trim().max(500, 'Note must be at most 500 characters').optional(),
+}).refine(
+  (d) => DEPOSIT_NETWORKS_FOR_COIN[d.currency].includes(d.network),
+  { path: ['network'], message: 'Selected network is not valid for this coin' },
+);
+
+const withdrawSchema = z.object({
+  amount:    z.coerce.number({ invalid_type_error: 'Amount must be a number' }).positive('Amount must be greater than 0'),
+  currency:  z.enum(COINS, { errorMap: () => ({ message: 'Invalid coin' }) }),
+  network:   z.enum(WITHDRAW_NETWORKS, { errorMap: () => ({ message: 'Invalid network' }) }),
+  toAddress: z.string().trim().min(8, 'Destination address is too short').max(120, 'Destination address is too long'),
+  note:      z.string().trim().max(500).optional(),
+}).refine(
+  (d) => WITHDRAW_NETWORKS_FOR_COIN[d.currency].includes(d.network),
+  { path: ['network'], message: 'Selected network is not valid for this coin' },
+);
+
+// ── Admin: deposit addresses + network fees ──
+const addressEntry = z.union([z.string().trim().min(8, 'Address is too short').max(120, 'Address is too long'), z.literal('')]);
+const updateAddressesSchema = z.object({
+  'USDT-ERC20': addressEntry.optional(),
+  'USDT-TRC20': addressEntry.optional(),
+  'USDT-BEP20': addressEntry.optional(),
+  BTC:          addressEntry.optional(),
+  ETH:          addressEntry.optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'No addresses provided' });
+
+const updateFeeSchema = z.object({
+  fee: z.coerce.number({ invalid_type_error: 'Fee must be a number' }).min(0, 'Fee cannot be negative'),
+});
+
+// ── KYC: Level 2 + Level 3 ──
+const isoDate = z.preprocess((v) => {
+  if (typeof v === 'string' && v) {
+    const d = new Date(v);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  if (v instanceof Date) return v;
+  return undefined;
+}, z.date({ invalid_type_error: 'Invalid date' }));
+
+const ageAtLeast18 = (d) => {
+  const now = new Date();
+  const eighteen = new Date(d.getFullYear() + 18, d.getMonth(), d.getDate());
+  return eighteen.getTime() <= now.getTime();
+};
+
+const kycLevel2Schema = z.object({
+  fullName:    z.string().trim().min(2, 'Full name is required').max(120),
+  dateOfBirth: isoDate.refine((d) => d.getTime() < Date.now(), { message: 'Date of birth must be in the past' })
+                       .refine((d) => ageAtLeast18(d), { message: 'You must be at least 18 years old' }),
+  country:     z.string().trim().min(2, 'Country is required').max(80),
+  idType:      z.enum(['passport', 'national_id', 'drivers_license'], { errorMap: () => ({ message: 'Invalid ID type' }) }),
+  idNumber:    z.string().trim().min(2, 'ID number is required').max(60),
+  expiryDate:  z.union([z.literal(''), isoDate]).optional()
+                .transform((v) => (v === '' || v === undefined ? undefined : v)),
+});
+
+const kycLevel3Schema = z.object({
+  fullName:    z.string().trim().min(2, 'Full name is required').max(120),
+  addressLine: z.string().trim().min(4, 'Address is required').max(200),
+  city:        z.string().trim().min(2, 'City is required').max(80),
+  postalCode:  z.string().trim().min(2, 'Postal code is required').max(20),
+  country:     z.string().trim().min(2, 'Country is required').max(80),
+});
+
+const kycRejectSchema = z.object({
+  reason: z.string().trim().min(2, 'Reason is required').max(500, 'Reason is too long'),
+});
+
 module.exports = {
   validate,
   registerSchema,
@@ -127,4 +217,11 @@ module.exports = {
   refreshSchema,
   updateProfileSchema,
   changePasswordSchema,
+  depositSchema,
+  withdrawSchema,
+  updateAddressesSchema,
+  updateFeeSchema,
+  kycLevel2Schema,
+  kycLevel3Schema,
+  kycRejectSchema,
 };

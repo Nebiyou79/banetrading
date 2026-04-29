@@ -3,17 +3,25 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, User as UserIcon, ShieldCheck, LogOut, LayoutDashboard } from 'lucide-react';
+import {
+  ChevronDown,
+  User as UserIcon,
+  ShieldCheck,
+  LogOut,
+  LayoutDashboard,
+  Shield,
+  Settings as SettingsIcon,
+} from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
-import { Pill } from '@/components/ui/Pill';
+import { StatusPill } from '@/components/ui/StatusPill';
 import { cn } from '@/lib/cn';
 import { formatUsd } from '@/lib/format';
 import { useAuth } from '@/hooks/useAuth';
-import { usePortfolio } from '@/hooks/usePortfolio';
+import { useBalance } from '@/hooks/useBalance';
 
 export function UserMenu(): JSX.Element | null {
   const { user, logout } = useAuth();
-  const { portfolio } = usePortfolio();
+  const { balance } = useBalance();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -23,9 +31,7 @@ export function UserMenu(): JSX.Element | null {
       if (!ref.current) return;
       if (!ref.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') setOpen(false);
-    };
+    const onKey = (e: KeyboardEvent): void => { if (e.key === 'Escape') setOpen(false); };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -37,7 +43,7 @@ export function UserMenu(): JSX.Element | null {
   if (!user) return null;
 
   const label = user.displayName || user.name;
-  const balance = portfolio?.totalBalanceUsd ?? 0;
+  const tier = user.kycTier ?? 1;
 
   return (
     <div ref={ref} className="relative">
@@ -48,13 +54,13 @@ export function UserMenu(): JSX.Element | null {
         aria-expanded={open}
         className={cn(
           'group inline-flex items-center gap-2 rounded-button border border-border bg-elevated pl-1 pr-2 h-10 transition-colors',
-          'hover:border-text-muted focus:outline-none focus:ring-2 focus:ring-accent/40',
+          'hover:border-border-strong focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
         )}
       >
         <Avatar src={user.avatarUrl} name={label} size="sm" />
         <div className="hidden sm:flex flex-col items-start leading-none">
           <span className="text-xs font-medium text-text-primary max-w-[120px] truncate">{label}</span>
-          <span className="text-[10px] tabular-nums text-text-muted">{formatUsd(balance)}</span>
+          <span className="text-[10px] tabular text-text-muted">{formatUsd(balance)}</span>
         </div>
         <ChevronDown className={cn('h-4 w-4 text-text-muted transition-transform', open && 'rotate-180')} />
       </button>
@@ -74,11 +80,13 @@ export function UserMenu(): JSX.Element | null {
             </div>
             <div className="mt-3 flex items-center justify-between rounded-input border border-border bg-muted px-3 py-2">
               <span className="text-[11px] uppercase tracking-wider text-text-muted">Balance</span>
-              <span className="text-sm font-semibold tabular-nums text-text-primary">{formatUsd(balance)}</span>
+              <span className="text-sm font-semibold tabular text-text-primary">{formatUsd(balance)}</span>
             </div>
             <div className="mt-2 flex items-center justify-between">
-              <span className="text-[11px] uppercase tracking-wider text-text-muted">KYC</span>
-              <KycMenuPill status={user.kycStatus} tier={user.kycTier} />
+              <span className="text-[11px] uppercase tracking-wider text-text-muted">KYC Tier</span>
+              <StatusPill tone={tier >= 3 ? 'success' : tier >= 2 ? 'info' : 'neutral'} size="xs">
+                {`Tier ${tier}`}
+              </StatusPill>
             </div>
           </div>
           <nav className="p-1 text-sm">
@@ -88,16 +96,24 @@ export function UserMenu(): JSX.Element | null {
             <MenuLink href="/profile" icon={<UserIcon className="h-4 w-4" />} onClick={() => setOpen(false)}>
               Profile
             </MenuLink>
-            <MenuLink href="/profile?tab=security" icon={<ShieldCheck className="h-4 w-4" />} onClick={() => setOpen(false)}>
+            <MenuLink href="/settings/security" icon={<ShieldCheck className="h-4 w-4" />} onClick={() => setOpen(false)}>
               Security
             </MenuLink>
+            <MenuLink href="/settings" icon={<SettingsIcon className="h-4 w-4" />} onClick={() => setOpen(false)}>
+              Settings
+            </MenuLink>
+            {user.role === 'admin' && (
+              <MenuLink href="/admin" icon={<Shield className="h-4 w-4" />} onClick={() => setOpen(false)}>
+                Admin
+              </MenuLink>
+            )}
           </nav>
           <div className="border-t border-border p-1">
             <button
               type="button"
               role="menuitem"
               onClick={() => { setOpen(false); logout(); }}
-              className="flex w-full items-center gap-2 rounded-button px-3 py-2 text-sm text-danger hover:bg-muted"
+              className="flex w-full items-center gap-2 rounded-button px-3 py-2 text-sm text-danger hover:bg-hover-bg"
             >
               <LogOut className="h-4 w-4" />
               Log out
@@ -117,17 +133,10 @@ function MenuLink({ href, icon, children, onClick }: {
       href={href}
       onClick={onClick}
       role="menuitem"
-      className="flex items-center gap-2 rounded-button px-3 py-2 text-sm text-text-secondary hover:bg-muted hover:text-text-primary"
+      className="flex items-center gap-2 rounded-button px-3 py-2 text-sm text-text-secondary hover:bg-hover-bg hover:text-text-primary"
     >
       {icon}
       <span>{children}</span>
     </Link>
   );
-}
-
-function KycMenuPill({ status, tier }: { status: string; tier: number }): JSX.Element {
-  if (status === 'approved') return <Pill tone="success" size="xs">Tier {tier} · Verified</Pill>;
-  if (status === 'pending')  return <Pill tone="warning" size="xs">Pending</Pill>;
-  if (status === 'rejected') return <Pill tone="danger" size="xs">Rejected</Pill>;
-  return <Pill tone="neutral" size="xs">Not started</Pill>;
 }

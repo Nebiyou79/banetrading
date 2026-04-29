@@ -73,6 +73,7 @@ async function changePassword(req, res) {
     if (!ok) return res.status(400).json({ message: 'Current password is incorrect' });
 
     user.password = await bcrypt.hash(newPassword, 10);
+    user.passwordUpdatedAt = new Date();
     // Invalidate all sessions — forces re-login.
     user.refreshTokenHash = undefined;
     user.refreshTokenIssuedAt = undefined;

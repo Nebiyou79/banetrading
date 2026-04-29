@@ -1,57 +1,47 @@
 // components/layout/TopNav.tsx
-// ── Top navigation for the authenticated shell ──
+// ── Top navigation: 64px sticky, bg=var(--bg-elevated), border-bottom=var(--border) ──
 
+import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { Menu } from 'lucide-react';
+import { Menu, Search, Bell } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { UserMenu } from './UserMenu';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
-
-export interface NavItem {
-  label: string;
-  href: string;
-  external?: boolean;
-}
-
-export const PRIMARY_NAV: NavItem[] = [
-  { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Trade',     href: '/trade' },     // TODO: future trading module
-  { label: 'Markets',   href: '/markets' },   // TODO: future markets module
-  { label: 'News',      href: '/news' },
-  { label: 'Support',   href: '/support' },   // TODO: future support module
-];
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade';
 
 export interface TopNavProps {
   onOpenMobileMenu: () => void;
 }
 
-function isItemActive(router: ReturnType<typeof useRouter>, href: string): boolean {
-  if (href === '/') return router.pathname === '/';
-  return router.pathname === href || router.pathname.startsWith(`${href}/`);
-}
-
 export function TopNav({ onOpenMobileMenu }: TopNavProps): JSX.Element {
-  const router = useRouter();
+  const [search, setSearch] = useState('');
+  // Notifications: static placeholder count (matches /notifications page)
+  const unreadCount = 0;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border bg-elevated/90 backdrop-blur supports-[backdrop-filter]:bg-elevated/70">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6">
-        {/* Left — hamburger (mobile) + logo */}
-        <div className="flex items-center gap-2">
+    <header
+      className={cn(
+        'sticky top-0 z-40 h-16 bg-elevated border-b border-border',
+      )}
+    >
+      <div className="mx-auto flex h-full max-w-[1920px] items-center justify-between gap-3 px-4 sm:px-6">
+        {/* ── Left: hamburger + logo ── */}
+        <div className="flex items-center gap-2 min-w-0">
           <button
             type="button"
             aria-label="Open navigation menu"
             onClick={onOpenMobileMenu}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-button border border-border bg-elevated text-text-secondary hover:text-text-primary hover:border-text-muted lg:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-button border border-border bg-elevated text-text-secondary hover:text-text-primary hover:border-border-strong transition-colors lg:hidden"
           >
             <Menu className="h-5 w-5" />
           </button>
 
-          <Link href="/dashboard" className="inline-flex items-center gap-2">
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-[#0B0E11] font-bold">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 shrink-0">
+            <span
+              aria-hidden="true"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-text-inverse font-bold"
+            >
               P
             </span>
             <span className="hidden sm:inline text-sm font-semibold tracking-tight text-text-primary">
@@ -60,35 +50,45 @@ export function TopNav({ onOpenMobileMenu }: TopNavProps): JSX.Element {
           </Link>
         </div>
 
-        {/* Center — primary nav (desktop) */}
-        <nav className="hidden lg:flex items-center gap-1">
-          {PRIMARY_NAV.map((item) => {
-            const active = isItemActive(router, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'relative inline-flex items-center h-9 rounded-button px-3 text-sm font-medium transition-colors',
-                  active
-                    ? 'text-text-primary'
-                    : 'text-text-secondary hover:text-text-primary',
-                )}
-              >
-                {item.label}
-                {active && (
-                  <span
-                    aria-hidden="true"
-                    className="absolute -bottom-[17px] left-3 right-3 h-[2px] bg-accent rounded-full"
-                  />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
+        {/* ── Center: search ── */}
+        <div className="hidden md:flex flex-1 max-w-md mx-4">
+          <label className="relative w-full">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-muted"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search markets, transactions…"
+              aria-label="Search"
+              className={cn(
+                'h-10 w-full rounded-button border border-border bg-muted pl-9 pr-3 text-sm',
+                'text-text-primary placeholder:text-text-muted',
+                'focus:outline-none focus:border-border-strong focus:bg-elevated transition-colors',
+              )}
+            />
+          </label>
+        </div>
 
-        {/* Right — theme toggle + user menu */}
+        {/* ── Right: bell + theme + user ── */}
         <div className="flex items-center gap-2">
+          <Link
+            href="/notifications"
+            aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+            className="relative inline-flex h-10 w-10 items-center justify-center rounded-button border border-border bg-elevated text-text-secondary hover:text-text-primary hover:border-border-strong transition-colors"
+          >
+            <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span
+                aria-hidden="true"
+                className="absolute top-1.5 right-1.5 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-text-inverse"
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </Link>
           <ThemeToggle />
           <UserMenu />
         </div>
