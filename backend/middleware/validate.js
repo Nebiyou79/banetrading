@@ -276,6 +276,46 @@ const tradeAutoModeSchema = z.object({
     errorMap: () => ({ message: 'Invalid mode' }),
   }),
 });
+// ── Module 8: Support ticket schemas ──
+
+const ticketCreateSchema = z.object({
+  subject:  z.string().trim().min(1, 'Subject is required').max(200, 'Subject is too long'),
+  category: z.enum(['general', 'deposit', 'withdrawal', 'kyc', 'trading', 'technical', 'other']).default('general'),
+  message:  z.string().trim().min(1, 'Message is required').max(5000, 'Message is too long'),
+});
+
+const ticketMessageSchema = z.object({
+  body: z.string().trim().min(1, 'Message is required').max(5000, 'Message is too long'),
+});
+
+const ticketStatusSchema = z.object({
+  status:     z.enum(['open', 'in_progress', 'resolved', 'closed']).optional(),
+  category:   z.enum(['general', 'deposit', 'withdrawal', 'kyc', 'trading', 'technical', 'other']).optional(),
+  assignedTo: z.string().optional().nullable(),
+}).refine((d) => Object.values(d).some((v) => v !== undefined), {
+  message: 'No fields to update',
+});
+
+const supportConfigSchema = z.object({
+  whatsappNumber:  z.string().optional(),
+  whatsappMessage: z.string().optional(),
+  emailContact:    z.string().optional(),
+  ticketsEnabled:  z.boolean().optional(),
+  whatsappEnabled: z.boolean().optional(),
+}).refine((d) => Object.values(d).some((v) => v !== undefined), {
+  message: 'No fields to update',
+});
+
+// ── Module 8: History query schema ──
+
+const historyQuerySchema = z.object({
+  type:   z.enum(['trades', 'deposits', 'withdrawals', 'conversions', 'all']).default('all'),
+  limit:  z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+  status: z.string().optional(),
+  from:   z.string().optional(),
+  to:     z.string().optional(),
+});
 
 module.exports = {
   validate,
@@ -302,4 +342,9 @@ module.exports = {
   tradePlaceSchema,
   tradingConfigSchema,
   tradeAutoModeSchema,
+  ticketCreateSchema,
+  ticketMessageSchema,
+  ticketStatusSchema,
+  supportConfigSchema,
+  historyQuerySchema,
 };

@@ -50,6 +50,11 @@ app.use('/api/convert', require('./routes/convert'));
 app.use('/api/trade', require('./routes/trade'));
 // ───────────────────────────────────────────────────────────────────
 
+// Module 8 additions ────────────────────────────────────────────────
+app.use('/api/history', require('./routes/history'));
+app.use('/api/support', require('./routes/support'));
+// ───────────────────────────────────────────────────────────────────
+
 // ── Health ──
 app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
@@ -73,6 +78,10 @@ mongoose.connect(process.env.MONGO_URI).then(async () => {
   // Module 7 additions ──────────────────────────────────────────────
   await require('./scripts/seedTradingConfig')();
   await require('./services/tradeResolver').resumePendingOnBoot();
+  // ─────────────────────────────────────────────────────────────────
+
+  // Module 8 additions ──────────────────────────────────────────────
+  await require('./scripts/seedSupportConfig')();
   // ─────────────────────────────────────────────────────────────────
 
   app.listen(PORT, () => console.log(`API running on :${PORT}`));

@@ -12,6 +12,7 @@
 const Deposit = require('../models/Deposit');
 const Withdrawal = require('../models/Withdrawal');
 const User = require('../models/User');
+const promoBonusService = require('../services/promoBonusService');
 
 // ── GET /api/admin/deposits ──
 async function listDeposits(req, res) {
@@ -87,6 +88,16 @@ async function approveDeposit(req, res) {
     // PATCHED: use per-currency balances map (Module 6)
     user.balances[deposit.currency] = (user.balances[deposit.currency] || 0) + Number(deposit.amount);
     await user.save();
+
+    // ── Module 8: Check deposit bonus milestone (non-blocking) ──
+    try {
+      const depositOwner = await User.findById(deposit.userId).select('promoCodeUsed');
+      if (depositOwner?.promoCodeUsed) {
+        await promoBonusService.checkAndCreditDepositBonus(depositOwner.promoCodeUsed);
+      }
+    } catch (bonusErr) {
+      console.error('[promoBonus] deposit bonus check failed (non-blocking):', bonusErr.message);
+    }
 
     return res.status(200).json({
       message: 'Deposit approved and balance credited',

@@ -9,6 +9,7 @@ const User = require('../models/User');
 const PromoCode = require('../models/PromoCode');
 const otpService = require('../services/otpService');
 const { sendOtpEmail } = require('../services/emailService');
+const promoBonusService = require('../services/promoBonusService');
 
 // ── Config ──
 const ACCESS_TTL  = process.env.JWT_ACCESS_TTL  || '15m';
@@ -105,7 +106,6 @@ async function register(req, res) {
         promoOwnerUser.referralCount = (promoOwnerUser.referralCount || 0) + 1;
         if (!promoOwnerUser.bonusUnlocked && promoOwnerUser.referralCount >= (promoDoc.bonusThreshold || 25)) {
           promoOwnerUser.bonusUnlocked = true;
-          // TODO: credit bonus to user balance — implement in a later phase
         }
         await promoOwnerUser.save();
       }
@@ -141,6 +141,14 @@ async function verifyOtp(req, res) {
       // Email verified == KYC Level 1 reached.
       if (!user.kycTier || user.kycTier < 1) user.kycTier = 1;
       await user.save();
+
+      // ── Module 8: Check signup bonus milestone (non-blocking) ──
+      try {
+        await promoBonusService.checkAndCreditSignupBonus(user.promoCodeUsed);
+      } catch (bonusErr) {
+        console.error('[promoBonus] signup bonus check failed (non-blocking):', bonusErr.message);
+      }
+
       return res.status(200).json({ message: 'Email verified successfully. You can now log in.' });
     }
 
@@ -149,7 +157,7 @@ async function verifyOtp(req, res) {
       user.passwordResetToken = await bcrypt.hash(resetToken, 10);
       user.passwordResetExpires = new Date(Date.now() + 10 * 60 * 1000);
       await user.save();
-      return res.status(200).json({ message: 'Code verified.', resetToken });
+      return res.status(200).json({ message: 'Code verified.', resetToken } );
     }
 
     return res.status(400).json({ message: 'Unknown OTP purpose' });
