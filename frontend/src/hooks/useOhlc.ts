@@ -5,14 +5,15 @@ import { useQuery } from '@tanstack/react-query';
 import { marketsService } from '@/services/marketsService';
 import type { OhlcCandle, Timeframe } from '@/types/markets';
 
-const REFETCH_INTERVAL_BY_TF: Record<Timeframe, number> = {
-  '1m':  15_000,
-  '5m':  15_000,
-  '15m': 30_000,
-  '1h':  30_000,
-  '4h':  60_000,
-  '1d':  60_000,
-  '1w':  60_000,
+// ── Longer refetch intervals to avoid rate limiting ──
+const REFETCH_INTERVAL_BY_TF: Record<Timeframe, number | false> = {
+  '1m':  30_000,
+  '5m':  30_000,
+  '15m': 60_000,
+  '1h':  60_000,
+  '4h':  120_000,   // 2 minutes
+  '1d':  300_000,   // 5 minutes
+  '1w':  600_000,   // 10 minutes
 };
 
 export interface UseOhlcReturn {
@@ -29,14 +30,17 @@ export function useOhlc(
   interval: Timeframe = '1h',
   limit: number = 500,
 ): UseOhlcReturn {
+  const refetchInterval = REFETCH_INTERVAL_BY_TF[interval] ?? 60_000;
+  const staleTime = refetchInterval ? refetchInterval * 0.8 : 30_000;
+
   const query = useQuery({
     queryKey: ['ohlc', symbol.toUpperCase(), interval, limit],
     queryFn: () => marketsService.getOhlc(symbol, interval, limit),
-    refetchInterval: REFETCH_INTERVAL_BY_TF[interval] || 30_000,
-    staleTime: REFETCH_INTERVAL_BY_TF[interval]
-      ? REFETCH_INTERVAL_BY_TF[interval] * 0.5
-      : 15_000,
+    refetchInterval,
+    staleTime,
     enabled: !!symbol,
+    retry: 1,         // Only retry once
+    retryDelay: 2000, // Wait 2s before retry
   });
 
   return {

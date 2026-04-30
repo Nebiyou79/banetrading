@@ -22,8 +22,8 @@ export function useMarkets(): UseMarketsReturn {
   const query = useQuery<MarketsListResponse>({
     queryKey: MARKETS_LIST_KEY,
     queryFn: () => marketsService.getMarketsList(),
-    refetchInterval: 15000,
-    staleTime: 10000,
+    refetchInterval: 60_000,    // 60s (was 15s)
+    staleTime: 30_000,          // 30s (was 10s)
   });
 
   return {

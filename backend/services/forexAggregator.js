@@ -8,6 +8,7 @@ const twelve = require('./providers/fxTwelveData');
 const { FOREX_PAIRS } = require('../config/forex');
 const { METAL_PAIRS } = require('../config/metals');
 
+// ── exchangerate.host first (no rate limit, works everywhere) ──
 const PROVIDERS = [
   { name: 'exchangerate.host', fn: ehost.fetchAll,       hasMetals: true },
   { name: 'frankfurter',       fn: frank.fetchForex,      hasMetals: false },
@@ -15,16 +16,13 @@ const PROVIDERS = [
 ];
 
 const FX_LIST_KEY = 'forex:list';
-const FX_TTL_MS = 60 * 1000;
-const STALE_OK_MS = 10 * 60 * 1000;
+const FX_TTL_MS = 120 * 1000;        // 2 min cache (FX moves slow)
+const STALE_OK_MS = 15 * 60 * 1000;  // 15 min stale OK
 
-// ── Main entry point ──
 async function getForexAndMetals() {
-  // 1. Fresh cache hit?
   const fresh = cache.get(FX_LIST_KEY, FX_TTL_MS);
   if (fresh) return { rows: fresh.value, source: fresh.source, stale: false };
 
-  // 2. Cascade providers
   for (const p of PROVIDERS) {
     try {
       const rows = await p.fn();
@@ -34,19 +32,17 @@ async function getForexAndMetals() {
         return { rows: merged, source: p.name, stale: false };
       }
     } catch (err) {
-      console.warn(`[forexAggregator] ${p.name} failed: ${err.message}`);
+      if (!err.message?.includes('aborted') && !err.message?.includes('fetch failed')) {
+        console.warn(`[forexAggregator] ${p.name} failed: ${err.message}`);
+      }
     }
   }
 
-  // 3. All failed — serve stale if available
   const stale = cache.get(FX_LIST_KEY, STALE_OK_MS);
   if (stale) return { rows: stale.value, source: stale.source, stale: true };
-
-  // 4. Total failure
-  throw new Error('All forex providers failed and no cache available');
+  throw new Error('All forex providers failed');
 }
 
-// ── Merge provider rows with metadata ──
 function mergeWithMetadata(rows) {
   const all = [...FOREX_PAIRS, ...METAL_PAIRS];
   return all.map(meta => {

@@ -244,6 +244,39 @@ const convertConfigSchema = z.object({
   message: 'No fields to update',
 });
 
+// ── Trading (Module 7) ──
+const PLAN_KEYS = ['SILVER', 'GOLD', 'PLATINUM', 'DIAMOND', 'ELITE'];
+
+const tradePlaceSchema = z.object({
+  pair:         z.string().trim().toUpperCase().min(3, 'Pair is required').max(16),
+  direction:    z.enum(['buy', 'sell'], { errorMap: () => ({ message: 'Direction must be buy or sell' }) }),
+  planKey:      z.enum(PLAN_KEYS, { errorMap: () => ({ message: 'Invalid plan' }) }),
+  tradingAsset: z.enum(ALL_CURRENCIES, { errorMap: () => ({ message: 'Invalid trading asset' }) }),
+  stake:        z.coerce.number({ invalid_type_error: 'Stake must be a number' }).positive('Stake must be greater than 0'),
+});
+
+const tradePlanSchema = z.object({
+  key:         z.enum(PLAN_KEYS),
+  multiplier:  z.coerce.number().min(0).max(10),
+  durationSec: z.coerce.number().int().min(1).max(86400),
+  minUsd:      z.coerce.number().min(0),
+  active:      z.boolean().optional(),
+});
+
+const tradingConfigSchema = z.object({
+  plans:        z.array(tradePlanSchema).optional(),
+  feeBps:       z.coerce.number().min(0).max(5000).optional(),
+  enabledPairs: z.array(z.string().trim()).optional(),
+}).refine((d) => Object.values(d).some((v) => v !== undefined), {
+  message: 'No fields to update',
+});
+
+const tradeAutoModeSchema = z.object({
+  mode: z.enum(['off', 'random', 'alwaysWin', 'alwaysLose'], {
+    errorMap: () => ({ message: 'Invalid mode' }),
+  }),
+});
+
 module.exports = {
   validate,
   registerSchema,
@@ -266,4 +299,7 @@ module.exports = {
   convertQuoteSchema,
   convertExecuteSchema,
   convertConfigSchema,
+  tradePlaceSchema,
+  tradingConfigSchema,
+  tradeAutoModeSchema,
 };

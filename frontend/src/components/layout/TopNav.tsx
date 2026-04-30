@@ -3,6 +3,7 @@
 
 import { useState, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { motion } from 'framer-motion';
 import { Menu, Search, Bell, X } from 'lucide-react';
@@ -10,7 +11,7 @@ import { cn } from '@/lib/cn';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { UserMenu } from './UserMenu';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade';
+const BRAND = 'BaneTrading';
 
 export interface TopNavProps {
   onOpenMobileMenu: () => void;
@@ -52,16 +53,17 @@ export function TopNav({ onOpenMobileMenu }: TopNavProps): JSX.Element {
             <Menu className="h-5 w-5" />
           </button>
 
-          <Link href="/dashboard" className="inline-flex items-center gap-2 shrink-0 group">
-            <motion.span
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              aria-hidden="true"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-text-inverse font-bold shadow-sm group-hover:shadow-md transition-shadow"
-            >
-              P
-            </motion.span>
-            <span className="hidden sm:inline text-sm font-semibold tracking-tight text-text-primary group-hover:text-accent transition-colors">
+          <Link href="/dashboard" className="flex items-center gap-2.5 group">
+            <div className="relative h-8 w-8 rounded-lg overflow-hidden shrink-0 transition-transform group-hover:scale-105">
+              <Image
+                src="/assets/logo.jpg"
+                alt={BRAND}
+                fill
+                className="object-cover"
+                sizes="32px"
+              />
+            </div>
+            <span className="hidden md:block text-sm font-extrabold tracking-tight text-text-primary group-hover:text-accent transition-colors">
               {BRAND}
             </span>
           </Link>
@@ -118,7 +120,6 @@ export function TopNav({ onOpenMobileMenu }: TopNavProps): JSX.Element {
 
         {/* ── Right: bell + theme + user ── */}
         <div className="flex items-center gap-1 sm:gap-2">
-          {/* Quick action: Markets */}
           <Link
             href="/markets/crypto"
             className="hidden sm:inline-flex h-10 items-center gap-1.5 rounded-button border border-border bg-elevated px-3 text-xs font-medium text-text-secondary hover:text-text-primary hover:border-border-strong transition-all duration-200"

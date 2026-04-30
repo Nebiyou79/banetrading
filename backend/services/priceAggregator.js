@@ -1,5 +1,7 @@
 // services/priceAggregator.js
 // ── PRICE AGGREGATOR WITH CASCADE FALLBACK ──
+// CoinGecko is rate-limited to ~30 req/min. We cache aggressively
+// and try Binance/CoinCap first to conserve CoinGecko quota for OHLC.
 
 const cache = require('./priceCache');
 const coingecko = require('./providers/coingecko');
@@ -9,17 +11,18 @@ const cryptocompare = require('./providers/cryptocompare');
 const coinpaprika = require('./providers/coinpaprika');
 const { TIER_1, BY_SYMBOL } = require('../config/coins');
 
+// ── Try Binance/CoinCap FIRST to save CoinGecko quota ──
 const PROVIDERS = [
-  { name: 'coingecko',     fn: coingecko.fetchMarkets,     priority: 1 },
-  { name: 'binance',       fn: binance.fetchMarkets,       priority: 2 },
-  { name: 'coincap',       fn: coincap.fetchMarkets,       priority: 3 },
-  { name: 'cryptocompare', fn: cryptocompare.fetchMarkets, priority: 4 },
-  { name: 'coinpaprika',   fn: coinpaprika.fetchMarkets,   priority: 5 },
+  { name: 'binance',       fn: binance.fetchMarkets,       priority: 1 },
+  { name: 'coincap',       fn: coincap.fetchMarkets,       priority: 2 },
+  { name: 'cryptocompare', fn: cryptocompare.fetchMarkets, priority: 3 },
+  { name: 'coinpaprika',   fn: coinpaprika.fetchMarkets,   priority: 4 },
+  { name: 'coingecko',     fn: coingecko.fetchMarkets,     priority: 5 }, // LAST — save for OHLC
 ];
 
 const LIST_CACHE_KEY = 'markets:list';
-const LIST_TTL_MS = 30 * 1000;
-const STALE_OK_MS = 5 * 60 * 1000;   // serve stale cache up to 5 min if all providers fail
+const LIST_TTL_MS = 60 * 1000;           // 60s cache (was 30s)
+const STALE_OK_MS = 10 * 60 * 1000;      // 10 min stale OK (was 5 min)
 
 // ── Fetch the full tier-1 market list ──
 async function getMarketList() {
@@ -27,7 +30,7 @@ async function getMarketList() {
   const fresh = cache.get(LIST_CACHE_KEY, LIST_TTL_MS);
   if (fresh) return { rows: fresh.value, source: fresh.source, stale: false };
 
-  // 2. Cascade providers
+  // 2. Cascade providers (Binance/CoinCap first)
   for (const p of PROVIDERS) {
     try {
       const rows = await p.fn();
@@ -37,7 +40,10 @@ async function getMarketList() {
         return { rows: normalized, source: p.name, stale: false };
       }
     } catch (err) {
-      console.warn(`[priceAggregator] ${p.name} failed: ${err.message}`);
+      // Silently skip — only log if it's not a network issue
+      if (!err.message?.includes('aborted') && !err.message?.includes('fetch failed')) {
+        console.warn(`[priceAggregator] ${p.name} failed: ${err.message}`);
+      }
     }
   }
 
@@ -49,14 +55,14 @@ async function getMarketList() {
   throw new Error('All price providers failed and no cache available');
 }
 
-// ── Merge provider rows with Tier-1 metadata (fill missing fields) ──
+// ── Merge provider rows with Tier-1 metadata ──
 function mergeWithMetadata(rows) {
   return TIER_1.map(meta => {
     const row = rows.find(r => r.symbol === meta.symbol) || {};
     return {
       symbol:      meta.symbol,
       name:        row.name      || meta.name,
-      iconUrl:     row.iconUrl   || null,    // null → frontend renders fallback badge
+      iconUrl:     row.iconUrl   || null,
       price:       row.price     ?? null,
       change24h:   row.change24h ?? null,
       high24h:     row.high24h   ?? null,

@@ -2,6 +2,7 @@
 // ── Desktop sidebar (≥ lg). Hidden on mobile (drawer used instead). ──
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -10,6 +11,7 @@ import { SidebarItem } from './SidebarItem';
 import { SIDEBAR_GROUPS } from './sidebarItems';
 
 const STORAGE_KEY = 'sidebar-collapsed';
+const BRAND = 'BaneTrading';
 
 export interface SidebarProps {
   className?: string;
@@ -44,16 +46,40 @@ export function Sidebar({ className }: SidebarProps): JSX.Element {
       aria-label="Primary"
       className={cn(
         'sticky top-16 hidden lg:flex shrink-0 flex-col bg-sidebar border-r border-border',
-        // Full height minus topnav
         'h-[calc(100vh-4rem)]',
-        // Smooth width animation
         'transition-[width] duration-300 ease-in-out',
         collapsed ? 'w-16' : 'w-60',
-        // Avoid flicker before hydration
         !hydrated && 'invisible',
         className,
       )}
     >
+      {/* Brand section with logo */}
+      <div className="flex items-center gap-2.5 px-4 py-5 border-b border-[var(--border)]">
+        <div
+          className="relative h-9 w-9 rounded-xl overflow-hidden shrink-0"
+          style={{ boxShadow: '0 0 12px var(--page-accent-muted)' }}
+        >
+          <Image
+            src="/assets/logo.jpg"
+            alt={`${BRAND} logo`}
+            fill
+            className="object-cover"
+            sizes="36px"
+          />
+        </div>
+        {!collapsed && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <div className="text-sm font-extrabold tracking-tight text-[var(--text-primary)]">{BRAND}</div>
+            <div className="text-[9px] uppercase tracking-widest text-[var(--text-muted)]">Pro Trading</div>
+          </motion.div>
+        )}
+      </div>
+
       <nav
         className="flex flex-1 flex-col gap-5 overflow-y-auto overflow-x-hidden px-2 pt-4 pb-2 scrollbar-thin"
         aria-label="Main navigation"

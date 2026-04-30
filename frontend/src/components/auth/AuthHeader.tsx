@@ -2,6 +2,7 @@
 // ── BaneTrading — Auth header with per-page accent theming ──
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ArrowLeft } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import type { PageTheme } from './AuthLayout';
@@ -20,38 +21,33 @@ export function AuthHeader({
   compact = false,
 }: AuthHeaderProps): JSX.Element {
   return (
-    <div className="flex w-full items-center justify-between gap-3"
-      style={{ animation: 'authFadeIn 0.4s 0.05s both' }}>
-
+    <div
+      className="flex w-full items-center justify-between gap-3"
+      style={{ animation: 'authFadeIn 0.4s 0.05s both' }}
+    >
       {/* Brand wordmark */}
-      <Link href="/" className="inline-flex items-center gap-2.5 group transition-transform duration-150 hover:scale-[1.02]" aria-label={`${BRAND} home`}>
-        {/* Logo badge — uses page-accent var */}
+      <Link
+        href="/"
+        className="inline-flex items-center gap-2.5 group transition-transform duration-150 hover:scale-[1.02]"
+        aria-label={`${BRAND} home`}
+      >
+        {/* Logo image — replaces SVG badge */}
         <div
-          className="relative inline-flex h-8 w-8 items-center justify-center rounded-xl overflow-hidden shrink-0 transition-transform duration-150 group-hover:scale-105"
-          style={{
-            background: 'linear-gradient(135deg, var(--page-accent) 0%, var(--page-accent-hover) 100%)',
-            boxShadow: '0 0 12px var(--page-accent-muted)',
-          }}
+          className="relative h-8 w-8 rounded-xl overflow-hidden shrink-0 transition-transform duration-150 group-hover:scale-105"
+          style={{ boxShadow: '0 0 12px var(--page-accent-muted)' }}
         >
-          <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-            <polyline
-              points="6,21 10,14 14,18 19,10 26,14"
-              stroke="rgba(255,255,255,0.35)"
-              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            />
-            <polyline
-              points="6,21 10,14 14,18 19,10 26,14"
-              stroke="rgba(255,255,255,0.9)"
-              strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-            />
-          </svg>
+          <Image
+            src="/assets/logo.jpg"
+            alt="BaneTrading"
+            fill
+            sizes="32px"
+            className="object-cover"
+          />
         </div>
 
         {!compact && (
           <div>
-            <span
-              className="block text-sm font-extrabold tracking-tight text-[var(--text-primary)] transition-colors duration-150"
-            >
+            <span className="block text-sm font-extrabold tracking-tight text-[var(--text-primary)] transition-colors duration-150">
               {BRAND}
             </span>
             <span className="block text-[9px] uppercase tracking-widest text-[var(--text-muted)]">
@@ -59,6 +55,7 @@ export function AuthHeader({
             </span>
           </div>
         )}
+
         {compact && (
           <span className="text-sm font-extrabold tracking-tight text-[var(--text-primary)]">
             {BRAND}

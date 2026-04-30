@@ -1,7 +1,8 @@
 // models/User.js
 // ── User model ──
-// Preserves previously-documented fields and EXTENDS with OTP, referral,
-// and now with per-currency balances map.
+// Preserves previously-documented fields. Module 7 update: autoMode becomes
+// a String enum ('off' | 'alwaysWin' | 'alwaysLose' | 'random'). A pre-save
+// migration converts legacy Boolean values transparently.
 
 const mongoose = require('mongoose');
 
@@ -50,8 +51,13 @@ const UserSchema = new mongoose.Schema({
   kycTier:          { type: Number, default: 1, min: 1, max: 3 },
   kycStatus:        { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
 
-  // ── Auto mode ──
-  autoMode:         { type: Boolean, default: false },
+  // ── Auto mode (Module 7) ──
+  // 'off'        → resolve at random (50/50)        — note: spec uses 'random' for this
+  // 'random'     → 50/50 random outcome
+  // 'alwaysWin'  → admin-rigged win
+  // 'alwaysLose' → admin-rigged loss
+  // Mixed type accepts legacy Boolean and converts via pre-save.
+  autoMode:         { type: mongoose.Schema.Types.Mixed, default: 'random' },
 
   // ── OTP ──
   otpHash:          { type: String },
@@ -68,11 +74,22 @@ const UserSchema = new mongoose.Schema({
   bonusCreditedAt:  { type: Date },
 }, { timestamps: true });
 
-// ── Pre-save: mirror balances.USDT into legacy balance ──
+// ── Pre-save: mirror balances.USDT into legacy balance + normalize autoMode ──
 UserSchema.pre('save', function (next) {
   if (this.isModified('balances') && this.balances) {
     this.balance = this.balances.USDT || 0;
   }
+
+  // Normalize legacy Boolean autoMode into the new enum-string shape.
+  if (this.autoMode === true)  this.autoMode = 'alwaysWin';
+  if (this.autoMode === false) this.autoMode = 'random';
+
+  // Guard against unknown values.
+  const VALID = ['off', 'random', 'alwaysWin', 'alwaysLose'];
+  if (typeof this.autoMode !== 'string' || !VALID.includes(this.autoMode)) {
+    this.autoMode = 'random';
+  }
+
   next();
 });
 
