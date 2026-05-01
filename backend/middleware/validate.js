@@ -2,7 +2,9 @@
 // ── Zod-based request validation ──
 
 const { z } = require('zod');
+// middleware/validate.js
 
+const Joi = require('joi');  // ← MAKE SURE THIS IS AT THE TOP
 // ── Shared primitives ──
 const emailSchema = z.string().trim().toLowerCase().email('Invalid email address');
 
@@ -316,6 +318,25 @@ const historyQuerySchema = z.object({
   from:   z.string().optional(),
   to:     z.string().optional(),
 });
+// ── Add these schemas to the existing validate.js file ──
+
+// Admin update user schema
+const adminUpdateUserSchema = Joi.object({
+  name: Joi.string().trim().max(100).optional(),
+  email: Joi.string().email().lowercase().trim().max(255).optional(),
+  role: Joi.string().valid('user', 'admin').optional(),
+  kycTier: Joi.number().integer().min(1).max(3).optional(),
+  isFrozen: Joi.boolean().optional(),
+  freezeReason: Joi.string().trim().max(500).optional()
+    .when('isFrozen', {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
+  autoMode: Joi.string().valid('off', 'random', 'alwaysWin', 'alwaysLose').optional(),
+}).min(1).messages({
+  'object.min': 'At least one field must be provided',
+});
 
 module.exports = {
   validate,
@@ -347,4 +368,5 @@ module.exports = {
   ticketStatusSchema,
   supportConfigSchema,
   historyQuerySchema,
+  adminUpdateUserSchema,
 };

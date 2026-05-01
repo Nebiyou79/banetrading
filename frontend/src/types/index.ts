@@ -1,48 +1,28 @@
 // types/index.ts — Shared TypeScript types for LunoTrading V2
+// NOTE: This file re-exports from the modular type files.
+// For admin module, use the specific type files directly.
 
-// ── Auth ──────────────────────────────────────────────────────────────────
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: 'user' | 'admin';
-  kycTier: number;
-  kycStatus: 'pending' | 'accepted' | 'rejected' | 'verified';
-  balance: number;
-  country?: string;
-  isFrozen?: boolean;
-  freezeReason?: string;
-  autoMode?: 'alwaysWin' | 'alwaysLose' | 'off';
-  emailVerified?: boolean;
-  lastLoginAt?: string;
-  createdAt?: string;
-}
+// ── Re-export from modular types ──
+export type { User, UserRole, KycStatus, LoginResponse } from './auth';
 
-export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-}
-
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface RegisterRequest {
-  name: string;
-  email: string;
-  password: string;
-  country: string;
-}
-
-export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: User;
+// ── Admin Stats (defined here since it's a composite type) ──
+export interface AdminStats {
+  totalUsers: number;
+  totalDeposits: number;
+  pendingDeposits: number;
+  totalWithdrawals: number;
+  pendingWithdrawals: number;
+  totalTrades: number;
+  openTickets: number;
+  // Legacy fields (kept for backward compatibility)
+  newToday?: number;
+  activeTrades?: number;
+  platformBalance?: number;
+  totalFeesCollected?: number;
 }
 
 // ── KYC ───────────────────────────────────────────────────────────────────
-export interface KycStatus {
+export interface KycStatusData {
   status: 'not_submitted' | 'pending' | 'approved' | 'rejected';
   tier: number;
   submittedAt?: string;
@@ -57,31 +37,39 @@ export interface KycStatus {
   message?: string;
 }
 
-// ── Funds ─────────────────────────────────────────────────────────────────
+// ── Funds (legacy shapes - prefer types/funds.ts for new code) ────────────
 export interface Deposit {
   _id: string;
-  userId: string;
+  userId: string | { _id: string; email: string; name: string; displayName?: string };
   amount: number;
   currency: 'USDT' | 'BTC' | 'ETH';
-  proofFilePath: string;
+  network?: string;
+  proofFilePath?: string;
+  note?: string;
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  txHash?: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface Withdrawal {
   _id: string;
-  userId: string;
+  userId: string | { _id: string; email: string; name: string; displayName?: string };
   amount: number;
-  address: string;
-  network: 'USDT-TRC20' | 'BTC' | 'ETH';
+  currency: 'USDT' | 'BTC' | 'ETH';
+  network?: string;
+  toAddress?: string;
+  networkFee?: number;
+  netAmount?: number;
   status: 'pending' | 'approved' | 'rejected';
   rejectionReason?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  txHash?: string;
+  note?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,30 +77,43 @@ export interface Withdrawal {
 export interface WithdrawRequest {
   amount: number;
   address: string;
-  network: 'USDT-TRC20' | 'BTC' | 'ETH';
+  network: string;
 }
 
-export interface DepositAddresses {
+export interface DepositAddressesData {
   usdtAddress: string;
   btcAddress: string;
   ethAddress: string;
 }
 
-// ── Trades ────────────────────────────────────────────────────────────────
+// ── Trades (legacy shape - prefer types/trade.ts for new code) ────────────
 export interface Trade {
   _id: string;
-  user: string | User;
-  assetId: string;
-  assetSymbol: string;
-  priceAtEntry: number;
-  capital: number;
-  returnRate: number;
-  direction: 'up' | 'down';
-  status: 'pending' | 'win' | 'lose';
-  resultAmount: number;
-  transactionFee: number;
-  duration: number;
-  autoMode: 'on' | 'off';
+  user?: string | { _id: string; email: string; name: string };
+  userId?: string;
+  pair?: string;
+  pairDisplay?: string;
+  pairClass?: string;
+  assetId?: string;
+  assetSymbol?: string;
+  priceAtEntry?: number;
+  entryPrice?: number;
+  exitPrice?: number;
+  capital?: number;
+  stake?: number;
+  returnRate?: number;
+  planKey?: string;
+  planMultiplier?: number;
+  direction?: string;
+  status: 'pending' | 'win' | 'lose' | 'won' | 'lost' | 'cancelled';
+  resultAmount?: number;
+  payout?: number;
+  netResult?: number;
+  transactionFee?: number;
+  feeAmount?: number;
+  duration?: number;
+  planDurationSec?: number;
+  autoMode?: string;
   resolvedAt?: string;
   createdAt: string;
   updatedAt: string;
@@ -124,7 +125,7 @@ export interface PlaceTradeRequest {
   priceAtEntry: number;
   capital: number;
   returnRate: number;
-  direction: 'up' | 'down';
+  direction: string;
   duration: number;
 }
 
@@ -161,7 +162,7 @@ export interface Announcement {
   createdAt: string;
 }
 
-// ── Support ───────────────────────────────────────────────────────────────
+// ── Support (legacy shapes) ───────────────────────────────────────────────
 export interface SupportMessage {
   _id: string;
   userId: string;
@@ -182,17 +183,6 @@ export interface SupportConversation {
     name: string;
     email: string;
   };
-}
-
-// ── Admin ─────────────────────────────────────────────────────────────────
-export interface AdminStats {
-  totalUsers: number;
-  newToday: number;
-  pendingDeposits: { count: number; totalValue: number };
-  pendingWithdrawals: { count: number; totalValue: number };
-  activeTrades: number;
-  platformBalance: number;
-  totalFeesCollected: number;
 }
 
 // ── Transactions (unified) ────────────────────────────────────────────────

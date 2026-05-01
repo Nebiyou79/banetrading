@@ -1,5 +1,5 @@
 // components/ui/StatusPill.tsx
-// ── Single shared status pill — used across KYC, deposits, withdrawals, etc. ──
+// ── Single shared status pill — used across KYC, deposits, withdrawals, tickets, etc. ──
 
 import { ReactNode } from 'react';
 import { cn } from '@/lib/cn';
@@ -22,12 +22,12 @@ export interface StatusPillProps {
 
 const TONE: Record<StatusPillTone, string> = {
   // 1px solid border + muted bg + foreground color, per Doc 4 spec.
-  success: 'bg-success-muted text-success border-success/60',
-  warning: 'bg-warning-muted text-warning border-warning/60',
-  danger:  'bg-danger-muted text-danger border-danger/60',
-  info:    'bg-info-muted text-info border-info/60',
-  accent:  'bg-accent-muted text-accent border-accent/60',
-  neutral: 'bg-muted text-text-secondary border-border',
+  success: 'bg-[var(--success-muted)] text-[var(--success)] border-[var(--success)]/60',
+  warning: 'bg-[var(--warning-muted)] text-[var(--warning)] border-[var(--warning)]/60',
+  danger:  'bg-[var(--danger-muted)] text-[var(--danger)] border-[var(--danger)]/60',
+  info:    'bg-[var(--info-muted)] text-[var(--info)] border-[var(--info)]/60',
+  accent:  'bg-[var(--primary-muted)] text-[var(--accent)] border-[var(--accent)]/60',
+  neutral: 'bg-[var(--bg-muted)] text-[var(--text-secondary)] border-[var(--border)]',
 };
 
 const SIZE: Record<NonNullable<StatusPillProps['size']>, string> = {
@@ -58,6 +58,58 @@ export function StatusPill({
       {leadingIcon && <span className="inline-flex">{leadingIcon}</span>}
       <span>{children}</span>
     </span>
+  );
+}
+
+// ── Status string mapping helpers ──
+
+/** Maps common status strings to StatusPill tone + label */
+export type StatusString = 
+  | 'approved' | 'pending' | 'rejected' | 'completed' | 'failed'
+  | 'open' | 'in_progress' | 'resolved' | 'closed'
+  | 'active' | 'inactive';
+
+const STATUS_MAP: Record<string, { tone: StatusPillTone; label: string }> = {
+  // ── Deposit / Withdrawal statuses ──
+  approved:      { tone: 'success', label: 'Approved' },
+  pending:       { tone: 'warning', label: 'Pending' },
+  rejected:      { tone: 'danger',  label: 'Rejected' },
+
+  // ── Trade / Conversion statuses ──
+  completed:     { tone: 'success', label: 'Completed' },
+  failed:        { tone: 'danger',  label: 'Failed' },
+
+  // ── Ticket statuses ──
+  open:          { tone: 'info',    label: 'Open' },
+  in_progress:   { tone: 'warning', label: 'In Progress' },
+  resolved:      { tone: 'success', label: 'Resolved' },
+  closed:        { tone: 'neutral', label: 'Closed' },
+
+  // ── General ──
+  active:        { tone: 'success', label: 'Active' },
+  inactive:      { tone: 'neutral', label: 'Inactive' },
+};
+
+export interface StatusFromStringProps {
+  status: string;
+  size?: 'xs' | 'sm';
+  className?: string;
+}
+
+/**
+ * Convenience component that accepts a status string directly
+ * and maps it to the correct tone + label automatically.
+ * 
+ * Usage: <StatusPillFromString status="approved" />
+ *        <StatusPillFromString status="pending" />
+ *        <StatusPillFromString status="open" />
+ */
+export function StatusPillFromString({ status, size = 'sm', className }: StatusFromStringProps): JSX.Element {
+  const mapped = STATUS_MAP[status] || { tone: 'neutral' as StatusPillTone, label: status };
+  return (
+    <StatusPill tone={mapped.tone} size={size} className={className}>
+      {mapped.label}
+    </StatusPill>
   );
 }
 

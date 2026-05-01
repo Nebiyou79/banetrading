@@ -1,84 +1,66 @@
 // hooks/useActiveTrades.ts
-// ── ACTIVE TRADES HOOK ──
-// Polls /api/trade/active every 2s. Detects trades that disappear from the
-// active list (i.e. resolved) and exposes them as `recentlyResolved` so the
-// UI can show TradeResultModal. Also exposes a queue helper.
-
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, useCallback } from 'react';
+// ── ACTIVE TRADES POLLING HOOK ──
+import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { tradeService } from '@/services/tradeService';
-import type { ActiveTradesResponse, Trade } from '@/types/trade';
+import type { Trade, ActiveTradesResponse } from '@/types/trade';
 
 export const ACTIVE_TRADES_KEY = ['trading', 'active'] as const;
 
 export interface UseActiveTradesReturn {
   trades: Trade[];
+  recentlyResolved: Trade[];
+  clearResolved: () => void;
   isLoading: boolean;
   error: string | null;
-  refetch: () => void;
-  recentlyResolved: Trade[];
-  consumeResolved: (id: string) => void;
 }
 
-export function useActiveTrades(pollMs = 2000): UseActiveTradesReturn {
-  const queryClient = useQueryClient();
+export function useActiveTrades(): UseActiveTradesReturn {
+  const [recentlyResolved, setRecentlyResolved] = useState<Trade[]>([]);
+  const prevPendingRef = useRef<Set<string>>(new Set());
 
   const query = useQuery<ActiveTradesResponse>({
     queryKey: ACTIVE_TRADES_KEY,
     queryFn: () => tradeService.getActive(),
-    refetchInterval: pollMs,
-    staleTime: 0,
+    refetchInterval: (queryData) => {
+      const trades = queryData?.state?.data?.trades;
+      if (!trades || trades.length === 0) return false;
+      return trades.some((t) => t.status === 'pending') ? 1000 : false;
+    },
   });
 
-  const trades = query.data?.trades ?? [];
-
-  const previousIdsRef = useRef<Set<string>>(new Set());
-  const [recentlyResolved, setRecentlyResolved] = useState<Trade[]>([]);
-
-  // Detect the difference between the previous active set and the current one.
-  // Any id that was previously active but is now gone has resolved server-side —
-  // fetch it once to capture its final shape and queue it for the result modal.
+  // Detect newly-resolved trades
   useEffect(() => {
-    if (query.isLoading) return;
+    const trades = query.data?.trades ?? [];
+    const currentPending = new Set(
+      trades.filter((t) => t.status === 'pending').map((t) => t._id)
+    );
 
-    const currentIds = new Set(trades.map((t) => t._id));
-    const removed: string[] = [];
-    previousIdsRef.current.forEach((id) => {
-      if (!currentIds.has(id)) removed.push(id);
-    });
-
-    if (removed.length > 0) {
-      removed.forEach(async (id) => {
-        try {
-          const { trade } = await tradeService.getOne(id);
-          if (trade && trade.status !== 'pending') {
-            setRecentlyResolved((prev) => {
-              if (prev.some((t) => t._id === trade._id)) return prev;
-              return [...prev, trade];
-            });
-          }
-        } catch {
-          // ignore — it'll show in history anyway
+    // Trades that were pending and are now resolved
+    const newlyResolved: Trade[] = [];
+    for (const id of prevPendingRef.current) {
+      if (!currentPending.has(id)) {
+        const resolved = trades.find((t) => t._id === id);
+        if (resolved && resolved.status !== 'pending') {
+          newlyResolved.push(resolved);
         }
-      });
-      // Once trades resolve, refresh balances + history.
-      queryClient.invalidateQueries({ queryKey: ['balances'] });
-      queryClient.invalidateQueries({ queryKey: ['trading', 'history'] });
+      }
     }
 
-    previousIdsRef.current = currentIds;
-  }, [trades, query.isLoading, queryClient]);
+    if (newlyResolved.length > 0) {
+      setRecentlyResolved((prev) => [...prev, ...newlyResolved]);
+    }
 
-  const consumeResolved = useCallback((id: string) => {
-    setRecentlyResolved((prev) => prev.filter((t) => t._id !== id));
-  }, []);
+    prevPendingRef.current = currentPending;
+  }, [query.data]);
+
+  const clearResolved = () => setRecentlyResolved([]);
 
   return {
-    trades,
+    trades: query.data?.trades ?? [],
+    recentlyResolved,
+    clearResolved,
     isLoading: query.isLoading,
     error: query.error ? (query.error as Error).message : null,
-    refetch: () => query.refetch(),
-    recentlyResolved,
-    consumeResolved,
   };
 }

@@ -1,20 +1,37 @@
 // routes/admin.js
-// ── Admin-only routes for Module 3 (deposit/withdrawal review) ──
+// ── Admin-only routes ──
+// Covers deposit/withdrawal review, dashboard stats, user management,
+// and enhanced query support for deposit/withdrawal listing.
 
 const express = require('express');
 const router = express.Router();
 
-const ctrl = require('../controllers/adminController');
+const adminCtrl = require('../controllers/adminController');
+const adminStatsCtrl = require('../controllers/adminStatsController');
+const adminUserCtrl = require('../controllers/adminUserController');
 const auth = require('../middleware/auth');
 const isAdmin = require('../middleware/isAdmin');
+const { validate, adminUpdateUserSchema } = require('../middleware/validate');
 
+// ── All routes below require auth + admin ──
 router.use(auth, isAdmin);
 
-router.get('/deposits',                          ctrl.listDeposits);
-router.get('/withdrawals',                       ctrl.listWithdrawals);
-router.post('/deposits/:id/approve',             ctrl.approveDeposit);
-router.post('/deposits/:id/reject',              ctrl.rejectDeposit);
-router.post('/withdrawals/:id/approve',          ctrl.approveWithdrawal);
-router.post('/withdrawals/:id/reject',           ctrl.rejectWithdrawal);
+// ── Dashboard stats ──
+router.get('/stats', adminStatsCtrl.getStats);
+
+// ── User management ──
+router.get('/users',                         adminUserCtrl.listUsers);
+router.patch('/users/:userId',               validate(adminUpdateUserSchema), adminUserCtrl.updateUser);
+router.delete('/users/:userId',              adminUserCtrl.deleteUser);
+
+// ── Deposits (enhanced with search/currency query params) ──
+router.get('/deposits',                      adminCtrl.listDeposits);
+router.post('/deposits/:id/approve',         adminCtrl.approveDeposit);
+router.post('/deposits/:id/reject',          adminCtrl.rejectDeposit);
+
+// ── Withdrawals (enhanced with search/currency query params) ──
+router.get('/withdrawals',                   adminCtrl.listWithdrawals);
+router.post('/withdrawals/:id/approve',      adminCtrl.approveWithdrawal);
+router.post('/withdrawals/:id/reject',       adminCtrl.rejectWithdrawal);
 
 module.exports = router;

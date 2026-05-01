@@ -6,7 +6,7 @@ export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected';
 export type OtpPurpose = 'email_verification' | 'password_reset';
 
 export interface User {
-  _id: string;
+  _id: string;                  // ← MUST EXIST
   name: string;
   email: string;
   country?: string;
@@ -17,13 +17,18 @@ export interface User {
   freezeReason?: string;
   kycTier: number;
   kycStatus: KycStatus;
-  autoMode: boolean;
+  autoMode: boolean | string;   // Can be boolean or string enum
+  balance?: number;             // Legacy balance field
+  balances?: Record<string, number>; // Multi-currency balances
   promoCodeUsed?: string;
   ownPromoCode?: string;
   referralCount: number;
   bonusUnlocked: boolean;
   bonusCreditedAt?: string;
   passwordUpdatedAt?: string;
+  displayName?: string;
+  phone?: string;
+  avatarUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -112,8 +117,8 @@ export interface ApiError {
 // ── Promo ──
 export interface PromoValidateResponse {
   valid: boolean;
+  reason?: string;
   code?: string;
-  reason?: 'format' | 'not_found' | 'inactive';
 }
 
 export interface PromoMeResponse {

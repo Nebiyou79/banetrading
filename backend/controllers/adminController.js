@@ -20,10 +20,36 @@ async function listDeposits(req, res) {
     const status = req.query.status && ['pending', 'approved', 'rejected'].includes(String(req.query.status))
       ? String(req.query.status)
       : undefined;
+    const currency = req.query.currency && ['USDT', 'BTC', 'ETH'].includes(String(req.query.currency).toUpperCase())
+      ? String(req.query.currency).toUpperCase()
+      : undefined;
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
     const limit = Math.min(Math.max(Number.parseInt(String(req.query.limit ?? '50'), 10) || 50, 1), 200);
     const skip  = Math.max(Number.parseInt(String(req.query.skip ?? '0'), 10) || 0, 0);
 
-    const filter = status ? { status } : {};
+    // Build filter
+    const filter = {};
+    if (status) filter.status = status;
+    if (currency) filter.currency = currency;
+
+    // If search is provided, we need to filter by user email/name.
+    // We first find matching user IDs, then add them to the filter.
+    if (search) {
+      const matchingUsers = await User.find({
+        $or: [
+          { email: { $regex: search, $options: 'i' } },
+          { name: { $regex: search, $options: 'i' } },
+        ],
+      }).select('_id').lean();
+      
+      const userIds = matchingUsers.map((u) => u._id);
+      if (userIds.length === 0) {
+        // No matching users — return empty
+        return res.status(200).json({ deposits: [], total: 0 });
+      }
+      filter.userId = { $in: userIds };
+    }
+
     const [items, total] = await Promise.all([
       Deposit.find(filter)
         .populate('userId', 'email name displayName')
@@ -47,10 +73,34 @@ async function listWithdrawals(req, res) {
     const status = req.query.status && ['pending', 'approved', 'rejected'].includes(String(req.query.status))
       ? String(req.query.status)
       : undefined;
+    const currency = req.query.currency && ['USDT', 'BTC', 'ETH'].includes(String(req.query.currency).toUpperCase())
+      ? String(req.query.currency).toUpperCase()
+      : undefined;
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
     const limit = Math.min(Math.max(Number.parseInt(String(req.query.limit ?? '50'), 10) || 50, 1), 200);
     const skip  = Math.max(Number.parseInt(String(req.query.skip ?? '0'), 10) || 0, 0);
 
-    const filter = status ? { status } : {};
+    // Build filter
+    const filter = {};
+    if (status) filter.status = status;
+    if (currency) filter.currency = currency;
+
+    // If search is provided, filter by user email/name
+    if (search) {
+      const matchingUsers = await User.find({
+        $or: [
+          { email: { $regex: search, $options: 'i' } },
+          { name: { $regex: search, $options: 'i' } },
+        ],
+      }).select('_id').lean();
+      
+      const userIds = matchingUsers.map((u) => u._id);
+      if (userIds.length === 0) {
+        return res.status(200).json({ withdrawals: [], total: 0 });
+      }
+      filter.userId = { $in: userIds };
+    }
+
     const [items, total] = await Promise.all([
       Withdrawal.find(filter)
         .populate('userId', 'email name displayName')

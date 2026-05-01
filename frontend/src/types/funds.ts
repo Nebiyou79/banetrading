@@ -55,7 +55,7 @@ export const CoinNetworkMap = {
 // ── Records ──
 export interface DepositRecord {
   _id: string;
-  userId: string;
+  userId: string | { _id: string; email: string; name: string; displayName?: string };
   amount: number;
   currency: Coin;
   network: DepositNetwork;
@@ -72,7 +72,7 @@ export interface DepositRecord {
 
 export interface WithdrawalRecord {
   _id: string;
-  userId: string;
+  userId: string | { _id: string; email: string; name: string; displayName?: string };
   amount: number;
   currency: Coin;
   network: WithdrawNetwork;

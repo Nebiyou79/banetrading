@@ -1,116 +1,92 @@
 // pages/help/index.tsx
-// ── Help center — FAQ accordion + Contact Support card ──
+// ── HELP CENTER HUB ──
 
 import { useState } from 'react';
 import Head from 'next/head';
-import Link from 'next/link';
-import { ChevronDown, MessageCircle, ArrowRight } from 'lucide-react';
+import { useRouter } from 'next/router';
+
 import { AuthenticatedShell } from '@/components/layout/AuthenticatedShell';
 import { withAuth } from '@/components/layout/withAuth';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { cn } from '@/lib/cn';
+import { useSupportConfig } from '@/hooks/useSupportConfig';
+import NewTicketModal from '@/components/support/NewTicketModal';
+import WhatsAppButton from '@/components/support/WhatsAppButton';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade';
-
-interface Faq { id: string; question: string; answer: string; }
-
-const FAQS: Faq[] = [
-  {
-    id: 'q1',
-    question: 'How do I deposit funds?',
-    answer:
-      'Open the Wallet page and click Deposit. Choose the coin and network, scan the QR or copy the deposit address, then send your transaction from your external wallet. Once confirmed on-chain, an admin will review and credit your balance.',
-  },
-  {
-    id: 'q2',
-    question: 'Why is my withdrawal still pending?',
-    answer:
-      'Withdrawals are reviewed manually for security. The held amount is deducted from your balance the moment you submit; if the request is rejected, the full amount is refunded automatically. Most reviews complete within a few hours.',
-  },
-  {
-    id: 'q3',
-    question: 'What are the verification levels?',
-    answer:
-      'Level 1 is automatic when you verify your email. Level 2 requires a government-issued ID. Level 3 requires proof of address. Higher levels unlock larger limits and more features.',
-  },
-  {
-    id: 'q4',
-    question: 'Can I change my registered email?',
-    answer:
-      'Email changes are not yet self-serve. Contact support and we\u2019ll guide you through the verification steps required to migrate your account safely.',
-  },
-  {
-    id: 'q5',
-    question: 'I forgot my password. What now?',
-    answer:
-      'On the login screen, click "Forgot password" to receive a 6-digit code by email. Enter the code and pick a new password. Note: this signs you out of all sessions.',
-  },
-];
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
 
 function HelpPage(): JSX.Element {
-  const [open, setOpen] = useState<string | null>(null);
+  const router = useRouter();
+  const { config, isLoading } = useSupportConfig();
+  const [showNewTicket, setShowNewTicket] = useState(false);
 
   return (
     <>
-      <Head><title>Help · {BRAND}</title></Head>
+      <Head><title>Help Center · {BRAND}</title></Head>
       <AuthenticatedShell>
         <div className="flex flex-col gap-6">
-          <header className="flex flex-col gap-1.5">
-            <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-text-primary">
-              Help Center
-            </h1>
-            <p className="text-sm text-text-secondary">Answers to the most common questions about your account.</p>
-          </header>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-[var(--text-primary)]">Help Center</h1>
+            <p className="text-sm text-[var(--text-muted)] mt-1">Get help via support tickets or WhatsApp</p>
+          </div>
 
-          <Card padded={false}>
-            <ul className="divide-y divide-border">
-              {FAQS.map((faq) => {
-                const isOpen = open === faq.id;
-                return (
-                  <li key={faq.id}>
-                    <button
-                      type="button"
-                      onClick={() => setOpen(isOpen ? null : faq.id)}
-                      aria-expanded={isOpen}
-                      aria-controls={`faq-${faq.id}`}
-                      className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left transition-colors hover:bg-hover-bg focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring"
-                    >
-                      <span className="text-sm font-semibold text-text-primary">{faq.question}</span>
-                      <ChevronDown className={cn('h-4 w-4 text-text-muted transition-transform shrink-0', isOpen && 'rotate-180')} />
-                    </button>
-                    {isOpen && (
-                      <div id={`faq-${faq.id}`} className="px-5 pb-5">
-                        <p className="text-sm text-text-secondary leading-relaxed">{faq.answer}</p>
-                      </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-
-          {/* ── Contact Support ── */}
-          <Card>
-            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start gap-3">
-                <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-accent-muted text-accent">
-                  <MessageCircle className="h-5 w-5" />
-                </span>
+          {/* ── Two cards ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Support Tickets */}
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-6 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-[var(--primary-muted)] flex items-center justify-center text-[var(--accent)]">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                </div>
                 <div>
-                  <h3 className="text-base font-semibold text-text-primary">Still need help?</h3>
-                  <p className="mt-0.5 text-sm text-text-secondary">
-                    Get in touch with our support team — we typically reply within a few hours.
-                  </p>
+                  <h3 className="font-semibold text-[var(--text-primary)]">Support Tickets</h3>
+                  <p className="text-xs text-[var(--text-muted)]">Chat directly with our support team</p>
                 </div>
               </div>
-              <Link href="/support">
-                <Button variant="primary" trailingIcon={<ArrowRight className="h-4 w-4" />}>
-                  Contact Support
-                </Button>
-              </Link>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => router.push('/help/tickets')}
+                  className="w-full py-2.5 rounded-lg text-sm font-medium border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] transition-colors duration-150"
+                >
+                  View My Tickets
+                </button>
+                <button
+                  onClick={() => setShowNewTicket(true)}
+                  className="w-full py-2.5 rounded-lg text-sm font-medium bg-[var(--accent)] text-[var(--text-inverse)] hover:opacity-90 transition-opacity duration-150"
+                >
+                  + New Ticket
+                </button>
+              </div>
             </div>
-          </Card>
+
+            {/* WhatsApp */}
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-6 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-[var(--success-muted)] flex items-center justify-center">
+                  <svg className="w-5 h-5 text-[var(--success)]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-[var(--text-primary)]">WhatsApp Support</h3>
+                  <p className="text-xs text-[var(--text-muted)]">Quick answers via WhatsApp</p>
+                </div>
+              </div>
+              {config.whatsappEnabled ? (
+                <WhatsAppButton number={config.whatsappNumber} message={config.whatsappMessage} className="w-full justify-center" />
+              ) : (
+                <button
+                  disabled
+                  className="w-full py-2.5 rounded-lg text-sm font-medium bg-[var(--disabled)] text-[var(--disabled-text)] cursor-not-allowed"
+                  title="WhatsApp support is coming soon"
+                >
+                  Coming Soon
+                </button>
+              )}
+            </div>
+          </div>
+
+          <NewTicketModal open={showNewTicket} onClose={() => setShowNewTicket(false)} />
         </div>
       </AuthenticatedShell>
     </>
