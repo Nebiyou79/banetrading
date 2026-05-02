@@ -1,5 +1,5 @@
 // components/forexMetals/ForexChart.tsx
-// ── FOREX/METALS CANDLESTICK CHART WITH DISABLED SUB-HOURLY ──
+// ── FOREX/METALS CHART (FIXED — HARDCODED COLORS) ──
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
@@ -24,6 +24,28 @@ interface ForexChartProps {
   theme: 'dark' | 'light';
 }
 
+// ⚠️ FIX: Hardcoded colors
+const CHART_COLORS = {
+  dark: {
+    textColor: '#848E9C',
+    gridColor: 'rgba(255,255,255,0.04)',
+    crosshairColor: '#848E9C',
+    upColor: '#0ECB81',
+    downColor: '#F6465D',
+    volumeUp: 'rgba(16, 217, 138, 0.3)',
+    volumeDown: 'rgba(244, 63, 94, 0.3)',
+  },
+  light: {
+    textColor: '#474D57',
+    gridColor: 'rgba(0,0,0,0.06)',
+    crosshairColor: '#474D57',
+    upColor: '#0ECB81',
+    downColor: '#F6465D',
+    volumeUp: 'rgba(16, 217, 138, 0.3)',
+    volumeDown: 'rgba(244, 63, 94, 0.3)',
+  },
+};
+
 export default function ForexChart({ symbol, theme }: ForexChartProps) {
   const { isMobile, isDesktop } = useResponsive();
   const chartHeight = isDesktop ? 480 : 320;
@@ -38,30 +60,9 @@ export default function ForexChart({ symbol, theme }: ForexChartProps) {
   const isSubHourlyError = error?.includes('Sub-hourly') || error?.includes('premium');
 
   const getChartColors = useCallback(() => {
-    if (typeof document === 'undefined') {
-      return {
-        textColor: '#6E7EA8',
-        gridColor: 'rgba(255,255,255,0.04)',
-        crosshairColor: '#6E7EA8',
-        upColor: '#10D98A',
-        downColor: '#F43F5E',
-        volumeUp: 'rgba(16, 217, 138, 0.3)',
-        volumeDown: 'rgba(244, 63, 94, 0.3)',
-      };
-    }
-    const style = getComputedStyle(document.documentElement);
-    return {
-      textColor: style.getPropertyValue('--text-secondary').trim() || '#6E7EA8',
-      gridColor: style.getPropertyValue('--chart-grid').trim() || 'rgba(255,255,255,0.04)',
-      crosshairColor: style.getPropertyValue('--chart-crosshair').trim() || '#6E7EA8',
-      upColor: style.getPropertyValue('--chart-up').trim() || '#10D98A',
-      downColor: style.getPropertyValue('--chart-down').trim() || '#F43F5E',
-      volumeUp: 'rgba(16, 217, 138, 0.3)',
-      volumeDown: 'rgba(244, 63, 94, 0.3)',
-    };
-  }, []);
+    return theme === 'light' ? CHART_COLORS.light : CHART_COLORS.dark;
+  }, [theme]);
 
-  // ── Create / recreate chart on theme change ──
   useEffect(() => {
     if (!containerRef.current) return;
     if (chartRef.current) { chartRef.current.remove(); chartRef.current = null; }
@@ -78,19 +79,14 @@ export default function ForexChart({ symbol, theme }: ForexChartProps) {
         vertLine: { color: colors.crosshairColor, labelBackgroundColor: colors.crosshairColor },
         horzLine: { color: colors.crosshairColor, labelBackgroundColor: colors.crosshairColor },
       },
-      // FIX 4 — Right price scale with margins and autoscale
       rightPriceScale: {
         borderColor: colors.gridColor,
-        scaleMargins: {
-          top: 0.1,
-          bottom: 0.2,
-        },
+        scaleMargins: { top: 0.1, bottom: 0.2 },
         autoScale: true,
       },
       timeScale: { borderColor: colors.gridColor, timeVisible: true, secondsVisible: false },
     });
 
-    // FIX 1 — Candlestick series with autoscale info provider
     const candleSeries = chart.addCandlestickSeries({
       upColor: colors.upColor,
       downColor: colors.downColor,
@@ -104,7 +100,6 @@ export default function ForexChart({ symbol, theme }: ForexChartProps) {
       autoscaleInfoProvider: (original: () => { priceRange: { minValue: number; maxValue: number } } | null) => {
         const res = original();
         if (res) {
-          // Give candles 0.5% breathing room on each side
           res.priceRange.minValue *= 0.995;
           res.priceRange.maxValue *= 1.005;
         }
@@ -112,10 +107,9 @@ export default function ForexChart({ symbol, theme }: ForexChartProps) {
       },
     });
 
-    // FIX 2 — Volume on separate invisible scale (CRITICAL)
     const volumeSeries = chart.addHistogramSeries({
       priceFormat: { type: 'volume' },
-      priceScaleId: '', // ← THIS IS THE CRITICAL FIX
+      priceScaleId: '',
     });
 
     volumeSeries.priceScale().applyOptions({
@@ -136,7 +130,6 @@ export default function ForexChart({ symbol, theme }: ForexChartProps) {
     return () => { ro.disconnect(); chart.remove(); chartRef.current = null; };
   }, [theme, chartHeight, getChartColors]);
 
-  // ── Update data when candles change ──
   useEffect(() => {
     if (!candleSeriesRef.current || !volumeSeriesRef.current || candles.length === 0) return;
 
@@ -159,7 +152,6 @@ export default function ForexChart({ symbol, theme }: ForexChartProps) {
     candleSeriesRef.current.setData(candleData);
     volumeSeriesRef.current.setData(volumeData);
 
-    // FIX 3 — Fit content after setting data (MANDATORY)
     chartRef.current?.timeScale().fitContent();
   }, [candles, getChartColors]);
 

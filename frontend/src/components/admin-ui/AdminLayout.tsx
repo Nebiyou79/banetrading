@@ -3,11 +3,39 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
-import { useTheme } from '@/context/ThemeContext';
+
+// Inline theme toggle hook to avoid hydration issues
+function useAdminTheme() {
+  const [isDark, setIsDark] = useState(true); // Default to dark to match server
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    // Read from localStorage only on client
+    const stored = localStorage.getItem('theme');
+    if (stored === 'light') {
+      setIsDark(false);
+      document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+      setIsDark(true);
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const newDark = !isDark;
+    setIsDark(newDark);
+    const theme = newDark ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  };
+
+  return { isDark, toggleTheme, mounted };
+}
 
 const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
@@ -27,7 +55,7 @@ interface AdminLayoutProps {
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const { adminUser, logout } = useAdminAuth();
-  const { theme, toggleTheme, isDark } = useTheme();
+  const { isDark, toggleTheme } = useAdminTheme();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   return (
@@ -85,7 +113,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             className="w-full flex items-center justify-center px-3 py-2 rounded-lg transition-colors"
             style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text-secondary)' }}
           >
-            {isDark ? '☀️' : '🌙'}
+            <span>{isDark ? '☀️' : '🌙'}</span>
             {sidebarOpen && <span className="ml-2">{isDark ? 'Light Mode' : 'Dark Mode'}</span>}
           </button>
         </div>
@@ -104,7 +132,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
           <div className="flex items-center gap-4">
             <span style={{ color: 'var(--text-secondary)' }}>
-              {adminUser?.email}
+              {adminUser?.email || 'Admin'}
             </span>
             <button
               onClick={logout}

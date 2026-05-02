@@ -3,25 +3,33 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { useAuth } from '@/hooks/useAuth';
 
 interface AdminRouteProps {
   children: React.ReactNode;
 }
 
 export default function AdminRoute({ children }: AdminRouteProps) {
-  const { adminUser, isLoading } = useAdminAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
 
-  React.useEffect(() => {
-    if (!isLoading && !adminUser) {
+  // Mark as mounted on client to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Redirect if not admin (only on client)
+  useEffect(() => {
+    if (mounted && !isLoading && (!user || user.role !== 'admin')) {
       router.replace('/admin/login');
     }
-  }, [isLoading, adminUser, router]);
+  }, [mounted, isLoading, user, router]);
 
-  if (isLoading) {
+  // Show loading state that matches server render
+  if (!mounted || isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: 'var(--background)' }}>
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2" style={{ borderColor: 'var(--primary)' }}></div>
@@ -29,9 +37,11 @@ export default function AdminRoute({ children }: AdminRouteProps) {
     );
   }
 
-  if (!adminUser) {
+  // Not admin - don't render anything (will redirect)
+  if (!user || user.role !== 'admin') {
     return null;
   }
 
+  // Admin authenticated - render children
   return <>{children}</>;
 }

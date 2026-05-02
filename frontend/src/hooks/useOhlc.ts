@@ -1,9 +1,9 @@
 // hooks/useOhlc.ts
-// ── OHLC CHART DATA HOOK ──
+// ── OHLC CHART DATA HOOK (UPDATED WITH NEW CHART API) ──
 
 import { useQuery } from '@tanstack/react-query';
 import { marketsService } from '@/services/marketsService';
-import type { OhlcCandle, Timeframe } from '@/types/markets';
+import type { OhlcCandle, Timeframe, AssetClass } from '@/types/markets';
 
 // ── Longer refetch intervals to avoid rate limiting ──
 const REFETCH_INTERVAL_BY_TF: Record<Timeframe, number | false> = {
@@ -17,12 +17,29 @@ const REFETCH_INTERVAL_BY_TF: Record<Timeframe, number | false> = {
 };
 
 export interface UseOhlcReturn {
-  candles: OhlcCandle[];
+  candles: OhlcCandle[];   // ← Direct property, NOT nested under data
   source: string;
   isLoading: boolean;
   isFetching: boolean;
   error: string | null;
   refetch: () => void;
+}
+
+/**
+ * Determine asset class from symbol.
+ * Falls back to legacy API if asset class cannot be determined.
+ */
+function getAssetClass(symbol: string): AssetClass {
+  const upper = symbol.toUpperCase();
+
+  // Metals: XAUUSD, XAGUSD
+  if (upper.startsWith('XA')) return 'metals';
+
+  // Forex: EURUSD, GBPUSD, USDJPY, USDCHF, AUDUSD
+  const forexPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD'];
+  if (forexPairs.includes(upper)) return 'forex';
+
+  return 'crypto';
 }
 
 export function useOhlc(
@@ -31,16 +48,32 @@ export function useOhlc(
   limit: number = 500,
 ): UseOhlcReturn {
   const refetchInterval = REFETCH_INTERVAL_BY_TF[interval] ?? 60_000;
-  const staleTime = refetchInterval ? refetchInterval * 0.8 : 30_000;
+  const staleTime = refetchInterval ? Number(refetchInterval) * 0.8 : 30_000;
+  const assetClass = getAssetClass(symbol);
 
   const query = useQuery({
     queryKey: ['ohlc', symbol.toUpperCase(), interval, limit],
-    queryFn: () => marketsService.getOhlc(symbol, interval, limit),
+    queryFn: async () => {
+      // Try new chart API first
+      try {
+        const candles = await marketsService.getChartCandles(
+          symbol,
+          interval,
+          assetClass,
+          limit,
+        );
+        return { candles, source: 'internal' };
+      } catch {
+        // Fall back to legacy OHLC endpoint
+        const resp = await marketsService.getOhlc(symbol, interval, limit);
+        return resp;
+      }
+    },
     refetchInterval,
     staleTime,
     enabled: !!symbol,
-    retry: 1,         // Only retry once
-    retryDelay: 2000, // Wait 2s before retry
+    retry: 1,
+    retryDelay: 2000,
   });
 
   return {

@@ -1,95 +1,119 @@
-'use client';
 // hooks/usePrices.ts
+// ── PRICES HOOK (UPDATED — REDIRECTS TO NEW SYSTEM) ──
+// DEPRECATED: Use useMarketTicker or useMarketStore instead.
+// Kept for backward compatibility.
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import priceService from '@/services/priceService';
-import type { CoinPrice, Candle } from '@/types';
+import { useMemo } from 'react';
+import { useMarketStore } from '@/stores/market.store';
+import { useMarkets } from './useMarkets';
+import type { OhlcCandle, Timeframe } from '@/types/markets';
 
-export const usePrices = (pollInterval = 30000) => {
-  const [prices, setPrices] = useState<CoinPrice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+export interface CoinPrice {
+  id: string;
+  symbol: string;
+  name: string;
+  price: number;
+  change24h: number;
+}
 
-  const fetchPrices = useCallback(async () => {
-    setError(null);
-    try {
-      const data = await priceService.getPrices();
-      setPrices(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load prices');
-    } finally {
-      setLoading(false);
+export interface Candle {
+  time: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+/**
+ * Get live prices from the Zustand store.
+ * WebSocket updates flow here automatically.
+ */
+export const usePrices = (pollInterval: number = 30000) => {
+  // Get markets list for metadata
+  const { rows, isLoading, error, refetch } = useMarkets();
+
+  // Get live WS prices
+  const wsPrices = useMarketStore((s) => s.prices);
+  const wsTickers = useMarketStore((s) => s.tickers);
+
+  // Merge market metadata with live prices
+  const prices = useMemo<CoinPrice[]>(() => {
+    if (Object.keys(wsTickers).length > 0) {
+      return Object.values(wsTickers).map((ticker) => ({
+        id: ticker.symbol,
+        symbol: ticker.symbol,
+        name: ticker.symbol.replace('USDT', ''),
+        price: ticker.price,
+        change24h: ticker.change24h ?? 0,
+      }));
     }
-  }, []);
 
-  useEffect(() => {
-    fetchPrices();
-    if (pollInterval > 0) {
-      intervalRef.current = setInterval(fetchPrices, pollInterval);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [fetchPrices, pollInterval]);
+    // Fall back to markets list data
+    return rows.map((row) => ({
+      id: row.symbol,
+      symbol: row.symbol,
+      name: row.name,
+      price: row.price ?? 0,
+      change24h: row.change24h ?? 0,
+    }));
+  }, [wsTickers, rows]);
 
-  return { prices, loading, error, refetch: fetchPrices };
+  return {
+    prices,
+    loading: isLoading && Object.keys(wsTickers).length === 0,
+    error,
+    refetch,
+  };
 };
 
-export const useTicker = (pollInterval = 30000) => {
-  const [ticker, setTicker] = useState<Pick<CoinPrice, 'id' | 'symbol' | 'price' | 'change24h'>[]>([]);
-  const [loading, setLoading] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+/**
+ * Get ticker data (compact price list).
+ */
+export const useTicker = () => {
+  const wsTickers = useMarketStore((s) => s.tickers);
+  const { rows } = useMarkets();
 
-  const fetchTicker = useCallback(async () => {
-    try {
-      const data = await priceService.getTicker();
-      setTicker(data);
-    } catch {
-      // Silently fail on ticker — non-critical
-    } finally {
-      setLoading(false);
+  const ticker = useMemo(() => {
+    if (Object.keys(wsTickers).length > 0) {
+      return Object.values(wsTickers).map((ticker) => ({
+        id: ticker.symbol,
+        symbol: ticker.symbol,
+        price: ticker.price,
+        change24h: ticker.change24h ?? 0,
+      }));
     }
-  }, []);
 
-  useEffect(() => {
-    fetchTicker();
-    if (pollInterval > 0) {
-      intervalRef.current = setInterval(fetchTicker, pollInterval);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [fetchTicker, pollInterval]);
+    return rows.map((row) => ({
+      id: row.symbol,
+      symbol: row.symbol,
+      price: row.price ?? 0,
+      change24h: row.change24h ?? 0,
+    }));
+  }, [wsTickers, rows]);
 
-  return { ticker, loading };
+  return {
+    ticker,
+    loading: Object.keys(wsTickers).length === 0,
+  };
 };
 
+/**
+ * Get historical/candlestick data.
+ */
 export const useHistoricalPrices = (
   coinId: string,
-  interval: '1h' | '4h' | '1d' | '1w' = '1h'
+  interval: '1h' | '4h' | '1d' | '1w' = '1h',
 ) => {
-  const [candles, setCandles] = useState<Candle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { candles, isLoading, error, refetch } = useOhlc(coinId, interval, 500);
 
-  const fetchCandles = useCallback(async () => {
-    if (!coinId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await priceService.getHistoricalPrices(coinId, interval);
-      setCandles(data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load chart data');
-    } finally {
-      setLoading(false);
-    }
-  }, [coinId, interval]);
-
-  useEffect(() => {
-    fetchCandles();
-  }, [fetchCandles]);
-
-  return { candles, loading, error, refetch: fetchCandles };
+  return {
+    candles,
+    loading: isLoading,
+    error,
+    refetch,
+  };
 };
+
+// Import for useHistoricalPrices
+import { useOhlc } from './useOhlc';

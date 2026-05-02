@@ -1,5 +1,6 @@
 // components/crypto/CoinChart.tsx
 // ── CANDLESTICK CHART (lightweight-charts v5) ──
+// UPDATED: WS live price for last candle update
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import {
@@ -17,6 +18,7 @@ import type {
 import { useResponsive } from '@/hooks/useResponsive';
 import type { Timeframe } from '@/types/markets';
 import { useOhlc } from '@/hooks/useOhlc';
+import { useMarketStore } from '@/stores/market.store';
 import TimeframeSelector from './TimeframeSelector';
 
 interface CoinChartProps {
@@ -36,6 +38,9 @@ export default function CoinChart({ symbol, theme, disabledTimeframes }: CoinCha
 
   const [timeframe, setTimeframe] = useState<Timeframe>('1h');
   const { candles, isLoading, isFetching, error, refetch } = useOhlc(symbol, timeframe, 500);
+
+  // Get live WS price for last-candle updates
+  const wsPrice = useMarketStore((s) => s.prices[symbol]);
 
   const getChartColors = useCallback(() => {
     if (typeof document === 'undefined') {
@@ -88,7 +93,6 @@ export default function CoinChart({ symbol, theme, disabledTimeframes }: CoinCha
         vertLine: { color: colors.crosshairColor, labelBackgroundColor: colors.crosshairColor },
         horzLine: { color: colors.crosshairColor, labelBackgroundColor: colors.crosshairColor },
       },
-      // FIX 4 — Right price scale with margins and autoscale
       rightPriceScale: {
         borderColor: colors.gridColor,
         scaleMargins: {
@@ -100,7 +104,6 @@ export default function CoinChart({ symbol, theme, disabledTimeframes }: CoinCha
       timeScale: { borderColor: colors.gridColor, timeVisible: true, secondsVisible: false },
     });
 
-    // FIX 1 — Candlestick series with autoscale info provider
     const candleSeries = chart.addCandlestickSeries({
       upColor: colors.upColor,
       downColor: colors.downColor,
@@ -114,7 +117,6 @@ export default function CoinChart({ symbol, theme, disabledTimeframes }: CoinCha
       autoscaleInfoProvider: (original: () => { priceRange: { minValue: number; maxValue: number } } | null) => {
         const res = original();
         if (res) {
-          // Give candles 0.5% breathing room on each side
           res.priceRange.minValue *= 0.995;
           res.priceRange.maxValue *= 1.005;
         }
@@ -122,10 +124,9 @@ export default function CoinChart({ symbol, theme, disabledTimeframes }: CoinCha
       },
     });
 
-    // FIX 2 — Volume on separate invisible scale
     const volumeSeries = chart.addHistogramSeries({
       priceFormat: { type: 'volume' },
-      priceScaleId: '', // ← THIS IS THE CRITICAL FIX
+      priceScaleId: '',
     });
 
     volumeSeries.priceScale().applyOptions({
@@ -178,15 +179,32 @@ export default function CoinChart({ symbol, theme, disabledTimeframes }: CoinCha
     candleSeriesRef.current.setData(candleData);
     volumeSeriesRef.current.setData(volumeData);
 
-    // FIX 3 — Fit content after setting data
     chartRef.current?.timeScale().fitContent();
   }, [candles, getChartColors]);
+
+  // ── Live price update from WebSocket ──
+  useEffect(() => {
+    if (!wsPrice || !candleSeriesRef.current || candles.length === 0) return;
+
+    const last = candles[candles.length - 1];
+    candleSeriesRef.current.update({
+      time: last.time as Time,
+      open: last.open,
+      high: Math.max(last.high, wsPrice),
+      low: Math.min(last.low, wsPrice),
+      close: wsPrice,
+    });
+  }, [wsPrice, candles]);
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 sm:p-5">
       {/* ── Timeframe selector + loading indicator ── */}
       <div className="flex items-center justify-between mb-4">
-        <TimeframeSelector active={timeframe} onChange={setTimeframe} />
+        <TimeframeSelector
+          active={timeframe}
+          onChange={setTimeframe}
+          // disabledTimeframes={disabledTimeframes}
+        />
         <div className="flex items-center gap-2">
           {isFetching && (
             <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">

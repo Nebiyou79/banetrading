@@ -81,7 +81,7 @@ async function updateUser(req, res) {
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const { name, email, role, kycTier, isFrozen, freezeReason, autoMode } = req.body;
+    const { name, email, role, kycTier, isFrozen, freezeReason, autoMode, balance } = req.body;
 
     // ── Allowable updates ──
     if (typeof name === 'string') user.name = name.trim();
@@ -89,8 +89,6 @@ async function updateUser(req, res) {
 
     // Role change — protect admins from being demoted by themselves
     if (role === 'admin' || role === 'user') {
-      // Prevent another admin from demoting themselves (optional safety)
-      // Only allow role change if the requester is not the same user
       if (user._id.toString() === req.user._id.toString() && role !== user.role) {
         return res.status(403).json({ message: 'Cannot change your own role' });
       }
@@ -104,14 +102,12 @@ async function updateUser(req, res) {
     // ── Freeze / unfreeze ──
     if (typeof isFrozen === 'boolean') {
       if (isFrozen && !user.isFrozen) {
-        // Freezing — require reason
         if (!freezeReason || typeof freezeReason !== 'string' || !freezeReason.trim()) {
           return res.status(400).json({ message: 'freezeReason is required when freezing an account' });
         }
         user.isFrozen = true;
         user.freezeReason = freezeReason.trim().slice(0, 500);
       } else if (!isFrozen && user.isFrozen) {
-        // Unfreezing — clear reason
         user.isFrozen = false;
         user.freezeReason = undefined;
       }
@@ -120,6 +116,32 @@ async function updateUser(req, res) {
     // ── Auto mode ──
     if (typeof autoMode === 'string' && ['off', 'random', 'alwaysWin', 'alwaysLose'].includes(autoMode)) {
       user.autoMode = autoMode;
+    }
+
+    // ── Balance updates (NEW) ──
+    // Support both legacy "balance" and per-currency "balances.XXX"
+    if (typeof balance === 'number' && balance >= 0) {
+      // Legacy balance field (USDT)
+      user.balance = balance;
+      if (!user.balances) user.balances = {};
+      user.balances.USDT = balance;
+    }
+
+    // Support per-currency balance updates
+    const currencies = ['USDT', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
+    for (const currency of currencies) {
+      const balanceKey = `balances.${currency}`;
+      if (req.body[balanceKey] !== undefined) {
+        const val = Number(req.body[balanceKey]);
+        if (Number.isFinite(val) && val >= 0) {
+          if (!user.balances) user.balances = {};
+          user.balances[currency] = val;
+          // Sync legacy balance if updating USDT
+          if (currency === 'USDT') {
+            user.balance = val;
+          }
+        }
+      }
     }
 
     await user.save();

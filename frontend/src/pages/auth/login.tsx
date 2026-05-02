@@ -203,6 +203,16 @@ export default function LoginPage(): JSX.Element {
             </svg>
             Continue with Google
           </button>
+          {/* Admin login link */}
+<div className="mt-4 text-center" style={{ animation: 'authFadeUp 0.4s 0.56s both' }}>
+  <Link
+    href="/admin/login"
+    className="text-xs transition-colors hover:underline"
+    style={{ color: 'var(--text-muted)' }}
+  >
+    🛡️ Admin Login
+  </Link>
+</div>
         </form>
       </AuthLayout>
     </>

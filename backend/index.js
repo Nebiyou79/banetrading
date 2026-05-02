@@ -55,6 +55,14 @@ app.use('/api/history', require('./routes/history'));
 app.use('/api/support', require('./routes/support'));
 // ───────────────────────────────────────────────────────────────────
 
+// ── NEW: Market Data System (Document 8) ──────────────────────────
+app.use('/api/market', require('./routes/market.routes'));
+
+// Universal chart endpoint (TradingView compatibility)
+const marketCtrl = require('./controllers/market.controller');
+app.get('/api/chart', marketCtrl.getCandles);
+// ───────────────────────────────────────────────────────────────────
+
 // ── Health ──
 app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
@@ -84,5 +92,20 @@ mongoose.connect(process.env.MONGO_URI).then(async () => {
   await require('./scripts/seedSupportConfig')();
   // ─────────────────────────────────────────────────────────────────
 
-  app.listen(PORT, () => console.log(`API running on :${PORT}`));
+  // ── NEW: Start HTTP server (with WebSocket attachment) ──────────
+  const server = app.listen(PORT, () => {
+    console.log(`API running on :${PORT}`);
+  });
+
+  // Initialize WebSocket broadcaster for market data
+  try {
+    const { initClientBroadcaster } = require('./services/market/websocket/client.broadcaster');
+    initClientBroadcaster(server);
+    console.log('[WS] Market WebSocket server initialized on /ws/market');
+  } catch (err) {
+    console.warn('[WS] Market WebSocket initialization skipped:', err.message);
+    console.warn('[WS] Install "ws" package: npm install ws');
+  }
+  // ─────────────────────────────────────────────────────────────────
+
 }).catch((e) => { console.error('DB connect failed:', e); process.exit(1); });

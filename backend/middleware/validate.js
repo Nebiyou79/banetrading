@@ -2,9 +2,7 @@
 // ── Zod-based request validation ──
 
 const { z } = require('zod');
-// middleware/validate.js
 
-const Joi = require('joi');  // ← MAKE SURE THIS IS AT THE TOP
 // ── Shared primitives ──
 const emailSchema = z.string().trim().toLowerCase().email('Invalid email address');
 
@@ -278,8 +276,8 @@ const tradeAutoModeSchema = z.object({
     errorMap: () => ({ message: 'Invalid mode' }),
   }),
 });
-// ── Module 8: Support ticket schemas ──
 
+// ── Module 8: Support ticket schemas ──
 const ticketCreateSchema = z.object({
   subject:  z.string().trim().min(1, 'Subject is required').max(200, 'Subject is too long'),
   category: z.enum(['general', 'deposit', 'withdrawal', 'kyc', 'trading', 'technical', 'other']).default('general'),
@@ -309,7 +307,6 @@ const supportConfigSchema = z.object({
 });
 
 // ── Module 8: History query schema ──
-
 const historyQuerySchema = z.object({
   type:   z.enum(['trades', 'deposits', 'withdrawals', 'conversions', 'all']).default('all'),
   limit:  z.coerce.number().int().min(1).max(100).default(20),
@@ -318,26 +315,40 @@ const historyQuerySchema = z.object({
   from:   z.string().optional(),
   to:     z.string().optional(),
 });
-// ── Add these schemas to the existing validate.js file ──
 
-// Admin update user schema
-const adminUpdateUserSchema = Joi.object({
-  name: Joi.string().trim().max(100).optional(),
-  email: Joi.string().email().lowercase().trim().max(255).optional(),
-  role: Joi.string().valid('user', 'admin').optional(),
-  kycTier: Joi.number().integer().min(1).max(3).optional(),
-  isFrozen: Joi.boolean().optional(),
-  freezeReason: Joi.string().trim().max(500).optional()
-    .when('isFrozen', {
-      is: true,
-      then: Joi.required(),
-      otherwise: Joi.optional(),
-    }),
-  autoMode: Joi.string().valid('off', 'random', 'alwaysWin', 'alwaysLose').optional(),
-}).min(1).messages({
-  'object.min': 'At least one field must be provided',
-});
+// ── Admin schemas (Zod-based) ──
+const autoModeValues = ['off', 'random', 'alwaysWin', 'alwaysLose'];
 
+const adminUpdateUserSchema = z.object({
+  name:         z.string().trim().min(1).max(100).optional(),
+  email:        z.string().trim().toLowerCase().email('Invalid email').max(255).optional(),
+  role:         z.enum(['user', 'admin']).optional(),
+  kycTier:      z.coerce.number().int().min(1).max(3).optional(),
+  isFrozen:     z.boolean().optional(),
+  freezeReason: z.string().trim().max(500).optional(),
+  autoMode:     z.enum(autoModeValues).optional(),
+  // Balance fields
+  balance:      z.coerce.number().min(0).optional(),
+  'balances.USDT': z.coerce.number().min(0).optional(),
+  'balances.BTC':  z.coerce.number().min(0).optional(),
+  'balances.ETH':  z.coerce.number().min(0).optional(),
+  'balances.SOL':  z.coerce.number().min(0).optional(),
+  'balances.BNB':  z.coerce.number().min(0).optional(),
+  'balances.XRP':  z.coerce.number().min(0).optional(),
+}).refine((d) => Object.values(d).some((v) => v !== undefined), {
+  message: 'At least one field must be provided',
+}).refine(
+  (d) => {
+    // If isFrozen is being set to true, freezeReason is required
+    if (d.isFrozen === true && (!d.freezeReason || d.freezeReason.trim() === '')) {
+      return false;
+    }
+    return true;
+  },
+  { path: ['freezeReason'], message: 'freezeReason is required when freezing an account' },
+);
+
+// ── Exports ──
 module.exports = {
   validate,
   registerSchema,

@@ -1,6 +1,8 @@
 // components/ui/StatCard.tsx
 // ── Dashboard stat card with count-up animation ──
 
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
 
 interface StatCardProps {
@@ -11,11 +13,18 @@ interface StatCardProps {
 }
 
 export default function StatCard({ icon, title, value, color }: StatCardProps) {
-  const [displayValue, setDisplayValue] = useState(0);
-  const prevValue = useRef(0);
+  const [displayValue, setDisplayValue] = useState(value); // Start with final value for SSR
+  const [mounted, setMounted] = useState(false);
+  const prevValue = useRef(value);
 
   useEffect(() => {
-    const duration = 1000; // ms
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const duration = 1000;
     const steps = 30;
     const stepTime = duration / steps;
     const increment = (value - prevValue.current) / steps;
@@ -33,7 +42,7 @@ export default function StatCard({ icon, title, value, color }: StatCardProps) {
     }, stepTime);
 
     return () => clearInterval(timer);
-  }, [value]);
+  }, [value, mounted]);
 
   return (
     <div
@@ -54,6 +63,7 @@ export default function StatCard({ icon, title, value, color }: StatCardProps) {
         className="text-3xl font-bold tabular"
         style={{ color: color || 'var(--primary)' }}
         data-numeric
+        suppressHydrationWarning
       >
         {displayValue.toLocaleString()}
       </p>

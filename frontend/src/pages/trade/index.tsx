@@ -1,11 +1,9 @@
 // pages/trade/index.tsx
-// ── TRADING PAGE ──
+// ── TRADING PAGE (FIXED — NO INFINITE LOOPS) ──
 
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/services/apiClient';
 import { AuthenticatedShell } from '@/components/layout/AuthenticatedShell';
 import { withAuth } from '@/components/layout/withAuth';
 import { useTradingConfig } from '@/hooks/useTradingConfig';
@@ -13,6 +11,8 @@ import { useTradePairs } from '@/hooks/useTradePairs';
 import { useUserBalances } from '@/hooks/useUserBalances';
 import { useActiveTrades } from '@/hooks/useActiveTrades';
 import { useTradeHistory } from '@/hooks/useTradeHistory';
+import { useMarketStore } from '@/stores/market.store';
+import { usePageMarketWebSocket } from '@/hooks/useMarketWebSocket';
 import { PairSelectorHeader } from '@/components/trade/PairSelectorHeader';
 import { PairsBar } from '@/components/trade/PairsBar';
 import { TradingChart } from '@/components/trade/TradingChart';
@@ -20,22 +20,10 @@ import { TradingPanel } from '@/components/trade/TradingPanel';
 import { ActiveTradeCard } from '@/components/trade/ActiveTradeCard';
 import { YourTradesTable } from '@/components/trade/YourTradesTable';
 import { TradeResultModal } from '@/components/trade/TradeResultModal';
-import type {
-  PairClass,
-  TradingPair,
-  Trade,
-} from '@/types/trade';
+import type { PairClass, TradingPair, Trade } from '@/types/trade';
 import type { Currency } from '@/types/convert';
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
-
-interface MarketRow {
-  symbol: string;
-  price: number;
-  change24h?: number;
-  high24h?: number;
-  low24h?: number;
-}
 
 function TradePage(): JSX.Element {
   const router = useRouter();
@@ -44,71 +32,51 @@ function TradePage(): JSX.Element {
   const { config } = useTradingConfig();
   const { pairs } = useTradePairs();
   const { balances } = useUserBalances();
-  const {
-    trades: activeTrades,
-    recentlyResolved,
-    clearResolved,
-  } = useActiveTrades();
+  const { trades: activeTrades, recentlyResolved, clearResolved } = useActiveTrades();
 
   const [historyOffset, setHistoryOffset] = useState(0);
-  const {
-    trades: historyTrades,
-    total: historyTotal,
-    isLoading: historyLoading,
-  } = useTradeHistory(20, historyOffset);
+  const { trades: historyTrades, total: historyTotal, isLoading: historyLoading } =
+    useTradeHistory(20, historyOffset);
 
   const [activePair, setActivePair] = useState<TradingPair | null>(null);
   const [activePairClass, setActivePairClass] = useState<PairClass>('crypto');
   const [resultModalTrade, setResultModalTrade] = useState<Trade | null>(null);
 
-  // Resolve symbol from pairs
+  // ── Subscribe to WebSocket for the active pair ──
+  // ⚠️ FIX: Pass stable string, not an object
+  usePageMarketWebSocket(activePair?.symbol ?? '');
+
+  // ── Get live prices from Zustand store ──
+  // ⚠️ FIX: Select individual values to avoid re-rendering on unrelated changes
+  const livePrice = useMarketStore((s) => s.prices[activePair?.symbol ?? ''] ?? null);
+  const wsTicker = useMarketStore((s) => s.tickers[activePair?.symbol ?? ''] ?? null);
+
+  // Resolve symbol from pairs (only when pairs change, not on every render)
   useEffect(() => {
+    if (!pairs) return;
+    
     const found =
       pairs.crypto.find((p) => p.symbol === symbolParam) ??
       pairs.forex.find((p) => p.symbol === symbolParam) ??
       pairs.metals.find((p) => p.symbol === symbolParam) ??
       pairs.crypto[0] ??
       null;
+      
     if (found) {
-      setActivePair(found);
+      setActivePair((prev) => {
+        // Only update if actually different
+        if (prev?.symbol === found.symbol) return prev;
+        return found;
+      });
       setActivePairClass(
         pairs.crypto.includes(found)
           ? 'crypto'
           : pairs.forex.includes(found)
-          ? 'forex'
-          : 'metals'
+            ? 'forex'
+            : 'metals',
       );
     }
   }, [symbolParam, pairs]);
-
-  // Live price polling
-  const [livePrice, setLivePrice] = useState<number | null>(null);
-  const [change24h, setChange24h] = useState<number | null>(null);
-  const [high24h, setHigh24h] = useState<number | null>(null);
-  const [low24h, setLow24h] = useState<number | null>(null);
-
-  const priceQuery = useQuery<MarketRow | null>({
-    queryKey: ['markets', 'price', activePair?.symbol],
-    queryFn: async () => {
-      if (!activePair) return null;
-      const { data } = await apiClient.get('/markets/list');
-      const rows = data.rows as MarketRow[];
-      const match = rows?.find(
-        (r) => r.symbol === activePair?.symbol || r.symbol === activePair?.base
-      );
-      return match ?? null;
-    },
-    refetchInterval: 3000,
-    enabled: !!activePair,
-  });
-
-  useEffect(() => {
-    const d = priceQuery.data;
-    setLivePrice(d?.price ?? null);
-    setChange24h(d?.change24h ?? null);
-    setHigh24h(d?.high24h ?? null);
-    setLow24h(d?.low24h ?? null);
-  }, [priceQuery.data]);
 
   // recentlyResolved queue
   useEffect(() => {
@@ -123,10 +91,10 @@ function TradePage(): JSX.Element {
       router.replace(
         { pathname: '/trade', query: { symbol: pair.symbol } },
         undefined,
-        { shallow: true, scroll: false }
+        { shallow: true, scroll: false },
       );
     },
-    [router]
+    [router],
   );
 
   const handleCloseResult = useCallback(() => {
@@ -136,8 +104,12 @@ function TradePage(): JSX.Element {
 
   const pendingTrades = useMemo(
     () => activeTrades.filter((t) => t.status === 'pending'),
-    [activeTrades]
+    [activeTrades],
   );
+
+  const change24h = wsTicker?.change24h ?? null;
+  const high24h = wsTicker?.high24h ?? null;
+  const low24h = wsTicker?.low24h ?? null;
 
   return (
     <>
@@ -201,10 +173,7 @@ function TradePage(): JSX.Element {
           />
         </div>
 
-        <TradeResultModal
-          trade={resultModalTrade}
-          onClose={handleCloseResult}
-        />
+        <TradeResultModal trade={resultModalTrade} onClose={handleCloseResult} />
       </AuthenticatedShell>
     </>
   );
