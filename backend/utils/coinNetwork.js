@@ -1,47 +1,59 @@
-// utils/coinNetworks.js
-// ── Coin ↔ network compatibility matrix ──
+// utils/coinNetwork.js
+// ── Coin / network validation helpers ──
+//
+// BALANCE FIX:
+// Network enum unified to match frontend DepositNetwork / WithdrawNetwork types:
+//   'USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH'
+//
+// Previously backend used: 'ERC20', 'TRC20', 'BEP20', 'Bitcoin', 'Ethereum'
+// Both Deposit.network and Withdrawal.network models are updated to use
+// the unified values, so no mapping transform is needed.
 
-// Deposit-side: network names without coin prefix (per the Deposit schema enum).
-const DEPOSIT_NETWORKS_FOR_COIN = {
-  USDT: ['ERC20', 'TRC20', 'BEP20'],
-  BTC:  ['Bitcoin'],
-  ETH:  ['Ethereum'],
-};
+// ── All networks that accept deposits ──
+const ALL_DEPOSIT_NETWORKS = ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH'];
 
-// Withdraw-side: coin-prefixed network keys (per the Withdrawal/NetworkFee enums).
-const WITHDRAW_NETWORKS_FOR_COIN = {
+// ── All networks that accept withdrawals (same set) ──
+const ALL_WITHDRAW_NETWORKS = ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH'];
+
+// ── Valid (currency, network) combinations for deposits ──
+const VALID_DEPOSIT_COMBOS = {
   USDT: ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20'],
   BTC:  ['BTC'],
   ETH:  ['ETH'],
 };
 
-const ALL_DEPOSIT_NETWORKS  = ['ERC20', 'TRC20', 'BEP20', 'Bitcoin', 'Ethereum'];
-const ALL_WITHDRAW_NETWORKS = ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH'];
-const COINS                 = ['USDT', 'BTC', 'ETH'];
+// ── Valid (currency, network) combinations for withdrawals ──
+const VALID_WITHDRAW_COMBOS = {
+  USDT: ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20'],
+  BTC:  ['BTC'],
+  ETH:  ['ETH'],
+};
 
-/** Map a withdraw-style network back to its deposit-style address-book key. */
-function withdrawNetworkToAddressKey(network) {
-  // The address book uses the same withdraw-style keys, so this is identity.
-  return network;
-}
-
+/**
+ * Returns true if the (currency, network) pair is valid for deposits.
+ * @param {string} currency  e.g. 'USDT'
+ * @param {string} network   e.g. 'USDT-ERC20'
+ */
 function isValidDepositCombo(currency, network) {
-  const allowed = DEPOSIT_NETWORKS_FOR_COIN[currency];
+  const allowed = VALID_DEPOSIT_COMBOS[currency?.toUpperCase()];
   return Array.isArray(allowed) && allowed.includes(network);
 }
 
+/**
+ * Returns true if the (currency, network) pair is valid for withdrawals.
+ * @param {string} currency  e.g. 'USDT'
+ * @param {string} network   e.g. 'USDT-TRC20'
+ */
 function isValidWithdrawCombo(currency, network) {
-  const allowed = WITHDRAW_NETWORKS_FOR_COIN[currency];
+  const allowed = VALID_WITHDRAW_COMBOS[currency?.toUpperCase()];
   return Array.isArray(allowed) && allowed.includes(network);
 }
 
 module.exports = {
-  COINS,
-  DEPOSIT_NETWORKS_FOR_COIN,
-  WITHDRAW_NETWORKS_FOR_COIN,
   ALL_DEPOSIT_NETWORKS,
   ALL_WITHDRAW_NETWORKS,
+  VALID_DEPOSIT_COMBOS,
+  VALID_WITHDRAW_COMBOS,
   isValidDepositCombo,
   isValidWithdrawCombo,
-  withdrawNetworkToAddressKey,
 };

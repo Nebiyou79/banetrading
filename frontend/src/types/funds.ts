@@ -1,122 +1,114 @@
 // types/funds.ts
-// ── Funds: deposit / withdrawal / addresses / fees types ──
+// ── Funds domain types ──
+//
+// BALANCE FIX:
+// 1. BalanceResponse now includes `lockedBalances` (pending-withdrawal amounts).
+// 2. DepositNetwork enum unified to match backend Deposit.network enum.
+// 3. WithdrawalRecord includes `netAmount` and `networkFee` for display.
+// 4. COINS and network maps updated to be the single source of truth.
+
+// ── Currency atoms ──────────────────────────────────────────────────────────
 
 export type Coin = 'USDT' | 'BTC' | 'ETH';
 
-/** Deposit-side network values (as stored on Deposit.network). */
-export type DepositNetwork = 'ERC20' | 'TRC20' | 'BEP20' | 'Bitcoin' | 'Ethereum';
-
-/** Withdraw-side & address-book / fee keys (coin-prefixed). */
-export type WithdrawNetwork = 'USDT-ERC20' | 'USDT-TRC20' | 'USDT-BEP20' | 'BTC' | 'ETH';
-
-export type FundsStatus = 'pending' | 'approved' | 'rejected';
-
 export const COINS: Coin[] = ['USDT', 'BTC', 'ETH'];
 
-export const ALL_WITHDRAW_NETWORKS: WithdrawNetwork[] = [
-  'USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH',
-];
+// ── Deposit networks ──
+// These values are stored verbatim in Deposit.network on the backend.
+// Previously the backend used 'ERC20'/'TRC20'/'BEP20'/'Bitcoin'/'Ethereum' —
+// the backend model is now updated to use these unified values instead.
+export type DepositNetwork = 'USDT-ERC20' | 'USDT-TRC20' | 'USDT-BEP20' | 'BTC' | 'ETH';
 
-/** Coin → allowed deposit networks. */
+// ── Withdrawal networks (same values, typed separately for clarity) ──
+export type WithdrawNetwork = 'USDT-ERC20' | 'USDT-TRC20' | 'USDT-BEP20' | 'BTC' | 'ETH';
+
+// ── Networks available per coin ──────────────────────────────────────────────
+
 export const DEPOSIT_NETWORKS_FOR_COIN: Record<Coin, DepositNetwork[]> = {
-  USDT: ['ERC20', 'TRC20', 'BEP20'],
-  BTC:  ['Bitcoin'],
-  ETH:  ['Ethereum'],
+  USDT: ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20'],
+  BTC:  ['BTC'],
+  ETH:  ['ETH'],
 };
 
-/** Coin → allowed withdraw networks. */
 export const WITHDRAW_NETWORKS_FOR_COIN: Record<Coin, WithdrawNetwork[]> = {
   USDT: ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20'],
   BTC:  ['BTC'],
   ETH:  ['ETH'],
 };
 
-/** Map a deposit-side selection (coin, depositNetwork) to the address-book / fee key. */
+// ── Coin/network label and address-key helpers ────────────────────────────────
+
+const NETWORK_LABELS: Record<DepositNetwork | WithdrawNetwork, string> = {
+  'USDT-ERC20': 'ERC20',
+  'USDT-TRC20': 'TRC20',
+  'USDT-BEP20': 'BEP20',
+  BTC:          'Bitcoin',
+  ETH:          'Ethereum',
+};
+
+// Address keys in DepositAddresses map (same as WithdrawNetwork / DepositNetwork values)
+export type DepositAddressKey = 'USDT-ERC20' | 'USDT-TRC20' | 'USDT-BEP20' | 'BTC' | 'ETH';
+
 export const CoinNetworkMap = {
-  toAddressKey(coin: Coin, network: DepositNetwork): WithdrawNetwork {
-    if (coin === 'USDT') {
-      if (network === 'ERC20') return 'USDT-ERC20';
-      if (network === 'TRC20') return 'USDT-TRC20';
-      if (network === 'BEP20') return 'USDT-BEP20';
-    }
-    if (coin === 'BTC') return 'BTC';
-    return 'ETH';
-  },
-  /** Pretty label for any network value (deposit-side or withdraw-side). */
   label(network: DepositNetwork | WithdrawNetwork): string {
-    if (network === 'USDT-ERC20' || network === 'ERC20')   return 'ERC20';
-    if (network === 'USDT-TRC20' || network === 'TRC20')   return 'TRC20';
-    if (network === 'USDT-BEP20' || network === 'BEP20')   return 'BEP20';
-    if (network === 'BTC' || network === 'Bitcoin')        return 'Bitcoin';
-    return 'Ethereum';
+    return NETWORK_LABELS[network] ?? network;
   },
-} as const;
+  toAddressKey(coin: Coin, network: DepositNetwork): DepositAddressKey {
+    // Network value IS the address key (already unified)
+    return network as DepositAddressKey;
+  },
+};
 
-// ── Records ──
-export interface DepositRecord {
-  _id: string;
-  userId: string | { _id: string; email: string; name: string; displayName?: string };
-  amount: number;
-  currency: Coin;
-  network: DepositNetwork;
-  proofFilePath?: string;
-  note?: string;
-  status: FundsStatus;
-  rejectionReason?: string;
-  reviewedBy?: string;
-  reviewedAt?: string;
-  txHash?: string;
-  createdAt: string;
-  updatedAt: string;
+// ── Balance types ─────────────────────────────────────────────────────────────
+
+export interface BalanceResponse {
+  /** Available balances — spendable amounts, keyed by currency symbol */
+  balances: Record<string, number>;
+  /** Locked balances — amounts held pending withdrawal approval */
+  lockedBalances: Record<string, number>;
+  currency: string;
+  isFrozen: boolean;
 }
 
-export interface WithdrawalRecord {
-  _id: string;
-  userId: string | { _id: string; email: string; name: string; displayName?: string };
-  amount: number;
-  currency: Coin;
-  network: WithdrawNetwork;
-  toAddress: string;
-  networkFee: number;
-  netAmount: number;
-  status: FundsStatus;
-  rejectionReason?: string;
-  reviewedBy?: string;
-  reviewedAt?: string;
-  txHash?: string;
-  note?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// ── Address book + fees ──
-export type DepositAddresses = Record<WithdrawNetwork, string>;
+export type DepositAddresses = Record<DepositAddressKey, string>;
 
 export interface DepositAddressesResponse {
   addresses: DepositAddresses;
   updatedAt: string | null;
 }
 
-export type NetworkFees = Record<WithdrawNetwork, number | null>;
+// ── Status ──────────────────────────────────────────────────────────────────
 
-export interface NetworkFeesResponse {
-  fees: NetworkFees;
+export type FundsStatus = 'pending' | 'approved' | 'rejected';
+
+// ── Deposit types ────────────────────────────────────────────────────────────
+
+export interface DepositRecord {
+  _id:          string;
+  userId:       string;
+  amount:       number;
+  currency:     string;
+  network:      string;
+  proofFilePath?: string;
+  note?:        string;
+  status:       FundsStatus;
+  rejectionReason?: string;
+  txHash?:      string;
+  createdAt:    string;
+  updatedAt:    string;
 }
 
-// ── Balance ──
-export interface BalanceResponse {
-  balance: number;
-  currency: 'USDT';
-  isFrozen: boolean;
+export interface DepositsListResponse {
+  deposits: DepositRecord[];
+  total:    number;
 }
 
-// ── Submit payloads ──
 export interface SubmitDepositInput {
-  amount: number;
+  amount:   number;
   currency: Coin;
-  network: DepositNetwork;
-  note?: string;
-  proof?: File;
+  network:  DepositNetwork;
+  note?:    string;
+  proof?:   File | null;
 }
 
 export interface SubmitDepositResponse {
@@ -124,33 +116,56 @@ export interface SubmitDepositResponse {
   deposit: DepositRecord;
 }
 
-export interface SubmitWithdrawInput {
-  amount: number;
-  currency: Coin;
-  network: WithdrawNetwork;
-  toAddress: string;
-  note?: string;
-}
+// ── Withdrawal types ─────────────────────────────────────────────────────────
 
-export interface SubmitWithdrawResponse {
-  message: string;
-  withdrawal: WithdrawalRecord;
-  newBalance: number;
-}
-
-export interface DepositsListResponse {
-  deposits: DepositRecord[];
-  total: number;
+export interface WithdrawalRecord {
+  _id:         string;
+  userId:      string;
+  amount:      number;       // gross amount (what user requested)
+  currency:    string;
+  network:     string;
+  toAddress:   string;
+  networkFee:  number;       // fee deducted
+  netAmount:   number;       // amount recipient receives (amount - fee)
+  status:      FundsStatus;
+  txHash?:     string;
+  note?:       string;
+  rejectionReason?: string;
+  createdAt:   string;
+  updatedAt:   string;
 }
 
 export interface WithdrawalsListResponse {
   withdrawals: WithdrawalRecord[];
-  total: number;
+  total:       number;
+}
+
+export interface SubmitWithdrawInput {
+  amount:    number;
+  currency:  Coin;
+  network:   WithdrawNetwork;
+  toAddress: string;
+  note?:     string;
+}
+
+export interface SubmitWithdrawResponse {
+  message:        string;
+  withdrawal:     WithdrawalRecord;
+  newBalances:    Record<string, number>;
+  lockedBalances: Record<string, number>;
+}
+
+// ── Network fee types ────────────────────────────────────────────────────────
+
+export type NetworkFees = Record<WithdrawNetwork, number | null>;
+
+export interface NetworkFeesResponse {
+  fees: NetworkFees;
 }
 
 export interface UpdateFeeResponse {
-  message: string;
-  network: WithdrawNetwork;
-  fee: number;
+  message:   string;
+  network:   WithdrawNetwork;
+  fee:       number;
   updatedAt: string;
 }

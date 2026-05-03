@@ -1,20 +1,25 @@
 // controllers/conversionController.js
 // ── ASSET CONVERSION CONTROLLER ──
+//
+// BALANCE FIX:
+// 1. Added u.markModified('balances') before every u.save() that mutates balances.
+//    Without this Mongoose silently skips nested-object changes.
+// 2. Balance availability check uses user.balances[from] only (available, not locked).
+// 3. No lockedBalances involved in conversions — they are instant atomic swaps.
 
 const mongoose = require('mongoose');
-const User = require('../models/User');
-const Conversion = require('../models/Conversion');
+const User             = require('../models/User');
+const Conversion       = require('../models/Conversion');
 const ConversionConfig = require('../models/ConversionConfig');
-const { getMarketList } = require('../services/priceAggregator');
-const { getForexAndMetals } = require('../services/forexAggregator');
+const { getMarketList }      = require('../services/priceAggregator');
+const { getForexAndMetals }  = require('../services/forexAggregator');
 
-const VALID_CURRENCIES = ['USDT', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
 const SLIPPAGE_TOLERANCE = 0.005; // 0.5%
 
 // ── Helpers ──
 
 function getPrice(rows, symbol) {
-  const row = rows.find(r => r.symbol === symbol);
+  const row = rows.find((r) => r.symbol === symbol);
   return row?.price ?? null;
 }
 
@@ -25,17 +30,30 @@ async function getCurrentPrices() {
   ]);
   return {
     cryptoRows: crypto?.rows || [],
-    fxRows: fx?.rows || [],
+    fxRows:     fx?.rows    || [],
   };
+}
+
+function computeMarketRate(from, to, rows) {
+  if (from === 'USDT') {
+    const p = getPrice(rows, to);
+    return p ? 1 / p : null;
+  }
+  if (to === 'USDT') {
+    return getPrice(rows, from);
+  }
+  const pFrom = getPrice(rows, from);
+  const pTo   = getPrice(rows, to);
+  if (!pFrom || !pTo) return null;
+  return pFrom / pTo;
 }
 
 // ── GET /api/convert/balances ──
 exports.getBalances = async (req, res) => {
   try {
-    const user = req.user;
-    return res.json({ balances: user.balances });
+    return res.json({ balances: req.user.balances });
   } catch (err) {
-    console.error('[convert] getBalances error:', err);
+    console.error('[convert] getBalances:', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -50,7 +68,7 @@ exports.quote = async (req, res) => {
     }
 
     const { cryptoRows } = await getCurrentPrices();
-    const config = await ConversionConfig.findOne() || { feeBps: 100 };
+    const config         = await ConversionConfig.findOne() || { feeBps: 100 };
 
     const marketRate = computeMarketRate(from, to, cryptoRows);
     if (!marketRate) {
@@ -58,38 +76,21 @@ exports.quote = async (req, res) => {
     }
 
     const effectiveRate = marketRate * (1 - config.feeBps / 10000);
-    const toAmount = fromAmount * effectiveRate;
-    const expiresAt = new Date(Date.now() + 10 * 1000);
+    const toAmount      = fromAmount * effectiveRate;
+    const expiresAt     = new Date(Date.now() + 10 * 1000);
 
     return res.json({
       marketRate,
       effectiveRate,
       toAmount,
-      feeBps: config.feeBps,
+      feeBps:    config.feeBps,
       expiresAt: expiresAt.toISOString(),
     });
   } catch (err) {
-    console.error('[convert] quote error:', err);
+    console.error('[convert] quote:', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
-
-function computeMarketRate(from, to, rows) {
-  // from = 'USDT' → rate = 1 / priceOf(to)
-  if (from === 'USDT') {
-    const p = getPrice(rows, to);
-    return p ? 1 / p : null;
-  }
-  // to = 'USDT' → rate = priceOf(from)
-  if (to === 'USDT') {
-    return getPrice(rows, from);
-  }
-  // cross rate: priceOf(from) / priceOf(to)
-  const pFrom = getPrice(rows, from);
-  const pTo = getPrice(rows, to);
-  if (!pFrom || !pTo) return null;
-  return pFrom / pTo;
-}
 
 // ── POST /api/convert/execute ──
 exports.execute = async (req, res) => {
@@ -101,13 +102,14 @@ exports.execute = async (req, res) => {
       return res.status(400).json({ message: 'Cannot convert same currency' });
     }
 
-    const user = req.user;
+    const user   = req.user;
     const config = await ConversionConfig.findOne() || { feeBps: 100 };
 
-    // ── Balance check ──
-    if ((user.balances[from] || 0) < fromAmount) {
+    // ── Check available balance only (not locked) ──
+    const available = Number(user.balances[from] || 0);
+    if (available < fromAmount) {
       return res.status(400).json({
-        message: `Insufficient ${from} balance. Available: ${user.balances[from] || 0}`,
+        message: `Insufficient ${from} balance. Available: ${available}`,
       });
     }
 
@@ -128,15 +130,14 @@ exports.execute = async (req, res) => {
     }
 
     const effectiveRate = freshMarketRate * (1 - config.feeBps / 10000);
-    const toAmount = fromAmount * effectiveRate;
+    const toAmount      = fromAmount * effectiveRate;
 
     // ── Atomic debit/credit ──
-    // Requires replica set; no-ops on standalone mongod.
     try {
       session = await mongoose.startSession();
       session.startTransaction();
     } catch {
-      // session not supported — proceed without
+      session = null;
     }
 
     const u = session
@@ -148,21 +149,25 @@ exports.execute = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Debit source currency, credit target currency
     u.balances[from] = (u.balances[from] || 0) - fromAmount;
-    u.balances[to] = (u.balances[to] || 0) + toAmount;
+    u.balances[to]   = (u.balances[to]   || 0) + toAmount;
+
+    // CRITICAL: markModified so Mongoose detects the nested object mutation
+    u.markModified('balances');
     await u.save({ session });
 
     const conversion = await Conversion.create(
       [{
-        userId: user._id,
+        userId:       user._id,
         fromCurrency: from,
-        toCurrency: to,
+        toCurrency:   to,
         fromAmount,
         toAmount,
-        rate: effectiveRate,
-        marketRate: freshMarketRate,
-        feeBps: config.feeBps,
-        status: 'completed',
+        rate:         effectiveRate,
+        marketRate:   freshMarketRate,
+        feeBps:       config.feeBps,
+        status:       'completed',
       }],
       { session },
     );
@@ -170,13 +175,13 @@ exports.execute = async (req, res) => {
     if (session) await session.commitTransaction();
 
     return res.json({
-      rate: effectiveRate,
+      rate:         effectiveRate,
       fromAmount,
       toAmount,
       conversionId: conversion[0]._id.toString(),
     });
   } catch (err) {
-    console.error('[convert] execute error:', err);
+    console.error('[convert] execute:', err);
     if (session) {
       try { await session.abortTransaction(); } catch { /* ignore */ }
     }
@@ -198,7 +203,7 @@ exports.history = async (req, res) => {
       .lean();
     return res.json({ conversions });
   } catch (err) {
-    console.error('[convert] history error:', err);
+    console.error('[convert] history:', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -212,7 +217,7 @@ exports.getConfig = async (req, res) => {
     }
     return res.json({ config });
   } catch (err) {
-    console.error('[convert] getConfig error:', err);
+    console.error('[convert] getConfig:', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };
@@ -222,17 +227,15 @@ exports.updateConfig = async (req, res) => {
   try {
     const { feeBps, minConvertUsd, enabledPairs } = req.body;
     let config = await ConversionConfig.findOne();
-    if (!config) {
-      config = new ConversionConfig();
-    }
-    if (typeof feeBps === 'number') config.feeBps = feeBps;
+    if (!config) config = new ConversionConfig();
+    if (typeof feeBps === 'number')       config.feeBps        = feeBps;
     if (typeof minConvertUsd === 'number') config.minConvertUsd = minConvertUsd;
-    if (Array.isArray(enabledPairs)) config.enabledPairs = enabledPairs;
+    if (Array.isArray(enabledPairs))      config.enabledPairs  = enabledPairs;
     config.updatedBy = req.user._id;
     await config.save();
     return res.json({ config });
   } catch (err) {
-    console.error('[convert] updateConfig error:', err);
+    console.error('[convert] updateConfig:', err);
     return res.status(500).json({ message: 'Server error' });
   }
 };

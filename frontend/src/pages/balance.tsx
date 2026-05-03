@@ -1,54 +1,123 @@
 // pages/balance.tsx
 // ── BaneTrading — Balance / Funds hub (Binance/Bybit standard) ──
+//
+// BALANCE FIX:
+// 1. Stats grid shows per-asset balances (available + locked) instead of
+//    misleading transaction counts.
+// 2. Reads balances and lockedBalances from useBalance (multi-asset).
+// 3. "Total balance" card shows sum of all available balances in USDT-equivalent.
+// 4. Individual asset cards show available amount with a "locked" sub-line when > 0.
 
 import { useEffect, useMemo, useState } from 'react';
-import Head from 'next/head';
+import Head         from 'next/head';
 import { useRouter } from 'next/router';
 import {
   ArrowDownToLine, ArrowUpFromLine, RefreshCw,
-  Wallet, TrendingUp, TrendingDown, Eye, EyeOff,
+  Wallet, Eye, EyeOff, Lock,
   Clock, CheckCircle2, XCircle, Loader2,
 } from 'lucide-react';
 
-import { AuthenticatedShell }         from '@/components/layout/AuthenticatedShell';
-import { withAuth }                   from '@/components/layout/withAuth';
-import { BalanceHero }                from '@/components/funds/BalanceHero';
-import { TransactionHistoryTable }    from '@/components/funds/TransactionHistoryTable';
-import { DepositModal }               from '@/components/funds/DepositModal';
-import { WithdrawModal }              from '@/components/funds/WithdrawModal';
-import { useDeposit }                 from '@/hooks/useDeposit';
-import { useWithdraw }                from '@/hooks/useWithdraw';
-import { useBalance }                 from '@/hooks/useBalance';
-import { useResponsive }              from '@/hooks/useResponsive';
+import { AuthenticatedShell }      from '@/components/layout/AuthenticatedShell';
+import { withAuth }                from '@/components/layout/withAuth';
+import { BalanceHero }             from '@/components/funds/BalanceHero';
+import { TransactionHistoryTable } from '@/components/funds/TransactionHistoryTable';
+import { DepositModal }            from '@/components/funds/DepositModal';
+import { WithdrawModal }           from '@/components/funds/WithdrawModal';
+import { useDeposit }              from '@/hooks/useDeposit';
+import { useWithdraw }             from '@/hooks/useWithdraw';
+import { useBalance }              from '@/hooks/useBalance';
+import { useResponsive }           from '@/hooks/useResponsive';
+import { formatAmount }            from '@/lib/format';
+import { COINS }                   from '@/types/funds';
+import type { Coin }               from '@/types/funds';
 
-const BRAND = 'BaneTrading';
+const BRAND     = 'BaneTrading';
 const PAGE_SIZE = 20;
 
-// ── Balance stat card ──
-interface StatCardProps {
-  label:      string;
-  value:      string;
-  sub?:       string;
-  icon:       JSX.Element;
-  tone:       'accent' | 'success' | 'warning' | 'info' | 'neutral';
-  gain?:      boolean | null;
+// ── Coin brand colours (kept local — not semantic) ──────────────────────────
+const COIN_ACCENT: Record<Coin, string> = {
+  USDT: 'var(--accent)',
+  BTC:  'var(--warning)',
+  ETH:  'var(--info)',
+};
+
+// ── Asset balance stat card ──────────────────────────────────────────────────
+interface AssetCardProps {
+  coin:       Coin;
+  available:  number;
+  locked:     number;
+  hidden:     boolean;
   skeleton?:  boolean;
 }
 
-const TONE_STYLES: Record<string, { bg: string; color: string }> = {
-  accent:  { bg: 'var(--accent-muted)',  color: 'var(--accent)'  },
-  success: { bg: 'var(--success-muted)', color: 'var(--success)' },
-  warning: { bg: 'var(--warning-muted)', color: 'var(--warning)' },
-  info:    { bg: 'var(--info-muted)',    color: 'var(--info)'    },
-  neutral: { bg: 'var(--bg-elevated)',   color: 'var(--text-muted)' },
-};
-
-function StatCard({ label, value, sub, icon, tone, gain, skeleton }: StatCardProps): JSX.Element {
-  const ts = TONE_STYLES[tone];
+function AssetCard({ coin, available, locked, hidden, skeleton }: AssetCardProps): JSX.Element {
+  const accent = COIN_ACCENT[coin];
   if (skeleton) {
     return (
-      <div className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] p-4 animate-pulse" style={{ background: 'var(--bg-muted)' }}>
-        <div className="h-9 w-9 rounded-xl bg-[var(--bg-card-hover)]" />
+      <div
+        className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] p-4 animate-pulse"
+        style={{ background: 'var(--bg-muted)' }}
+      >
+        <div className="h-8 w-8 rounded-xl bg-[var(--bg-card-hover)]" />
+        <div className="h-3 w-12 rounded bg-[var(--bg-card-hover)]" />
+        <div className="h-6 w-24 rounded bg-[var(--bg-card-hover)]" />
+      </div>
+    );
+  }
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] p-4
+                 transition-all duration-150 hover:border-[var(--border-strong)]
+                 hover:bg-[var(--bg-card-hover)]"
+      style={{ background: 'var(--bg-muted)' }}
+    >
+      {/* Coin label pill */}
+      <div
+        className="inline-flex h-8 items-center rounded-lg px-2.5 text-[11px] font-bold tracking-wide self-start"
+        style={{ background: `color-mix(in srgb, ${accent} 15%, transparent)`, color: accent }}
+      >
+        {coin}
+      </div>
+
+      {/* Available amount */}
+      <div>
+        <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--text-muted)]">
+          Available
+        </p>
+        <p className={`tabular mt-0.5 text-xl font-extrabold text-[var(--text-primary)] ${hidden ? 'blur-sm select-none' : ''}`}>
+          {hidden ? '••••••' : formatAmount(available, coin)}
+        </p>
+      </div>
+
+      {/* Locked sub-line — only shown when > 0 */}
+      {locked > 0 && (
+        <div className="flex items-center gap-1.5 rounded-lg px-2 py-1" style={{ background: 'var(--warning-muted)' }}>
+          <Lock className="h-3 w-3 shrink-0" style={{ color: 'var(--warning)' }} />
+          <span className={`tabular text-[11px] font-medium ${hidden ? 'blur-sm select-none' : ''}`} style={{ color: 'var(--warning)' }}>
+            {hidden ? '••••' : formatAmount(locked, coin)} locked
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Total balance summary card ───────────────────────────────────────────────
+function TotalCard({
+  balance, lockedTotal, hidden, skeleton,
+}: {
+  balance: number;
+  lockedTotal: number;
+  hidden: boolean;
+  skeleton?: boolean;
+}): JSX.Element {
+  if (skeleton) {
+    return (
+      <div
+        className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] p-4 animate-pulse"
+        style={{ background: 'var(--bg-muted)' }}
+      >
+        <div className="h-8 w-8 rounded-xl bg-[var(--bg-card-hover)]" />
         <div className="h-3 w-20 rounded bg-[var(--bg-card-hover)]" />
         <div className="h-6 w-28 rounded bg-[var(--bg-card-hover)]" />
       </div>
@@ -56,29 +125,38 @@ function StatCard({ label, value, sub, icon, tone, gain, skeleton }: StatCardPro
   }
   return (
     <div
-      className="flex flex-col gap-3 rounded-2xl border border-[var(--border)] p-4 transition-all duration-150 hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)]"
-      style={{ background: 'var(--bg-muted)' }}
+      className="flex flex-col gap-3 rounded-2xl border border-[var(--accent)] p-4
+                 transition-all duration-150 hover:bg-[var(--bg-card-hover)]"
+      style={{ background: 'var(--accent-muted)' }}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl" style={{ background: ts.bg, color: ts.color }}>
-          {icon}
-        </div>
-        {gain !== null && gain !== undefined && (
-          <span className={`flex items-center gap-0.5 text-xs font-semibold ${gain ? 'text-gain' : 'text-loss'}`}>
-            {gain ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
-          </span>
-        )}
+      <div
+        className="flex h-8 w-8 items-center justify-center rounded-lg"
+        style={{ background: 'var(--accent)', color: 'var(--text-inverse)' }}
+      >
+        <Wallet className="h-4 w-4" />
       </div>
       <div>
-        <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--text-muted)]">{label}</p>
-        <p className="tabular mt-0.5 text-xl font-extrabold text-[var(--text-primary)]">{value}</p>
-        {sub && <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">{sub}</p>}
+        <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--text-muted)]">
+          Total available
+        </p>
+        <p className={`tabular mt-0.5 text-xl font-extrabold text-[var(--text-primary)] ${hidden ? 'blur-sm select-none' : ''}`}>
+          {hidden ? '••••••' : `$${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+        </p>
+        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">USDT equivalent</p>
       </div>
+      {lockedTotal > 0 && (
+        <div className="flex items-center gap-1.5 rounded-lg px-2 py-1" style={{ background: 'var(--warning-muted)' }}>
+          <Lock className="h-3 w-3 shrink-0" style={{ color: 'var(--warning)' }} />
+          <span className={`tabular text-[11px] font-medium ${hidden ? 'blur-sm select-none' : ''}`} style={{ color: 'var(--warning)' }}>
+            {hidden ? '••••' : `$${lockedTotal.toFixed(2)}`} pending withdrawal
+          </span>
+        </div>
+      )}
     </div>
   );
 }
 
-// ── Quick action button ──
+// ── Quick action button ──────────────────────────────────────────────────────
 function QuickBtn({
   icon, label, tone, onClick, disabled,
 }: {
@@ -103,13 +181,14 @@ function QuickBtn({
     danger:  '0 0 20px var(--danger-muted)',
     neutral: 'none',
   };
-
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+      className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold
+                 transition-all duration-150 hover:opacity-90
+                 disabled:cursor-not-allowed disabled:opacity-40"
       style={{
         background: bgMap[tone],
         color:      colorMap[tone],
@@ -123,14 +202,14 @@ function QuickBtn({
   );
 }
 
-// ── Transaction status pill ──
+// ── Transaction status pill ──────────────────────────────────────────────────
 type TxStatus = 'pending' | 'approved' | 'rejected' | 'processing';
 
 const TX_STATUS_STYLES: Record<TxStatus, { bg: string; text: string; border: string; icon: JSX.Element }> = {
-  pending:    { bg: 'var(--warning-muted)', text: 'var(--warning)', border: 'var(--warning)', icon: <Clock className="h-3 w-3" />         },
-  approved:   { bg: 'var(--success-muted)', text: 'var(--success)', border: 'var(--success)', icon: <CheckCircle2 className="h-3 w-3" />   },
-  rejected:   { bg: 'var(--danger-muted)',  text: 'var(--danger)',  border: 'var(--danger)',  icon: <XCircle className="h-3 w-3" />         },
-  processing: { bg: 'var(--info-muted)',    text: 'var(--info)',    border: 'var(--info)',    icon: <Loader2 className="h-3 w-3 animate-spin" /> },
+  pending:    { bg: 'var(--warning-muted)', text: 'var(--warning)', border: 'var(--warning)', icon: <Clock className="h-3 w-3" />                     },
+  approved:   { bg: 'var(--success-muted)', text: 'var(--success)', border: 'var(--success)', icon: <CheckCircle2 className="h-3 w-3" />               },
+  rejected:   { bg: 'var(--danger-muted)',  text: 'var(--danger)',  border: 'var(--danger)',  icon: <XCircle className="h-3 w-3" />                     },
+  processing: { bg: 'var(--info-muted)',    text: 'var(--info)',    border: 'var(--info)',    icon: <Loader2 className="h-3 w-3 animate-spin" />         },
 };
 
 export function TxStatusPill({ status }: { status: TxStatus }): JSX.Element {
@@ -146,10 +225,18 @@ export function TxStatusPill({ status }: { status: TxStatus }): JSX.Element {
   );
 }
 
+// ── Page ─────────────────────────────────────────────────────────────────────
 function BalancePage(): JSX.Element {
-  const router = useRouter();
+  const router     = useRouter();
   const { isMobile } = useResponsive();
-  const { balance, isLoading: isBalLoading } = useBalance();
+
+  // BALANCE FIX: read full multi-asset balances
+  const {
+    balance,
+    balances,
+    lockedBalances,
+    isLoading: isBalLoading,
+  } = useBalance();
 
   const [depositOpen,  setDepositOpen]  = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
@@ -159,13 +246,13 @@ function BalancePage(): JSX.Element {
 
   const {
     deposits,
-    total:    totalDeposits,
+    total:     totalDeposits,
     isLoading: isDepositsLoading,
   } = useDeposit(limit, 0);
 
   const {
     withdrawals,
-    total:    totalWithdrawals,
+    total:     totalWithdrawals,
     isLoading: isWithdrawalsLoading,
   } = useWithdraw(limit, 0);
 
@@ -175,7 +262,7 @@ function BalancePage(): JSX.Element {
     [deposits.length, withdrawals.length, totalDeposits, totalWithdrawals],
   );
 
-  // ── Sync ?action=deposit|withdraw query (from QuickActions on dashboard) ──
+  // ── Sync ?action=deposit|withdraw query ──
   useEffect(() => {
     if (!router.isReady) return;
     const action = router.query.action;
@@ -193,10 +280,9 @@ function BalancePage(): JSX.Element {
     setTimeout(() => setLoadingMore(false), 400);
   };
 
-  // Masked balance display
-  const maskedValue = (val: string) => hideBalance ? '••••••' : val;
+  // BALANCE FIX: compute total locked in USDT-equivalent (simplified: only USDT locked tracked as USD)
+  const lockedTotal = lockedBalances['USDT'] ?? 0;
 
-  // Total activity count
   const totalTx = totalDeposits + totalWithdrawals;
 
   return (
@@ -220,9 +306,7 @@ function BalancePage(): JSX.Element {
               </h1>
             </div>
 
-            {/* Action row */}
             <div className={`flex items-center gap-2 ${isMobile ? 'flex-wrap' : ''}`}>
-              {/* Hide/show balance */}
               <button
                 type="button"
                 onClick={() => setHideBalance((h) => !h)}
@@ -232,16 +316,12 @@ function BalancePage(): JSX.Element {
               >
                 {hideBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
-
-              {/* Deposit */}
               <QuickBtn
                 icon={<ArrowDownToLine className="h-4 w-4" />}
                 label="Deposit"
                 tone="accent"
                 onClick={() => setDepositOpen(true)}
               />
-
-              {/* Withdraw */}
               <QuickBtn
                 icon={<ArrowUpFromLine className="h-4 w-4" />}
                 label="Withdraw"
@@ -251,45 +331,28 @@ function BalancePage(): JSX.Element {
             </div>
           </div>
 
-          {/* ── Stats grid ── */}
+          {/* ── BALANCE FIX: Asset balance grid ── */}
+          {/* Total card + one card per coin */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-              label="Total balance"
-              value={maskedValue(balance != null ? `$${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—')}
-              sub="USDT equivalent"
-              icon={<Wallet className="h-4 w-4" />}
-              tone="accent"
+            <TotalCard
+              balance={balance}
+              lockedTotal={lockedTotal}
+              hidden={hideBalance}
               skeleton={isBalLoading}
             />
-            <StatCard
-              label="Total deposited"
-              value={maskedValue(totalDeposits > 0 ? `${totalDeposits} txns` : '—')}
-              sub="All time"
-              icon={<ArrowDownToLine className="h-4 w-4" />}
-              tone="success"
-              gain
-              skeleton={isDepositsLoading}
-            />
-            <StatCard
-              label="Total withdrawn"
-              value={maskedValue(totalWithdrawals > 0 ? `${totalWithdrawals} txns` : '—')}
-              sub="All time"
-              icon={<ArrowUpFromLine className="h-4 w-4" />}
-              tone="warning"
-              gain={false}
-              skeleton={isWithdrawalsLoading}
-            />
-            <StatCard
-              label="Activity"
-              value={maskedValue(totalTx > 0 ? `${totalTx} total` : '—')}
-              sub="Deposits + withdrawals"
-              icon={<RefreshCw className="h-4 w-4" />}
-              tone="info"
-              skeleton={isLoading}
-            />
+            {COINS.map((c) => (
+              <AssetCard
+                key={c}
+                coin={c}
+                available={balances[c] ?? 0}
+                locked={lockedBalances[c] ?? 0}
+                hidden={hideBalance}
+                skeleton={isBalLoading}
+              />
+            ))}
           </div>
 
-          {/* ── Balance hero (existing component) ── */}
+          {/* ── Balance hero ── */}
           <BalanceHero
             onDeposit={() => setDepositOpen(true)}
             onWithdraw={() => setWithdrawOpen(true)}
@@ -307,7 +370,6 @@ function BalancePage(): JSX.Element {
                 </span>
               )}
             </div>
-
             <TransactionHistoryTable
               deposits={deposits}
               withdrawals={withdrawals}
@@ -320,15 +382,8 @@ function BalancePage(): JSX.Element {
         </div>
       </AuthenticatedShell>
 
-      {/* ── Modals — rendered at root level, outside AuthenticatedShell ── */}
-      <DepositModal
-        open={depositOpen}
-        onClose={() => setDepositOpen(false)}
-      />
-      <WithdrawModal
-        open={withdrawOpen}
-        onClose={() => setWithdrawOpen(false)}
-      />
+      <DepositModal  open={depositOpen}  onClose={() => setDepositOpen(false)}  />
+      <WithdrawModal open={withdrawOpen} onClose={() => setWithdrawOpen(false)} />
     </>
   );
 }

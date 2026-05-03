@@ -1,10 +1,9 @@
 // components/trade/TradingAssetSelector.tsx
-// ── TRADING ASSET SELECTOR ──
-// Native-feeling dropdown that lists user's available balances. Shows balance
-// next to each option. Uses click-outside + keyboard ESC to close.
+// ── TRADING ASSET SELECTOR (FIXED: USDT-only) ──
+// Trading is locked to USDT. Non-USDT balances show a convert prompt.
 
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ArrowRightLeft } from 'lucide-react';
 import type { Currency } from '@/types/convert';
 
 interface TradingAssetSelectorProps {
@@ -14,23 +13,12 @@ interface TradingAssetSelectorProps {
   disabled?: boolean;
 }
 
-const ASSETS: Currency[] = ['USDT', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
-
-const COIN_COLOR: Record<Currency, string> = {
-  USDT: '#26A17B',
-  BTC:  '#F7931A',
-  ETH:  '#627EEA',
-  SOL:  '#9945FF',
-  BNB:  '#F3BA2F',
-  XRP:  '#23292F',
-};
+// Only USDT is allowed for trading
+const TRADING_ASSET: Currency = 'USDT';
 
 function formatBalance(v: number): string {
-  if (!Number.isFinite(v)) return '0.00000000';
-  if (v === 0) return '0.00';
-  if (v < 0.0001) return v.toFixed(8);
-  if (v < 1) return v.toFixed(6);
-  return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 });
+  if (!Number.isFinite(v)) return '0.00';
+  return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export function TradingAssetSelector({
@@ -39,98 +27,69 @@ export function TradingAssetSelector({
   balances,
   disabled,
 }: TradingAssetSelectorProps): JSX.Element {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const usdtBalance = balances['USDT'] || 0;
 
-  // Close on outside click / Escape
+  // Non-USDT balances — for "convert" hint
+  const otherAssets: Array<{ symbol: Currency; balance: number }> = (
+    ['BTC', 'ETH', 'SOL', 'BNB', 'XRP'] as Currency[]
+  )
+    .filter((a) => (balances[a] || 0) > 0)
+    .map((a) => ({ symbol: a, balance: balances[a] || 0 }));
+
+  // Always ensure we pass USDT upstream on mount
   useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  // Show only assets the user actually holds; if all are zero, show all so the
-  // user can still pick one (and see the selector, e.g. before depositing).
-  const hasAny = ASSETS.some((a) => (balances[a] || 0) > 0);
-  const visible = hasAny ? ASSETS.filter((a) => (balances[a] || 0) > 0) : ASSETS;
-  // Always include the currently selected asset.
-  const list = visible.includes(value) ? visible : [value, ...visible];
+    if (value !== TRADING_ASSET) {
+      onChange(TRADING_ASSET);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
-    <div ref={containerRef} className="relative">
-      <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)]">
-        Trading asset
+    <div className="flex flex-col gap-2">
+      <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-[var(--text-secondary)]">
+        Trading Asset
       </label>
 
-      <button
-        type="button"
-        onClick={() => !disabled && setOpen((o) => !o)}
-        disabled={disabled}
-        className={
-          'flex w-full items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-3 py-2.5 text-sm text-[var(--text-primary)] transition-colors duration-150 hover:border-[var(--border-strong)] focus:border-[var(--accent)] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
-        }
+      {/* Locked USDT display */}
+      <div
+        className={`flex w-full items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-3 py-2.5 ${
+          disabled ? 'opacity-50' : ''
+        }`}
       >
         <span className="flex items-center gap-2">
           <span
             className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white"
-            style={{ backgroundColor: COIN_COLOR[value] }}
+            style={{ backgroundColor: '#26A17B' }}
           >
-            {value.slice(0, 2)}
+            US
           </span>
-          <span className="font-semibold">{value}</span>
+          <span className="font-semibold text-sm text-[var(--text-primary)]">USDT</span>
           <span className="text-xs text-[var(--text-secondary)] tabular">
-            {formatBalance(balances[value] || 0)}
+            {formatBalance(usdtBalance)}
           </span>
         </span>
-        <ChevronDown className={`h-4 w-4 text-[var(--text-muted)] transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
-      </button>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--accent)] rounded-full px-2 py-0.5 bg-[var(--accent-muted)]">
+          Only
+        </span>
+      </div>
 
-      {open && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] py-1 shadow-lg animate-modal-in">
-          {list.map((asset) => {
-            const isActive = asset === value;
-            return (
-              <button
-                key={asset}
-                type="button"
-                onClick={() => {
-                  onChange(asset);
-                  setOpen(false);
-                }}
-                className={
-                  'flex w-full items-center justify-between gap-3 px-3 py-2.5 text-sm transition-colors duration-100 ' +
-                  (isActive
-                    ? 'bg-[var(--accent-muted)] text-[var(--accent)]'
-                    : 'text-[var(--text-primary)] hover:bg-[var(--hover-bg)]')
-                }
+      {/* Convert hint when user has non-USDT balances */}
+      {otherAssets.length > 0 && (
+        <div className="flex items-start gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-3 py-2.5">
+          <ArrowRightLeft className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-[var(--accent)]" />
+          <div className="flex flex-col gap-0.5">
+            <p className="text-xs text-[var(--text-secondary)]">
+              You hold{' '}
+              {otherAssets.map((a) => `${a.symbol}`).join(', ')}.{' '}
+              <a
+                href="/convert"
+                className="text-[var(--accent)] hover:underline font-medium"
               >
-                <span className="flex items-center gap-2">
-                  <span
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold text-white"
-                    style={{ backgroundColor: COIN_COLOR[asset] }}
-                  >
-                    {asset.slice(0, 2)}
-                  </span>
-                  <span className="font-semibold">{asset}</span>
-                </span>
-                <span className="text-xs text-[var(--text-secondary)] tabular">
-                  {formatBalance(balances[asset] || 0)}
-                </span>
-              </button>
-            );
-          })}
+                Convert to USDT
+              </a>{' '}
+              to use them for trading.
+            </p>
+          </div>
         </div>
       )}
     </div>

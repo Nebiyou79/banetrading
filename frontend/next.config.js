@@ -3,23 +3,23 @@
 const nextConfig = {
   reactStrictMode: true,
   
+  // ── Proxy ALL /api/* requests to backend ──
   async rewrites() {
     return [
-      // ── Add this line to proxy ALL /api/* to backend ──
+      // Proxy all API requests to backend
       {
         source: '/api/:path*',
-        destination: 'http://localhost:5000/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/:path*`,
       },
-      // ── Keep existing uploads proxy ──
+      // Proxy upload files
       {
         source: '/uploads/:path*',
-        destination: process.env.NEXT_PUBLIC_API_URL 
-          ? `${process.env.NEXT_PUBLIC_API_URL}/uploads/:path*`
-          : 'http://localhost:5000/uploads/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/uploads/:path*`,
       },
     ];
   },
   
+  // Allow images from backend
   images: {
     remotePatterns: [
       {

@@ -3,6 +3,10 @@
 // Preserves previously-documented fields. Module 7 update: autoMode becomes
 // a String enum ('off' | 'alwaysWin' | 'alwaysLose' | 'random'). A pre-save
 // migration converts legacy Boolean values transparently.
+//
+// BALANCE FIX: Added lockedBalances map for pending-withdrawal amounts.
+// markModified('balances') and markModified('lockedBalances') called in pre-save
+// so Mongoose detects nested object mutations reliably.
 
 const mongoose = require('mongoose');
 
@@ -17,8 +21,22 @@ const UserSchema = new mongoose.Schema({
   avatarUrl:        { type: String, trim: true },
   role:             { type: String, enum: ['user', 'admin'], default: 'user', index: true },
 
-  // ── Balances (multi-currency) ──
+  // ── Available balances (multi-currency) ──
+  // These are the SPENDABLE amounts. Pending-withdrawal amounts live in lockedBalances.
   balances: {
+    USDT: { type: Number, default: 0, min: 0 },
+    BTC:  { type: Number, default: 0, min: 0 },
+    ETH:  { type: Number, default: 0, min: 0 },
+    SOL:  { type: Number, default: 0, min: 0 },
+    BNB:  { type: Number, default: 0, min: 0 },
+    XRP:  { type: Number, default: 0, min: 0 },
+  },
+
+  // ── Locked balances — funds held pending withdrawal approval ──
+  // At withdrawal submit:  balances[c] -= amount  AND  lockedBalances[c] += amount
+  // At withdrawal approve: lockedBalances[c] -= amount  (funds leave the platform)
+  // At withdrawal reject:  balances[c] += amount  AND  lockedBalances[c] -= amount
+  lockedBalances: {
     USDT: { type: Number, default: 0, min: 0 },
     BTC:  { type: Number, default: 0, min: 0 },
     ETH:  { type: Number, default: 0, min: 0 },
@@ -52,11 +70,6 @@ const UserSchema = new mongoose.Schema({
   kycStatus:        { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
 
   // ── Auto mode (Module 7) ──
-  // 'off'        → resolve at random (50/50)        — note: spec uses 'random' for this
-  // 'random'     → 50/50 random outcome
-  // 'alwaysWin'  → admin-rigged win
-  // 'alwaysLose' → admin-rigged loss
-  // Mixed type accepts legacy Boolean and converts via pre-save.
   autoMode:         { type: mongoose.Schema.Types.Mixed, default: 'random' },
 
   // ── OTP ──
@@ -74,17 +87,26 @@ const UserSchema = new mongoose.Schema({
   bonusCreditedAt:  { type: Date },
 }, { timestamps: true });
 
-// ── Pre-save: mirror balances.USDT into legacy balance + normalize autoMode ──
+// ── Pre-save hook ──
+// 1. Mirror balances.USDT into legacy `balance` field.
+// 2. Call markModified on nested objects so Mongoose detects mutations
+//    even when properties are set directly (e.g. user.balances.USDT = x).
+// 3. Normalize autoMode enum.
 UserSchema.pre('save', function (next) {
-  if (this.isModified('balances') && this.balances) {
+  // Mirror USDT → legacy balance
+  if (this.balances) {
     this.balance = this.balances.USDT || 0;
   }
+
+  // CRITICAL: Mongoose does not auto-detect mutations on nested plain objects.
+  // Without markModified, user.balances.USDT = 5; user.save() may be a no-op.
+  this.markModified('balances');
+  this.markModified('lockedBalances');
 
   // Normalize legacy Boolean autoMode into the new enum-string shape.
   if (this.autoMode === true)  this.autoMode = 'alwaysWin';
   if (this.autoMode === false) this.autoMode = 'random';
 
-  // Guard against unknown values.
   const VALID = ['off', 'random', 'alwaysWin', 'alwaysLose'];
   if (typeof this.autoMode !== 'string' || !VALID.includes(this.autoMode)) {
     this.autoMode = 'random';
@@ -93,7 +115,7 @@ UserSchema.pre('save', function (next) {
   next();
 });
 
-// ── Safe JSON ──
+// ── Safe JSON — strip sensitive fields ──
 UserSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;

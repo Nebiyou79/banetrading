@@ -1,20 +1,26 @@
 // pages/admin/users.tsx
 // ── Admin user management page ──
+//
+// BALANCE FIX:
+// Balance column now reads u.balances?.USDT (the multi-asset map) with a
+// fallback to u.balance (legacy scalar) for existing records that haven't
+// been migrated yet. This prevents showing $0 for all users after the
+// schema update.
 
 'use client';
 
 import React, { useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
-import AdminLayout from '@/components/admin-ui/AdminLayout';
-import AdminRoute from '@/components/admin-ui/AdminRoute';
-import DataTable from '@/components/admin-ui/DataTable';
-import Modal from '@/components/admin-ui/Modal';
-import SearchInput from '@/components/admin-ui/SearchInput';
-import Badge from '@/components/admin-ui/Badge';
-import { useAdminData } from '@/hooks/useAdminData';
+import { useQueryClient }   from '@tanstack/react-query';
+import AdminLayout          from '@/components/admin-ui/AdminLayout';
+import AdminRoute           from '@/components/admin-ui/AdminRoute';
+import DataTable            from '@/components/admin-ui/DataTable';
+import Modal                from '@/components/admin-ui/Modal';
+import SearchInput          from '@/components/admin-ui/SearchInput';
+import Badge                from '@/components/admin-ui/Badge';
+import { useAdminData }     from '@/hooks/useAdminData';
 import { useAdminMutation } from '@/hooks/useAdminMutation';
-import adminService from '@/services/adminService';
-import type { User } from '@/types';
+import adminService         from '@/services/adminService';
+import type { User }        from '@/types';
 
 const USERS_KEY = ['admin', 'users'];
 
@@ -30,11 +36,11 @@ export default function UsersPage() {
 
 function UsersContent() {
   const queryClient = useQueryClient();
-  const [page, setPage] = useState(0);
-  const [search, setSearch] = useState('');
-  const [sortBy, setSortBy] = useState('newest');
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [page,          setPage]          = useState(0);
+  const [search,        setSearch]        = useState('');
+  const [sortBy,        setSortBy]        = useState('newest');
+  const [editingUser,   setEditingUser]   = useState<User | null>(null);
+  const [deletingUser,  setDeletingUser]  = useState<User | null>(null);
 
   const { data, isLoading, refetch } = useAdminData<{ users: User[]; total: number }>(
     [...USERS_KEY, { search, sortBy, page }],
@@ -42,7 +48,8 @@ function UsersContent() {
   );
 
   const updateMutation = useAdminMutation(
-    (payload: { id: string; data: Partial<User> }) => adminService.updateUser(payload.id, payload.data),
+    (payload: { id: string; data: Partial<User> }) =>
+      adminService.updateUser(payload.id, payload.data),
     { invalidateKeys: [USERS_KEY] },
   );
 
@@ -50,6 +57,15 @@ function UsersContent() {
     (id: string) => adminService.deleteUser(id),
     { invalidateKeys: [USERS_KEY] },
   );
+
+  // BALANCE FIX: helper to read USDT balance from multi-asset map with fallback
+  const getUsdtBalance = (u: User): number => {
+    // u.balances is the new map; u.balance is the legacy scalar
+    if (u.balances && typeof u.balances === 'object') {
+      return Number((u.balances as any).USDT ?? u.balance ?? 0);
+    }
+    return Number(u.balance ?? 0);
+  };
 
   const columns = [
     {
@@ -61,7 +77,30 @@ function UsersContent() {
     {
       key: 'balance',
       header: 'Balance (USDT)',
-      render: (u: User) => <span className="tabular" data-numeric>{(u.balance || 0).toFixed(2)}</span>,
+      // BALANCE FIX: reads from balances.USDT not legacy balance scalar
+      render: (u: User) => (
+        <span className="tabular" data-numeric>
+          {getUsdtBalance(u).toFixed(2)}
+        </span>
+      ),
+    },
+    {
+      key: 'lockedBalance',
+      header: 'Locked (USDT)',
+      render: (u: User) => {
+        const locked = Number(
+          (u as any).lockedBalances?.USDT ?? 0,
+        );
+        return (
+          <span
+            className="tabular"
+            data-numeric
+            style={{ color: locked > 0 ? 'var(--warning)' : 'var(--text-muted)' }}
+          >
+            {locked.toFixed(2)}
+          </span>
+        );
+      },
     },
     { key: 'kycTier', header: 'KYC Tier' },
     {
@@ -155,18 +194,24 @@ function UsersContent() {
         </div>
       )}
 
-      {/* Edit Modal */}
       <EditUserModal
         user={editingUser}
         onClose={() => setEditingUser(null)}
-        onSave={(id, data) => updateMutation.mutateAsync({ id, data }).then(() => setEditingUser(null))}
+        onSave={(id, data) =>
+          updateMutation.mutateAsync({ id, data }).then(() => setEditingUser(null))
+        }
         isLoading={updateMutation.isLoading}
       />
 
-      {/* Delete Confirmation Modal */}
-      <Modal isOpen={!!deletingUser} onClose={() => setDeletingUser(null)} title="Delete User" size="sm">
+      <Modal
+        isOpen={!!deletingUser}
+        onClose={() => setDeletingUser(null)}
+        title="Delete User"
+        size="sm"
+      >
         <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
-          Are you sure you want to delete user <strong>{deletingUser?.name}</strong>? This action cannot be undone.
+          Are you sure you want to delete user <strong>{deletingUser?.name}</strong>?{' '}
+          This action cannot be undone.
         </p>
         <div className="flex justify-end gap-3">
           <button
@@ -177,7 +222,10 @@ function UsersContent() {
             Cancel
           </button>
           <button
-            onClick={() => deletingUser && deleteMutation.mutateAsync(deletingUser._id).then(() => setDeletingUser(null))}
+            onClick={() =>
+              deletingUser &&
+              deleteMutation.mutateAsync(deletingUser._id).then(() => setDeletingUser(null))
+            }
             className="px-4 py-2 rounded-lg"
             style={{ backgroundColor: 'var(--danger)', color: 'white' }}
           >
@@ -195,9 +243,9 @@ function EditUserModal({
   onSave,
   isLoading,
 }: {
-  user: User | null;
-  onClose: () => void;
-  onSave: (id: string, data: Partial<User>) => Promise<any>;
+  user:     User | null;
+  onClose:  () => void;
+  onSave:   (id: string, data: Partial<User>) => Promise<any>;
   isLoading: boolean;
 }) {
   const [formData, setFormData] = useState<Partial<User>>({});
@@ -205,11 +253,11 @@ function EditUserModal({
   React.useEffect(() => {
     if (user) {
       setFormData({
-        name: user.name,
-        email: user.email,
-        kycTier: user.kycTier,
-        isFrozen: user.isFrozen,
-        autoMode: user.autoMode || 'off',
+        name:      user.name,
+        email:     user.email,
+        kycTier:   user.kycTier,
+        isFrozen:  user.isFrozen,
+        autoMode:  user.autoMode || 'off',
       });
     }
   }, [user]);
@@ -220,7 +268,9 @@ function EditUserModal({
     <Modal isOpen={!!user} onClose={onClose} title={`Edit User: ${user.name}`}>
       <div className="space-y-4">
         <div>
-          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Name</label>
+          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Name
+          </label>
           <input
             type="text"
             value={formData.name || ''}
@@ -230,7 +280,9 @@ function EditUserModal({
           />
         </div>
         <div>
-          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
+          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Email
+          </label>
           <input
             type="email"
             value={formData.email || ''}
@@ -240,7 +292,9 @@ function EditUserModal({
           />
         </div>
         <div>
-          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>KYC Tier</label>
+          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+            KYC Tier
+          </label>
           <select
             value={formData.kycTier || 1}
             onChange={(e) => setFormData({ ...formData, kycTier: parseInt(e.target.value) })}
@@ -253,7 +307,9 @@ function EditUserModal({
           </select>
         </div>
         <div>
-          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Auto Mode</label>
+          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+            Auto Mode
+          </label>
           <select
             value={String(formData.autoMode ?? 'off')}
             onChange={(e) => setFormData({ ...formData, autoMode: e.target.value as any })}
@@ -273,7 +329,9 @@ function EditUserModal({
             checked={formData.isFrozen || false}
             onChange={(e) => setFormData({ ...formData, isFrozen: e.target.checked })}
           />
-          <label htmlFor="isFrozen" style={{ color: 'var(--text-primary)' }}>Freeze Account</label>
+          <label htmlFor="isFrozen" style={{ color: 'var(--text-primary)' }}>
+            Freeze Account
+          </label>
         </div>
 
         <div className="flex justify-end gap-3 pt-4">

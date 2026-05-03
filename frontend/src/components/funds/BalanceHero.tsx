@@ -1,29 +1,29 @@
 // components/funds/BalanceHero.tsx
 // ── Big balance display + Deposit / Withdraw CTAs — Binance/Bybit standard ──
+//
+// BALANCE FIX:
+// 1. Reads balances + lockedBalances from useBalance (multi-asset).
+// 2. Renders a per-asset breakdown grid below the total — showing each
+//    currency's available amount and locked amount (if any).
+// 3. Total USDT-equivalent figure is still shown as the headline number.
 
-import { useState } from 'react';
+import { useState }    from 'react';
 import {
-  Eye,
-  EyeOff,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  TrendingUp,
-  TrendingDown,
-  Wallet,
-  ShieldAlert,
+  Eye, EyeOff, ArrowDownToLine, ArrowUpFromLine,
+  TrendingUp, TrendingDown, Wallet, ShieldAlert, Lock,
 } from 'lucide-react';
 import { Button }   from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn }       from '@/lib/cn';
 import {
-  formatUsd,
-  formatSignedUsd,
-  formatSignedPercent,
+  formatUsd, formatSignedUsd, formatSignedPercent, formatAmount,
 } from '@/lib/format';
-import { useCountUp }   from '@/hooks/useCountUp';
-import { useBalance }   from '@/hooks/useBalance';
-import { usePortfolio } from '@/hooks/usePortfolio';
+import { useCountUp }    from '@/hooks/useCountUp';
+import { useBalance }    from '@/hooks/useBalance';
+import { usePortfolio }  from '@/hooks/usePortfolio';
 import { useResponsive } from '@/hooks/useResponsive';
+import { COINS }         from '@/types/funds';
+import type { Coin }     from '@/types/funds';
 
 export interface BalanceHeroProps {
   onDeposit:  () => void;
@@ -31,15 +31,21 @@ export interface BalanceHeroProps {
 }
 
 export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.Element {
-  const { balance, isFrozen, isLoading } = useBalance();
-  const { portfolio }                    = usePortfolio();
-  const { isMobile }                     = useResponsive();
-  const [hidden, setHidden]              = useState(false);
+  // BALANCE FIX: destructure full multi-asset maps
+  const { balance, balances, lockedBalances, isFrozen, isLoading } = useBalance();
+  const { portfolio }  = usePortfolio();
+  const { isMobile }   = useResponsive();
+  const [hidden, setHidden] = useState(false);
 
   const total    = balance ?? 0;
   const animated = useCountUp(total, { duration: 350, decimals: 2 });
   const change   = portfolio?.change24h ?? { absolute: 0, percent: 0 };
   const positive = change.percent >= 0;
+
+  // Only show coins that have a non-zero balance or a non-zero locked amount
+  const activeCoins = COINS.filter(
+    (c) => (balances[c] ?? 0) > 0 || (lockedBalances[c] ?? 0) > 0,
+  );
 
   return (
     <section
@@ -48,14 +54,11 @@ export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.El
         boxShadow: '0 4px 32px rgba(0,0,0,0.18), 0 1px 0 rgba(255,255,255,0.03) inset',
       }}
     >
-      {/* Subtle gradient accent blob — top-right */}
+      {/* Gradient accent blob */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full opacity-[0.07]"
-        style={{
-          background:
-            'radial-gradient(circle, var(--accent) 0%, transparent 70%)',
-        }}
+        style={{ background: 'radial-gradient(circle, var(--accent) 0%, transparent 70%)' }}
       />
 
       <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -69,8 +72,6 @@ export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.El
             <span className="text-[11px] font-medium uppercase tracking-widest text-[var(--text-muted)]">
               Total balance
             </span>
-
-            {/* Hide/show toggle */}
             <button
               type="button"
               onClick={() => setHidden((v) => !v)}
@@ -84,8 +85,6 @@ export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.El
                 ? <EyeOff className="h-3.5 w-3.5" />
                 : <Eye    className="h-3.5 w-3.5" />}
             </button>
-
-            {/* Frozen badge */}
             {isFrozen && (
               <span
                 className="inline-flex items-center gap-1 rounded-full border
@@ -99,7 +98,7 @@ export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.El
             )}
           </div>
 
-          {/* Balance amount */}
+          {/* Total balance amount */}
           {isLoading ? (
             <div className="flex flex-col gap-2">
               <Skeleton className="h-12 w-64 animate-pulse rounded-lg bg-[var(--bg-muted)]" />
@@ -122,7 +121,6 @@ export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.El
 
               {/* 24h change row */}
               <div className="flex flex-wrap items-center gap-2">
-                {/* Pill */}
                 <span
                   className={cn(
                     'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5',
@@ -137,29 +135,53 @@ export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.El
                     : <TrendingDown className="h-3 w-3" />}
                   {formatSignedPercent(change.percent)}
                 </span>
-
-                {/* Absolute change */}
-                <span
-                  className={cn(
-                    'tabular text-xs font-medium',
-                    positive ? 'text-gain' : 'text-loss',
-                  )}
-                >
+                <span className={cn('tabular text-xs font-medium', positive ? 'text-gain' : 'text-loss')}>
                   {formatSignedUsd(change.absolute)}
                 </span>
                 <span className="text-[11px] text-[var(--text-muted)]">24h</span>
               </div>
+
+              {/* ── BALANCE FIX: Per-asset breakdown ── */}
+              {activeCoins.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {activeCoins.map((c) => {
+                    const available = balances[c] ?? 0;
+                    const locked    = lockedBalances[c] ?? 0;
+                    return (
+                      <div
+                        key={c}
+                        className="flex flex-col gap-0.5 rounded-xl border border-[var(--border)]
+                                   bg-[var(--bg-muted)] px-3 py-2 min-w-[84px]"
+                      >
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
+                          {c}
+                        </span>
+                        <span className={cn('tabular text-sm font-bold text-[var(--text-primary)]', hidden && 'blur-sm select-none')}>
+                          {hidden ? '••••' : formatAmount(available, c)}
+                        </span>
+                        {locked > 0 && (
+                          <div className="flex items-center gap-0.5">
+                            <Lock className="h-2.5 w-2.5 shrink-0" style={{ color: 'var(--warning)' }} />
+                            <span
+                              className={cn('tabular text-[10px]', hidden && 'blur-sm select-none')}
+                              style={{ color: 'var(--warning)' }}
+                              title="Pending withdrawal"
+                            >
+                              {hidden ? '••••' : formatAmount(locked, c)} locked
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>
 
         {/* ── Right: action buttons ── */}
-        <div
-          className={cn(
-            'flex gap-2',
-            isMobile ? 'w-full flex-col' : 'flex-row items-center',
-          )}
-        >
+        <div className={cn('flex gap-2', isMobile ? 'w-full flex-col' : 'flex-row items-center')}>
           <Button
             variant="primary"
             size="lg"

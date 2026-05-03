@@ -1,32 +1,44 @@
 // hooks/useUserBalances.ts
 // ── USER BALANCES HOOK ──
+//
+// BALANCE FIX:
+// Previously queried /convert/balances separately, creating a second stale
+// cache that could diverge from /funds/balance after conversions or approvals.
+// Now delegates to useBalance (which queries /funds/balance) for a single
+// source of truth. The /convert/balances endpoint is still available but
+// the frontend no longer maintains a second cache for it.
 
-import { useQuery } from '@tanstack/react-query';
-import { conversionService } from '@/services/conversionService';
-import type { Currency, UserBalances } from '@/types/convert';
+import { useCallback }       from 'react';
+import { useQueryClient }    from '@tanstack/react-query';
+import { useBalance, BALANCE_QUERY_KEY } from './useBalance';
+import type { Currency }     from '@/types/convert';
 
-export const BALANCES_KEY = ['balances'] as const;
+export const BALANCES_KEY = BALANCE_QUERY_KEY; // re-export so callers stay consistent
 
 export interface UseUserBalancesReturn {
-  balances: Record<Currency, number>;
-  isLoading: boolean;
+  balances:   Record<Currency, number>;
+  isLoading:  boolean;
   isFetching: boolean;
-  error: string | null;
-  refetch: () => void;
+  error:      string | null;
+  refetch:    () => void;
 }
 
 export function useUserBalances(): UseUserBalancesReturn {
-  const query = useQuery<UserBalances>({
-    queryKey: BALANCES_KEY,
-    queryFn: () => conversionService.getBalances(),
-    staleTime: 10_000,
-  });
+  const { balances, isLoading, error, refetch: refetchBalance } = useBalance();
+  const queryClient = useQueryClient();
+
+  // isFetching is true while a background refetch is running
+  const isFetching = queryClient.isFetching({ queryKey: BALANCE_QUERY_KEY }) > 0;
+
+  const refetch = useCallback(() => {
+    void refetchBalance();
+  }, [refetchBalance]);
 
   return {
-    balances: (query.data?.balances ?? {}) as Record<Currency, number>,
-    isLoading: query.isLoading,
-    isFetching: query.isFetching,
-    error: query.error ? (query.error as Error).message : null,
-    refetch: () => query.refetch(),
+    balances:  balances as Record<Currency, number>,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
   };
 }

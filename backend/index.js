@@ -37,10 +37,7 @@ app.use('/api/admin',             require('./routes/admin'));
 // ── Markets routes (primary + backward-compatible mount) ──
 const pricesRouter = require('./routes/prices');
 app.use('/api/markets', pricesRouter);
-
-// Backward-compatible mount: if /api/prices was used before,
-// serve the same router at both paths.
-app.use('/api/prices', pricesRouter);
+app.use('/api/prices',  pricesRouter);
 
 // Module 6 additions ────────────────────────────────────────────────
 app.use('/api/convert', require('./routes/convert'));
@@ -55,13 +52,13 @@ app.use('/api/history', require('./routes/history'));
 app.use('/api/support', require('./routes/support'));
 // ───────────────────────────────────────────────────────────────────
 
-// ── NEW: Market Data System (Document 8) ──────────────────────────
+// ── Market Data System ───────────────────────────────────────────────
 app.use('/api/market', require('./routes/market.routes'));
 
 // Universal chart endpoint (TradingView compatibility)
 const marketCtrl = require('./controllers/market.controller');
 app.get('/api/chart', marketCtrl.getCandles);
-// ───────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────
 
 // ── Health ──
 app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
@@ -73,14 +70,20 @@ app.use((err, _req, res, _next) => {
 });
 
 const PORT = process.env.PORT || 5000;
+
 mongoose.connect(process.env.MONGO_URI).then(async () => {
   console.log('[db] MongoDB connected');
+
   await seedAdmin();
   await seedNetworkFees();
 
   // Module 6 additions ──────────────────────────────────────────────
   await require('./scripts/seedConversionConfig')();
   await require('./scripts/migrateBalances')();
+  // ─────────────────────────────────────────────────────────────────
+
+  // BALANCE FIX: add lockedBalances map to existing users ───────────
+  await require('./scripts/migrateLockedBalances')();
   // ─────────────────────────────────────────────────────────────────
 
   // Module 7 additions ──────────────────────────────────────────────
@@ -92,7 +95,7 @@ mongoose.connect(process.env.MONGO_URI).then(async () => {
   await require('./scripts/seedSupportConfig')();
   // ─────────────────────────────────────────────────────────────────
 
-  // ── NEW: Start HTTP server (with WebSocket attachment) ──────────
+  // ── Start HTTP server (with WebSocket attachment) ─────────────────
   const server = app.listen(PORT, () => {
     console.log(`API running on :${PORT}`);
   });

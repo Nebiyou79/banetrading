@@ -2,10 +2,17 @@
 // ── Single-step withdrawal form — Binance/Bybit standard ──
 // Mobile  → bottom sheet (rounded-t-2xl, slides up from bottom)
 // Desktop → centered dialog (fixed inset-0 flex items-center justify-center)
+//
+// BALANCE FIX:
+// 1. Uses availableFor(coin) and lockedFor(coin) instead of a single scalar `balance`.
+//    This means the correct per-currency balance is shown and checked regardless
+//    of which coin the user selects.
+// 2. Shows locked amount as a separate line when > 0.
+// 3. Quick-fill percentages calculated against the per-coin available balance.
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  CheckCircle2, X, AlertCircle, Wallet,
+  CheckCircle2, X, AlertCircle, Wallet, Lock,
 } from 'lucide-react';
 import { Spinner }              from '@/components/ui/Spinner';
 import { IrreversibleWarning }  from './NetworkWarning';
@@ -40,10 +47,11 @@ export function WithdrawModal({
   onClose,
   initialCoin = null,
 }: WithdrawModalProps): JSX.Element | null {
-  const { isMobile }                     = useResponsive();
-  const { balance }                      = useBalance();
-  const { fees, isLoading: feesLoading } = useNetworkFees();
-  const { submit, isSubmitting }         = useWithdraw();
+  const { isMobile }                            = useResponsive();
+  // BALANCE FIX: destructure per-coin helpers instead of single `balance`
+  const { availableFor, lockedFor }             = useBalance();
+  const { fees, isLoading: feesLoading }        = useNetworkFees();
+  const { submit, isSubmitting }                = useWithdraw();
 
   const [coin, setCoin]           = useState<Coin>(initialCoin ?? 'USDT');
   const [network, setNetwork]     = useState<WithdrawNetwork>(WITHDRAW_NETWORKS_FOR_COIN[initialCoin ?? 'USDT'][0]);
@@ -80,6 +88,10 @@ export function WithdrawModal({
     return () => { document.body.style.overflow = prev; };
   }, [open]);
 
+  // BALANCE FIX: per-coin available and locked amounts
+  const coinAvailable = availableFor(coin);
+  const coinLocked    = lockedFor(coin);
+
   const fee           = fees[network];
   const numericAmount = Number(amount);
   const amountValid   = Number.isFinite(numericAmount) && numericAmount > 0;
@@ -92,8 +104,10 @@ export function WithdrawModal({
   const addressCheck = toAddress
     ? validateAddressForNetwork(network, toAddress)
     : { valid: false, reason: '' };
-  const insufficient  = amountValid && numericAmount > balance;
-  const belowFee      = amountValid && typeof fee === 'number' && numericAmount <= fee;
+
+  // BALANCE FIX: check against per-coin available (not a global USDT scalar)
+  const insufficient = amountValid && numericAmount > coinAvailable;
+  const belowFee     = amountValid && typeof fee === 'number' && numericAmount <= fee;
 
   const canSubmit =
     amountValid &&
@@ -116,10 +130,11 @@ export function WithdrawModal({
     setAmount(normalized);
   };
 
+  // BALANCE FIX: fill % based on per-coin available balance
   const fillPercent = (pct: number): void => {
-    if (!Number.isFinite(balance) || balance <= 0) return;
-    const factor   = 10 ** decimalsForCoin(coin);
-    const truncated = Math.floor((balance * pct / 100) * factor) / factor;
+    if (!Number.isFinite(coinAvailable) || coinAvailable <= 0) return;
+    const factor    = 10 ** decimalsForCoin(coin);
+    const truncated = Math.floor((coinAvailable * pct / 100) * factor) / factor;
     setAmount(String(truncated));
   };
 
@@ -154,8 +169,8 @@ export function WithdrawModal({
           <div>
             <h3 className="text-lg font-bold text-[var(--text-primary)]">Withdrawal submitted</h3>
             <p className="mt-2 max-w-sm text-sm leading-relaxed text-[var(--text-secondary)]">
-              Your request is pending admin review. The held amount has been deducted from your
-              available balance until the withdrawal is approved.
+              Your request is pending admin review. The held amount has been moved to your
+              locked balance until the withdrawal is approved or rejected.
             </p>
           </div>
           <div
@@ -198,9 +213,7 @@ export function WithdrawModal({
             >
               {/* ── Coin selector ── */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-[var(--text-secondary)]">
-                  Coin
-                </label>
+                <label className="text-xs font-medium text-[var(--text-secondary)]">Coin</label>
                 <div className="flex flex-wrap gap-2">
                   {COINS.map((c) => {
                     const isActive = coin === c;
@@ -225,9 +238,7 @@ export function WithdrawModal({
 
               {/* ── Network selector ── */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-[var(--text-secondary)]">
-                  Network
-                </label>
+                <label className="text-xs font-medium text-[var(--text-secondary)]">Network</label>
                 <div className="flex flex-wrap gap-2">
                   {networkOptions.map((n) => {
                     const isActive = network === n;
@@ -250,18 +261,34 @@ export function WithdrawModal({
                 </div>
               </div>
 
-              {/* ── Available balance ── */}
+              {/* ── Available balance — BALANCE FIX: per-coin ── */}
               <div
-                className="flex items-center justify-between rounded-xl border border-[var(--border)] px-4 py-3"
+                className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] px-4 py-3"
                 style={{ background: 'var(--bg-muted)' }}
               >
-                <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
-                  <span className="text-xs text-[var(--text-secondary)]">Available balance</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Wallet className="h-4 w-4" style={{ color: 'var(--text-muted)' }} />
+                    <span className="text-xs text-[var(--text-secondary)]">Available</span>
+                  </div>
+                  <span className="tabular text-sm font-bold text-[var(--text-primary)]">
+                    {formatAmount(coinAvailable, coin)}
+                  </span>
                 </div>
-                <span className="tabular text-sm font-bold text-[var(--text-primary)]">
-                  {formatAmount(balance, 'USDT')}
-                </span>
+                {/* Show locked amount if any pending withdrawals */}
+                {coinLocked > 0 && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Lock className="h-3.5 w-3.5" style={{ color: 'var(--warning)' }} />
+                      <span className="text-[11px]" style={{ color: 'var(--warning)' }}>
+                        Locked (pending withdrawal)
+                      </span>
+                    </div>
+                    <span className="tabular text-xs font-semibold" style={{ color: 'var(--warning)' }}>
+                      {formatAmount(coinLocked, coin)}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* ── Destination address ── */}
@@ -288,10 +315,7 @@ export function WithdrawModal({
                       ? 'border-[var(--danger)] focus:border-[var(--danger)]'
                       : 'border-[var(--border)] focus:border-[var(--accent)]',
                   )}
-                  style={{
-                    background: 'var(--bg-muted)',
-                    color:      'var(--text-primary)',
-                  }}
+                  style={{ background: 'var(--bg-muted)', color: 'var(--text-primary)' }}
                 />
                 {toAddress && !addressCheck.valid && (
                   <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--danger)' }}>
@@ -340,7 +364,7 @@ export function WithdrawModal({
                   </span>
                 </div>
 
-                {/* Quick-fill pills */}
+                {/* Quick-fill pills — BALANCE FIX: uses coinAvailable */}
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   {QUICK_FILL.map((p) => (
                     <button
@@ -348,11 +372,7 @@ export function WithdrawModal({
                       type="button"
                       onClick={() => fillPercent(p)}
                       className="rounded-full border px-2.5 h-6 text-[11px] font-medium transition-all duration-150 hover:opacity-90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--focus-ring)]"
-                      style={{
-                        borderColor: 'var(--border)',
-                        background:  'var(--bg-muted)',
-                        color:       'var(--text-secondary)',
-                      }}
+                      style={{ borderColor: 'var(--border)', background: 'var(--bg-muted)', color: 'var(--text-secondary)' }}
                       onMouseEnter={(e) => {
                         (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)';
                         (e.currentTarget as HTMLButtonElement).style.background   = 'var(--accent-muted)';
@@ -369,10 +389,11 @@ export function WithdrawModal({
                   ))}
                 </div>
 
+                {/* BALANCE FIX: error message references the correct per-coin available amount */}
                 {insufficient && (
                   <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--danger)' }}>
                     <AlertCircle className="h-3 w-3" />
-                    Amount exceeds your available balance.
+                    Exceeds available {coin} balance ({formatAmount(coinAvailable, coin)}).
                   </span>
                 )}
                 {belowFee && (
@@ -414,19 +435,13 @@ export function WithdrawModal({
                 />
               </div>
 
-              {/* Irreversible warning */}
               <IrreversibleWarning />
 
-              {/* Server error */}
               {serverError && (
                 <div
                   role="alert"
                   className="flex items-center gap-2 rounded-xl border px-4 py-3 text-xs"
-                  style={{
-                    borderColor: 'var(--danger)',
-                    background:  'var(--danger-muted)',
-                    color:       'var(--danger)',
-                  }}
+                  style={{ borderColor: 'var(--danger)', background: 'var(--danger-muted)', color: 'var(--danger)' }}
                 >
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   {serverError}
@@ -449,8 +464,8 @@ export function WithdrawModal({
                   disabled={!canSubmit}
                   className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-150 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   style={{
-                    background: canSubmit ? 'var(--danger)'     : 'var(--disabled)',
-                    color:      canSubmit ? 'var(--text-inverse)': 'var(--disabled-text)',
+                    background: canSubmit ? 'var(--danger)'      : 'var(--disabled)',
+                    color:      canSubmit ? 'var(--text-inverse)' : 'var(--disabled-text)',
                     boxShadow:  canSubmit ? '0 0 16px var(--danger-muted)' : 'none',
                   }}
                 >
@@ -472,7 +487,6 @@ export function WithdrawModal({
 
   return (
     <>
-      {/* ── Keyframe ── */}
       <style>{`
         @keyframes withdraw-slide-up {
           from { transform: translateY(100%); opacity: 0.7; }
@@ -484,7 +498,6 @@ export function WithdrawModal({
         }
       `}</style>
 
-      {/* ── Backdrop ── */}
       <div
         className="fixed inset-0 z-40"
         style={{ background: 'var(--overlay)' }}
@@ -493,7 +506,6 @@ export function WithdrawModal({
       />
 
       {isMobile ? (
-        /* ── MOBILE: bottom sheet ── */
         <div
           role="dialog"
           aria-modal="true"
@@ -501,19 +513,17 @@ export function WithdrawModal({
           className="fixed inset-x-0 bottom-0 z-50 flex flex-col rounded-t-2xl border-t border-[var(--border)] overflow-hidden"
           style={{
             background: 'var(--bg-elevated)',
-            maxHeight: '94dvh',
-            animation: 'withdraw-slide-up 220ms cubic-bezier(0.32,0.72,0,1)',
-            boxShadow: '0 -8px 40px rgba(0,0,0,0.3)',
+            maxHeight:  '94dvh',
+            animation:  'withdraw-slide-up 220ms cubic-bezier(0.32,0.72,0,1)',
+            boxShadow:  '0 -8px 40px rgba(0,0,0,0.3)',
           }}
         >
-          {/* Drag handle */}
           <div className="flex shrink-0 justify-center pt-3 pb-1">
             <div className="h-1 w-10 rounded-full bg-[var(--border)]" />
           </div>
           {panelContent}
         </div>
       ) : (
-        /* ── DESKTOP: true centered dialog ── */
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           onClick={handleClose}
@@ -545,8 +555,8 @@ function FeeRow({
   value,
   emphasize = false,
 }: {
-  label:     string;
-  value:     React.ReactNode;
+  label:      string;
+  value:      React.ReactNode;
   emphasize?: boolean;
 }): JSX.Element {
   return (

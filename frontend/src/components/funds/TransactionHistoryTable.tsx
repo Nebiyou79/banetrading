@@ -1,28 +1,25 @@
 // components/funds/TransactionHistoryTable.tsx
 // ── Combined deposit/withdrawal history — Binance/Bybit standard ──
 // Desktop: full table  |  Mobile: card stack
+//
+// BALANCE FIX:
+// 1. WithdrawalRecord now exposes `netAmount` and `networkFee`.
+// 2. Amount column shows gross deducted + net received on separate lines for withdrawals.
+// 3. UnifiedRow carries netAmount so the display can show real received value.
 
 import { useMemo, useState }      from 'react';
 import {
-  ArrowDownLeft,
-  ArrowUpRight,
-  ExternalLink,
-  FileText,
-  Inbox,
-  ChevronDown,
+  ArrowDownLeft, ArrowUpRight, ExternalLink,
+  FileText, Inbox, ChevronDown,
 } from 'lucide-react';
 import { Button }   from '@/components/ui/Button';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { cn }       from '@/lib/cn';
-import { resolveMediaUrl }     from '@/lib/media';
+import { resolveMediaUrl }                          from '@/lib/media';
 import { formatAmount, formatRelativeTime, formatDate } from '@/lib/format';
-import { CoinNetworkMap }      from '@/types/funds';
-import { useResponsive }       from '@/hooks/useResponsive';
-import type {
-  DepositRecord,
-  FundsStatus,
-  WithdrawalRecord,
-} from '@/types/funds';
+import { CoinNetworkMap }                           from '@/types/funds';
+import { useResponsive }                            from '@/hooks/useResponsive';
+import type { DepositRecord, FundsStatus, WithdrawalRecord } from '@/types/funds';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -32,6 +29,8 @@ interface UnifiedRow {
   id:         string;
   type:       'deposit' | 'withdrawal';
   amount:     number;
+  netAmount?: number;  // BALANCE FIX: net amount user receives on withdrawal
+  networkFee?: number;
   currency:   string;
   network:    string;
   status:     FundsStatus;
@@ -50,24 +49,12 @@ export interface TransactionHistoryTableProps {
   isLoadingMore?: boolean;
 }
 
-// ── Status pill — CSS vars only, no Tailwind semantic colours ────────────────
+// ── Status pill ──────────────────────────────────────────────────────────────
 
 const STATUS_VARS: Record<FundsStatus, { border: string; bg: string; text: string }> = {
-  pending:  {
-    border: 'var(--warning)',
-    bg:     'var(--warning-muted)',
-    text:   'var(--warning)',
-  },
-  approved: {
-    border: 'var(--success)',
-    bg:     'var(--success-muted)',
-    text:   'var(--success)',
-  },
-  rejected: {
-    border: 'var(--danger)',
-    bg:     'var(--danger-muted)',
-    text:   'var(--danger)',
-  },
+  pending:  { border: 'var(--warning)', bg: 'var(--warning-muted)', text: 'var(--warning)' },
+  approved: { border: 'var(--success)', bg: 'var(--success-muted)', text: 'var(--success)' },
+  rejected: { border: 'var(--danger)',  bg: 'var(--danger-muted)',  text: 'var(--danger)'  },
 };
 
 function StatusPill({ status }: { status: FundsStatus }): JSX.Element {
@@ -88,21 +75,41 @@ function StatusPill({ status }: { status: FundsStatus }): JSX.Element {
 function TypeIcon({ type }: { type: UnifiedRow['type'] }): JSX.Element {
   if (type === 'deposit') {
     return (
-      <span
-        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full
-                   bg-[var(--success-muted)] text-[var(--success)]"
-      >
+      <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--success-muted)] text-[var(--success)]">
         <ArrowDownLeft className="h-4 w-4" />
       </span>
     );
   }
   return (
-    <span
-      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full
-                 bg-[var(--danger-muted)] text-[var(--danger)]"
-    >
+    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--danger-muted)] text-[var(--danger)]">
       <ArrowUpRight className="h-4 w-4" />
     </span>
+  );
+}
+
+// ── Amount cell — BALANCE FIX: shows net for withdrawals ────────────────────
+
+function AmountCell({ row }: { row: UnifiedRow }): JSX.Element {
+  if (row.type === 'deposit') {
+    return (
+      <span className="tabular text-sm font-semibold text-gain">
+        +{formatAmount(row.amount, row.currency)}
+      </span>
+    );
+  }
+  // Withdrawal: show gross deducted; net received as sub-line if fee > 0
+  const hasFee = typeof row.networkFee === 'number' && row.networkFee > 0;
+  return (
+    <div className="flex flex-col">
+      <span className="tabular text-sm font-semibold text-loss">
+        −{formatAmount(row.amount, row.currency)}
+      </span>
+      {hasFee && typeof row.netAmount === 'number' && (
+        <span className="tabular text-[10px] text-[var(--text-muted)]">
+          Net: {formatAmount(row.netAmount, row.currency)}
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -127,8 +134,7 @@ function ActionCell({ row }: { row: UnifiedRow }): JSX.Element {
   if (row.type === 'withdrawal' && row.txHash) {
     return (
       <span
-        className="inline-flex items-center gap-1 max-w-[140px] truncate
-                   text-xs text-[var(--text-secondary)]"
+        className="inline-flex items-center gap-1 max-w-[140px] truncate text-xs text-[var(--text-secondary)]"
         title={row.txHash}
       >
         <ExternalLink className="h-3.5 w-3.5 shrink-0" />
@@ -158,22 +164,25 @@ export function TransactionHistoryTable({
       type:      'deposit',
       amount:    x.amount,
       currency:  x.currency,
-      network:   CoinNetworkMap.label(x.network),
+      network:   CoinNetworkMap.label(x.network as any),
       status:    x.status,
       createdAt: x.createdAt,
       proofPath: x.proofFilePath,
     }));
 
+    // BALANCE FIX: carry netAmount and networkFee for withdrawal display
     const w: UnifiedRow[] = withdrawals.map((x) => ({
-      id:        x._id,
-      type:      'withdrawal',
-      amount:    x.amount,
-      currency:  x.currency,
-      network:   CoinNetworkMap.label(x.network),
-      status:    x.status,
-      createdAt: x.createdAt,
-      toAddress: x.toAddress,
-      txHash:    x.txHash,
+      id:         x._id,
+      type:       'withdrawal',
+      amount:     x.amount,
+      netAmount:  x.netAmount,
+      networkFee: x.networkFee,
+      currency:   x.currency,
+      network:    CoinNetworkMap.label(x.network as any),
+      status:     x.status,
+      createdAt:  x.createdAt,
+      toAddress:  x.toAddress,
+      txHash:     x.txHash,
     }));
 
     const combined = [...d, ...w].sort(
@@ -191,11 +200,7 @@ export function TransactionHistoryTable({
       style={{ boxShadow: '0 2px 16px rgba(0,0,0,0.12)' }}
     >
       {/* ── Header / filter tabs ── */}
-      <div
-        className="flex flex-wrap items-center justify-between gap-3
-                   border-b border-[var(--border)] px-5 py-4"
-      >
-        {/* Tab strip */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
         <div className="relative flex items-center">
           {(['all', 'deposits', 'withdrawals'] as const).map((f) => (
             <button
@@ -222,8 +227,6 @@ export function TransactionHistoryTable({
             </button>
           ))}
         </div>
-
-        {/* Record count */}
         <span className="text-[11px] tabular text-[var(--text-muted)]">
           {isLoading ? '…' : `${rows.length} ${rows.length === 1 ? 'record' : 'records'}`}
         </span>
@@ -260,7 +263,7 @@ export function TransactionHistoryTable({
   );
 }
 
-// ── Desktop full-column table ────────────────────────────────────────────────
+// ── Desktop table ────────────────────────────────────────────────────────────
 
 function DesktopTable({ rows }: { rows: UnifiedRow[] }): JSX.Element {
   return (
@@ -272,8 +275,7 @@ function DesktopTable({ rows }: { rows: UnifiedRow[] }): JSX.Element {
               <th
                 key={h}
                 className={cn(
-                  'py-2.5 pr-4 text-[11px] font-medium uppercase tracking-widest',
-                  'text-[var(--text-muted)]',
+                  'py-2.5 pr-4 text-[11px] font-medium uppercase tracking-widest text-[var(--text-muted)]',
                   h === 'Ref' ? 'text-right' : 'text-left',
                 )}
               >
@@ -282,15 +284,12 @@ function DesktopTable({ rows }: { rows: UnifiedRow[] }): JSX.Element {
             ))}
           </tr>
         </thead>
-
         <tbody>
           {rows.map((row) => (
             <tr
               key={row.id}
-              className="border-b border-[var(--border-subtle)] transition-colors duration-100
-                         hover:bg-[var(--hover-bg)]"
+              className="border-b border-[var(--border-subtle)] transition-colors duration-100 hover:bg-[var(--hover-bg)]"
             >
-              {/* Type */}
               <td className="py-3 pr-4">
                 <div className="flex items-center gap-2.5">
                   <TypeIcon type={row.type} />
@@ -299,52 +298,22 @@ function DesktopTable({ rows }: { rows: UnifiedRow[] }): JSX.Element {
                   </span>
                 </div>
               </td>
-
-              {/* Amount */}
+              {/* BALANCE FIX: amount cell with net sub-line for withdrawals */}
               <td className="py-3 pr-4">
-                <span
-                  className={cn(
-                    'tabular text-sm font-semibold',
-                    row.type === 'deposit' ? 'text-gain' : 'text-loss',
-                  )}
-                >
-                  {row.type === 'deposit' ? '+' : '−'}
-                  {formatAmount(row.amount, row.currency)}
-                </span>
+                <AmountCell row={row} />
               </td>
-
-              {/* Coin / network badge */}
               <td className="py-3 pr-4">
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-full border
-                             border-[var(--border)] bg-[var(--bg-muted)]
-                             px-2.5 py-0.5 text-[11px]"
-                >
-                  <span className="font-semibold text-[var(--text-primary)]">
-                    {row.currency}
-                  </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-muted)] px-2.5 py-0.5 text-[11px]">
+                  <span className="font-semibold text-[var(--text-primary)]">{row.currency}</span>
                   <span className="text-[var(--text-muted)]" aria-hidden="true">·</span>
                   <span className="text-[var(--text-secondary)]">{row.network}</span>
                 </span>
               </td>
-
-              {/* Status */}
-              <td className="py-3 pr-4">
-                <StatusPill status={row.status} />
-              </td>
-
-              {/* Date */}
-              <td
-                className="py-3 pr-4 text-xs text-[var(--text-muted)]"
-                title={formatDate(row.createdAt)}
-              >
+              <td className="py-3 pr-4"><StatusPill status={row.status} /></td>
+              <td className="py-3 pr-4 text-xs text-[var(--text-muted)]" title={formatDate(row.createdAt)}>
                 {formatRelativeTime(row.createdAt)}
               </td>
-
-              {/* Ref / action */}
-              <td className="py-3 pr-4 text-right">
-                <ActionCell row={row} />
-              </td>
+              <td className="py-3 pr-4 text-right"><ActionCell row={row} /></td>
             </tr>
           ))}
         </tbody>
@@ -353,7 +322,7 @@ function DesktopTable({ rows }: { rows: UnifiedRow[] }): JSX.Element {
   );
 }
 
-// ── Mobile card stack ────────────────────────────────────────────────────────
+// ── Mobile cards ─────────────────────────────────────────────────────────────
 
 function MobileCards({ rows }: { rows: UnifiedRow[] }): JSX.Element {
   return (
@@ -361,38 +330,21 @@ function MobileCards({ rows }: { rows: UnifiedRow[] }): JSX.Element {
       {rows.map((row) => (
         <li key={row.id} className="py-3.5">
           <div className="flex items-start justify-between gap-3">
-            {/* Left: icon + meta */}
             <div className="flex items-center gap-3 min-w-0">
               <TypeIcon type={row.type} />
               <div className="min-w-0">
-                <div className="text-sm font-medium capitalize text-[var(--text-primary)]">
-                  {row.type}
-                </div>
+                <div className="text-sm font-medium capitalize text-[var(--text-primary)]">{row.type}</div>
                 <div className="text-[11px] text-[var(--text-muted)]">
                   {row.currency} · {row.network} ·{' '}
-                  <span title={formatDate(row.createdAt)}>
-                    {formatRelativeTime(row.createdAt)}
-                  </span>
+                  <span title={formatDate(row.createdAt)}>{formatRelativeTime(row.createdAt)}</span>
                 </div>
               </div>
             </div>
-
-            {/* Right: amount + status */}
             <div className="flex flex-col items-end gap-1 shrink-0">
-              <span
-                className={cn(
-                  'tabular text-sm font-semibold',
-                  row.type === 'deposit' ? 'text-gain' : 'text-loss',
-                )}
-              >
-                {row.type === 'deposit' ? '+' : '−'}
-                {formatAmount(row.amount, row.currency)}
-              </span>
+              <AmountCell row={row} />
               <StatusPill status={row.status} />
             </div>
           </div>
-
-          {/* Action link */}
           <div className="mt-2 flex items-center justify-end">
             <ActionCell row={row} />
           </div>
@@ -402,7 +354,7 @@ function MobileCards({ rows }: { rows: UnifiedRow[] }): JSX.Element {
   );
 }
 
-// ── Loading skeleton ─────────────────────────────────────────────────────────
+// ── Loading skeleton ──────────────────────────────────────────────────────────
 
 function LoadingSkeleton(): JSX.Element {
   return (
@@ -423,7 +375,7 @@ function LoadingSkeleton(): JSX.Element {
   );
 }
 
-// ── Empty state ──────────────────────────────────────────────────────────────
+// ── Empty state ───────────────────────────────────────────────────────────────
 
 function EmptyState({ filter }: { filter: Filter }): JSX.Element {
   const heading =
@@ -438,10 +390,7 @@ function EmptyState({ filter }: { filter: Filter }): JSX.Element {
 
   return (
     <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-      <div
-        className="flex h-14 w-14 items-center justify-center rounded-2xl
-                   border-2 border-dashed border-[var(--border)] bg-[var(--bg-muted)]"
-      >
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--bg-muted)]">
         <Inbox className="h-6 w-6 text-[var(--text-muted)]" />
       </div>
       <div>

@@ -1,5 +1,5 @@
 // components/trade/TradingChart.tsx
-// ── TRADING CHART (FIXED — CSS VARIABLES RESOLVED TO ACTUAL COLORS) ──
+// ── TRADING CHART (FIXED — stable sync init, safe cleanup, no race condition) ──
 
 import { useEffect, useRef, useState } from 'react';
 import { useMarketCandles } from '@/hooks/useMarketCandles';
@@ -14,22 +14,9 @@ interface TradingChartProps {
 const TIMEFRAMES_CRYPTO = ['1m', '5m', '15m', '1h', '4h', '1d'];
 const TIMEFRAMES_FX = ['1h', '4h', '1d', '1w'];
 
-/**
- * Resolve a CSS variable to its actual value.
- * Falls back to a hardcoded color if the variable is not available.
- */
-function getCSSVar(name: string, fallback: string): string {
-  if (typeof document === 'undefined') return fallback;
-  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return value || fallback;
-}
-
-/**
- * Dark theme colors (hardcoded — lightweight-charts requires actual color values)
- */
 const CHART_COLORS = {
   dark: {
-    background: '#0B0E11',
+    background: 'transparent',
     textColor: '#848E9C',
     gridColor: '#1E2329',
     borderColor: '#2B3139',
@@ -37,7 +24,7 @@ const CHART_COLORS = {
     downColor: '#F6465D',
   },
   light: {
-    background: '#FFFFFF',
+    background: 'transparent',
     textColor: '#474D57',
     gridColor: '#EAECEF',
     borderColor: '#D9D9D9',
@@ -48,8 +35,13 @@ const CHART_COLORS = {
 
 export function TradingChart({ symbol, pairClass }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  // Store chart API refs — typed as any to avoid heavyweight lightweight-charts imports
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
+  // Track whether component is still mounted to prevent stale updates
+  const mountedRef = useRef(true);
+  // Track the symbol/timeframe the chart was last initialized for
+  const initKeyRef = useRef<string>('');
 
   const [timeframe, setTimeframe] = useState(
     pairClass === 'crypto' ? '15m' : '1h'
@@ -57,7 +49,6 @@ export function TradingChart({ symbol, pairClass }: TradingChartProps) {
 
   const timeframes = pairClass === 'crypto' ? TIMEFRAMES_CRYPTO : TIMEFRAMES_FX;
 
-  // Use new market candles hook (calls /api/chart, never Binance directly)
   const { data: candlesData, isLoading: candlesLoading } = useMarketCandles(
     symbol,
     timeframe,
@@ -65,27 +56,51 @@ export function TradingChart({ symbol, pairClass }: TradingChartProps) {
     { enabled: !!symbol }
   );
 
-  // Get live WS price for last-candle updates
   const wsPrice = useMarketStore((s) => s.prices[symbol]);
 
-  // ── Init chart (with hardcoded colors, not CSS vars) ──
+  // ── Detect current theme ──
+  const getTheme = (): 'dark' | 'light' => {
+    if (typeof document === 'undefined') return 'dark';
+    return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  };
+
+  // ── Initialize chart once container is available ──
   useEffect(() => {
-    let cleanup: (() => void) | undefined;
+    mountedRef.current = true;
+    const initKey = `${symbol}-${timeframe}`;
 
-    (async () => {
-      const { createChart, ColorType } = await import('lightweight-charts');
-      if (!containerRef.current) return;
+    // Avoid re-initializing if nothing meaningful changed
+    if (initKeyRef.current === initKey && chartRef.current) return;
+    initKeyRef.current = initKey;
 
-      // Detect theme
-      const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-      const colors = isDark ? CHART_COLORS.dark : CHART_COLORS.light;
+    const container = containerRef.current;
+    if (!container) return;
 
-      const chart = createChart(containerRef.current, {
+    // Destroy previous chart instance before creating a new one
+    if (chartRef.current) {
+      try {
+        chartRef.current.remove();
+      } catch { /* ignore errors during cleanup */ }
+      chartRef.current = null;
+      seriesRef.current = null;
+    }
+
+    // Dynamically import to avoid SSR issues; use .then() not async/await
+    // so cleanup can run synchronously without undefined variables
+    let chart: any = null;
+    let resizeObserver: ResizeObserver | null = null;
+
+    import('lightweight-charts').then(({ createChart, ColorType }) => {
+      // If component unmounted while importing, abort
+      if (!mountedRef.current || !containerRef.current) return;
+
+      const colors = CHART_COLORS[getTheme()];
+
+      chart = createChart(containerRef.current, {
         width: containerRef.current.clientWidth,
         height: containerRef.current.clientHeight || 380,
         layout: {
-          // ⚠️ FIX: Use actual color values, NOT CSS variables
-          background: { type: ColorType.Solid, color: 'transparent' },
+          background: { type: ColorType.Solid, color: colors.background },
           textColor: colors.textColor,
         },
         grid: {
@@ -95,13 +110,12 @@ export function TradingChart({ symbol, pairClass }: TradingChartProps) {
         timeScale: {
           borderColor: colors.borderColor,
           timeVisible: true,
+          secondsVisible: false,
         },
         rightPriceScale: {
           borderColor: colors.borderColor,
         },
-        crosshair: {
-          mode: 0,
-        },
+        crosshair: { mode: 0 },
       });
 
       const series = chart.addCandlestickSeries({
@@ -116,30 +130,52 @@ export function TradingChart({ symbol, pairClass }: TradingChartProps) {
       chartRef.current = chart;
       seriesRef.current = series;
 
-      const resizeObs = new ResizeObserver(() => {
-        if (containerRef.current) {
-          chart.applyOptions({
+      // Load any already-fetched candle data immediately
+      if (candlesData && candlesData.length > 0) {
+        const formatted = candlesData.map((c) => ({
+          time: c.time as any,
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+        }));
+        series.setData(formatted);
+        chart.timeScale().fitContent();
+      }
+
+      // Responsive resize observer
+      resizeObserver = new ResizeObserver(() => {
+        if (containerRef.current && chartRef.current) {
+          chartRef.current.applyOptions({
             width: containerRef.current.clientWidth,
-            height: containerRef.current.clientHeight,
+            height: containerRef.current.clientHeight || 380,
           });
         }
       });
-      resizeObs.observe(containerRef.current);
+      if (containerRef.current) {
+        resizeObserver.observe(containerRef.current);
+      }
+    }).catch((err) => {
+      console.error('[TradingChart] Failed to load lightweight-charts:', err);
+    });
 
-      cleanup = () => {
-        resizeObs.disconnect();
-        chart.remove();
-      };
-    })();
-
+    // Cleanup: always synchronously available (no undefined)
     return () => {
-      cleanup?.();
+      mountedRef.current = false;
+      if (resizeObserver) resizeObserver.disconnect();
+      if (chart) {
+        try { chart.remove(); } catch { /* ignore */ }
+      }
+      chartRef.current = null;
+      seriesRef.current = null;
     };
-  }, []);
+    // Re-initialize when symbol or pairClass changes; timeframe handled separately
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol, pairClass]);
 
-  // ── Update chart data ──
+  // ── Update candle data when it arrives ──
   useEffect(() => {
-    if (!candlesData || !seriesRef.current) return;
+    if (!seriesRef.current || !candlesData || candlesData.length === 0) return;
 
     const formatted = candlesData.map((c) => ({
       time: c.time as any,
@@ -149,33 +185,45 @@ export function TradingChart({ symbol, pairClass }: TradingChartProps) {
       close: c.close,
     }));
 
-    seriesRef.current.setData(formatted);
-    chartRef.current?.timeScale()?.fitContent();
+    try {
+      seriesRef.current.setData(formatted);
+      chartRef.current?.timeScale()?.fitContent();
+    } catch (err) {
+      console.warn('[TradingChart] setData error:', err);
+    }
   }, [candlesData]);
 
-  // ── Live price update from WS ──
+  // ── Live WebSocket price update on last candle ──
   useEffect(() => {
     if (!wsPrice || !seriesRef.current || !candlesData?.length) return;
 
     const last = candlesData[candlesData.length - 1];
-    seriesRef.current.update({
-      time: last.time,
-      open: last.open,
-      high: Math.max(last.high, wsPrice),
-      low: Math.min(last.low, wsPrice),
-      close: wsPrice,
-    });
+    try {
+      seriesRef.current.update({
+        time: last.time,
+        open: last.open,
+        high: Math.max(last.high, wsPrice),
+        low: Math.min(last.low, wsPrice),
+        close: wsPrice,
+      });
+    } catch { /* stale chart ref during transition */ }
   }, [wsPrice, candlesData]);
+
+  // ── Handle timeframe change — reset initKey so chart re-initializes ──
+  const handleTimeframeChange = (tf: string) => {
+    setTimeframe(tf);
+    initKeyRef.current = ''; // force re-init on next render
+  };
 
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-3 sm:p-4">
-      {/* Timeframes */}
+      {/* Timeframe selector */}
       <div className="flex flex-wrap gap-1.5">
         {timeframes.map((tf) => (
           <button
             key={tf}
             type="button"
-            onClick={() => setTimeframe(tf)}
+            onClick={() => handleTimeframeChange(tf)}
             className={`rounded-lg px-2.5 py-1 text-xs font-semibold tabular transition-colors duration-150 ${
               tf === timeframe
                 ? 'bg-[var(--accent-muted)] text-[var(--accent)] border border-[var(--accent)]'
@@ -187,7 +235,7 @@ export function TradingChart({ symbol, pairClass }: TradingChartProps) {
         ))}
       </div>
 
-      {/* Chart */}
+      {/* Chart container */}
       <div className="relative">
         <div
           ref={containerRef}
@@ -196,6 +244,11 @@ export function TradingChart({ symbol, pairClass }: TradingChartProps) {
         {candlesLoading && (
           <div className="absolute inset-0 flex items-center justify-center bg-[var(--overlay)] rounded-lg">
             <div className="animate-spin w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+          </div>
+        )}
+        {!candlesLoading && (!candlesData || candlesData.length === 0) && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-lg">
+            <p className="text-sm text-[var(--text-muted)]">Chart data unavailable</p>
           </div>
         )}
       </div>

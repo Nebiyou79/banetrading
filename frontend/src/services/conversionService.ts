@@ -1,5 +1,12 @@
 // services/conversionService.ts
 // ── CONVERSION API SERVICE ──
+//
+// BALANCE FIX:
+// After executeConvert succeeds, callers must invalidate ['balance'] so
+// useBalance (the unified cache) reflects the updated multi-asset balances.
+// This service is stateless; cache invalidation is the caller's responsibility
+// (ConvertForm should call queryClient.invalidateQueries(['balance']) on success).
+// See ConvertForm component for the invalidation call.
 
 import { apiClient } from './apiClient';
 import type {
@@ -12,6 +19,8 @@ import type {
 
 export const conversionService = {
   // ── Balances ──
+  // NOTE: prefer useBalance() hook which returns the unified balance from
+  // /funds/balance. This endpoint exists for conversion-specific flows.
   async getBalances(): Promise<UserBalances> {
     const { data } = await apiClient.get<UserBalances>('/convert/balances');
     return data;
