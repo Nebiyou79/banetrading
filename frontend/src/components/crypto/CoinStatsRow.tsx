@@ -1,5 +1,5 @@
 // components/crypto/CoinStatsRow.tsx
-// ── 6-CELL STATS ROW ──
+// ── COIN STATS ROW — Professional 6-cell grid ──
 
 import React from 'react';
 import type { MarketRow } from '@/types/markets';
@@ -21,16 +21,11 @@ function formatCompact(value: number | null): string {
   }).format(value);
 }
 
-interface StatCellProps {
-  label: string;
-  value: React.ReactNode;
-}
-
-function StatCell({ label, value }: StatCellProps) {
+function StatCell({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wide">{label}</span>
-      <span className="tabular text-sm font-semibold text-[var(--text-primary)]">{value}</span>
+      <span className="text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">{label}</span>
+      <div>{children}</div>
     </div>
   );
 }
@@ -38,23 +33,28 @@ function StatCell({ label, value }: StatCellProps) {
 export default function CoinStatsRow({ row }: CoinStatsRowProps) {
   const { isMobile } = useResponsive();
 
-  const stats = [
-    { label: 'Price', content: <CryptoPriceCell value={row.price} /> },
-    {
-      label: '24h Change',
-      content: <CryptoChangePill value={row.change24h} />,
-    },
-    { label: '24h High', content: <CryptoPriceCell value={row.high24h} /> },
-    { label: '24h Low', content: <CryptoPriceCell value={row.low24h} /> },
-    { label: '24h Volume', content: <span className="tabular text-sm text-[var(--text-primary)]">{formatCompact(row.volume24h)}</span> },
-    { label: 'Market Cap', content: <span className="tabular text-sm text-[var(--text-primary)]">{formatCompact(row.marketCap)}</span> },
-  ];
-
   return (
-    <div className={`rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 ${isMobile ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-3 sm:grid-cols-6 gap-4'}`}>
-      {stats.map((s, i) => (
-        <StatCell key={i} label={s.label} value={s.content} />
-      ))}
+    <div className={`rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 ${
+      isMobile ? 'grid grid-cols-2 gap-4' : 'grid grid-cols-3 sm:grid-cols-6 gap-4'
+    }`}>
+      <StatCell label="Price">
+        <CryptoPriceCell value={row.price} className="text-sm font-semibold" />
+      </StatCell>
+      <StatCell label="24h Change">
+        <CryptoChangePill value={row.change24h} />
+      </StatCell>
+      <StatCell label="24h High">
+        <CryptoPriceCell value={row.high24h} className="text-sm font-semibold" />
+      </StatCell>
+      <StatCell label="24h Low">
+        <CryptoPriceCell value={row.low24h} className="text-sm font-semibold" />
+      </StatCell>
+      <StatCell label="24h Volume">
+        <span className="tabular text-sm font-semibold text-[var(--text-primary)]">{formatCompact(row.volume24h)}</span>
+      </StatCell>
+      <StatCell label="Market Cap">
+        <span className="tabular text-sm font-semibold text-[var(--text-primary)]">{formatCompact(row.marketCap)}</span>
+      </StatCell>
     </div>
   );
 }

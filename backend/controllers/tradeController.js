@@ -1,21 +1,43 @@
 // controllers/tradeController.js
 // ── TRADING CONTROLLER (Module 7) ──
-// FIXED: USDT-only trading enforced. Users must convert other assets to USDT first.
+// Updated to use new market aggregator system
 
 const Trade = require('../models/Trade');
 const TradingConfig = require('../models/TradingConfig');
 const User = require('../models/User');
-const { TIER_1, BY_BINANCE, BY_SYMBOL: COIN_BY_SYMBOL } = require('../config/coins');
+const { TIER_1, BY_BINANCE } = require('../config/coins');
 const { FOREX_PAIRS, FX_BY_SYMBOL } = require('../config/forex');
 const { METAL_PAIRS, METAL_BY_SYMBOL } = require('../config/metals');
-const { getMarketList } = require('../services/priceAggregator');
-const { getForexAndMetals } = require('../services/forexAggregator');
 const tradeResolver = require('../services/tradeResolver');
 
-// ── FIXED: Only USDT is allowed as trading asset ──
 const TRADING_ASSETS = ['USDT'];
 
-// ── Helper: ensure config exists, return it ──
+// ── Lazy-load aggregators ──
+let _priceAggregator = null;
+let _forexAggregator = null;
+let _marketService = null;
+
+function getPriceAggregator() {
+  if (!_priceAggregator) {
+    try { _priceAggregator = require('../services/market/market.aggregator'); } catch { _priceAggregator = null; }
+  }
+  return _priceAggregator;
+}
+
+function getForexAggregator() {
+  if (!_forexAggregator) {
+    try { _forexAggregator = require('../services/forexAggregator'); } catch { _forexAggregator = null; }
+  }
+  return _forexAggregator;
+}
+
+function getMarketService() {
+  if (!_marketService) {
+    try { _marketService = require('../src/services/market/market.service'); } catch { _marketService = null; }
+  }
+  return _marketService;
+}
+
 async function getOrCreateConfig() {
   let config = await TradingConfig.findOne();
   if (!config) {
@@ -34,36 +56,38 @@ async function getOrCreateConfig() {
   return config;
 }
 
-// ── Helper: fetch live USD price of an asset (always 1 for USDT) ──
-async function getAssetUsdPrice(symbol) {
-  if (symbol === 'USDT') return 1;
-  try {
-    const { rows } = await getMarketList();
-    const row = rows.find((r) => r.symbol === symbol);
-    return row?.price ?? null;
-  } catch {
-    return null;
-  }
-}
-
-// ── Helper: fetch live entry price of a trading pair ──
 async function fetchPairPrice(pair, pairClass) {
+  // Try new market service first
+  const marketService = getMarketService();
+  if (marketService) {
+    try {
+      const result = await marketService.getPrice(pair);
+      if (result?.price) return result.price;
+    } catch {}
+  }
+
+  // Fall back to old aggregators
   if (pairClass === 'crypto') {
+    const priceAgg = getPriceAggregator();
+    if (!priceAgg) return null;
     const meta = BY_BINANCE[pair];
     if (!meta) return null;
-    const { rows } = await getMarketList();
+    const { rows } = await priceAgg.getMarketList();
     const row = rows.find((r) => r.symbol === meta.symbol);
     return row?.price ?? null;
   }
+
   if (pairClass === 'forex' || pairClass === 'metals') {
-    const { rows } = await getForexAndMetals();
+    const forexAgg = getForexAggregator();
+    if (!forexAgg) return null;
+    const { rows } = await forexAgg.getForexAndMetals();
     const row = rows.find((r) => r.symbol === pair);
     return row?.price ?? null;
   }
+
   return null;
 }
 
-// ── Helper: resolve pair metadata ──
 function resolvePair(pair) {
   if (BY_BINANCE[pair]) {
     const meta = BY_BINANCE[pair];
@@ -88,7 +112,7 @@ exports.getConfig = async (_req, res) => {
       plans: config.plans.filter((p) => p.active),
       feeBps: config.feeBps,
       enabledPairs: config.enabledPairs,
-      tradingAssets: TRADING_ASSETS,   // Expose allowed assets to frontend
+      tradingAssets: TRADING_ASSETS,
     });
   } catch (err) {
     console.error('[trade] getConfig error:', err);
@@ -106,12 +130,7 @@ exports.getPairs = async (_req, res) => {
     const crypto = TIER_1
       .filter((c) => c.binanceSymbol && isEnabled(c.binanceSymbol))
       .map((c) => ({
-        symbol: c.binanceSymbol,
-        display: `${c.symbol}/USDT`,
-        base: c.symbol,
-        quote: 'USDT',
-        name: c.name,
-        color: c.color,
+        symbol: c.binanceSymbol, display: `${c.symbol}/USDT`, base: c.symbol, quote: 'USDT', name: c.name, color: c.color,
       }));
 
     const forex = FOREX_PAIRS
@@ -135,45 +154,34 @@ exports.placeTrade = async (req, res) => {
     const { pair, direction, planKey, tradingAsset, stake } = req.body;
     const user = req.user;
 
-    // ── Pair validation ──
     const pairMeta = resolvePair(pair);
-    if (!pairMeta) {
-      return res.status(400).json({ message: 'Unknown trading pair' });
-    }
+    if (!pairMeta) return res.status(400).json({ message: 'Unknown trading pair' });
 
-    // ── USDT-only enforcement ──
     if (!TRADING_ASSETS.includes(tradingAsset)) {
       return res.status(400).json({
-        message: `Only USDT is accepted as a trading asset. Please convert ${tradingAsset} to USDT first via the Convert page.`,
+        message: `Only USDT is accepted. Please convert ${tradingAsset} to USDT first.`,
         allowedAssets: TRADING_ASSETS,
       });
     }
 
-    // ── Direction validation ──
     if (direction !== 'buy' && direction !== 'sell') {
       return res.status(400).json({ message: 'Invalid direction' });
     }
 
-    // ── Stake validation ──
     const stakeNum = Number(stake);
     if (!Number.isFinite(stakeNum) || stakeNum <= 0) {
       return res.status(400).json({ message: 'Invalid stake amount' });
     }
 
-    // ── Plan lookup ──
     const config = await getOrCreateConfig();
     const plan = config.plans.find((p) => p.key === planKey && p.active);
-    if (!plan) {
-      return res.status(400).json({ message: 'Selected plan is unavailable' });
-    }
+    if (!plan) return res.status(400).json({ message: 'Selected plan is unavailable' });
 
-    // ── Pair allowed? ──
     const enabled = (config.enabledPairs || []).map((s) => s.toUpperCase());
     if (enabled.length > 0 && !enabled.includes(pair.toUpperCase())) {
       return res.status(400).json({ message: 'This pair is not currently tradeable' });
     }
 
-    // ── Minimum check (USDT, so no conversion needed) ──
     if (stakeNum < plan.minUsd) {
       return res.status(400).json({
         message: `Below minimum: ${plan.minUsd} USDT required for ${plan.key} plan`,
@@ -181,7 +189,6 @@ exports.placeTrade = async (req, res) => {
       });
     }
 
-    // ── Balance check ──
     const available = user.balances?.USDT || 0;
     if (available < stakeNum) {
       return res.status(400).json({
@@ -189,40 +196,25 @@ exports.placeTrade = async (req, res) => {
       });
     }
 
-    // ── Entry price ──
     const entryPrice = await fetchPairPrice(pair, pairMeta.class);
     if (entryPrice === null || entryPrice <= 0) {
       return res.status(503).json({ message: 'Entry price unavailable — please retry.' });
     }
 
-    // ── Debit stake from USDT balance ──
     user.balances.USDT = available - stakeNum;
+    user.markModified('balances');
     await user.save();
 
-    // ── Create Trade ──
-    const now      = new Date();
+    const now = new Date();
     const expiresAt = new Date(now.getTime() + plan.durationSec * 1000);
     const trade = await Trade.create({
-      userId:          user._id,
-      pair,
-      pairClass:       pairMeta.class,
-      pairDisplay:     pairMeta.display,
-      direction,
-      tradingAsset:    'USDT',
-      stake:           stakeNum,
-      planKey:         plan.key,
-      planMultiplier:  plan.multiplier,
-      planDurationSec: plan.durationSec,
-      feeBps:          config.feeBps,
-      entryPrice,
-      expiresAt,
-      resolveAt:       expiresAt,
-      status:          'pending',
+      userId: user._id, pair, pairClass: pairMeta.class, pairDisplay: pairMeta.display,
+      direction, tradingAsset: 'USDT', stake: stakeNum,
+      planKey: plan.key, planMultiplier: plan.multiplier, planDurationSec: plan.durationSec,
+      feeBps: config.feeBps, entryPrice, expiresAt, resolveAt: expiresAt, status: 'pending',
     });
 
-    // ── Schedule resolution ──
     tradeResolver.scheduleResolution(trade);
-
     return res.status(201).json({ trade });
   } catch (err) {
     console.error('[trade] placeTrade error:', err);
@@ -233,9 +225,7 @@ exports.placeTrade = async (req, res) => {
 // ── GET /api/trade/active ──
 exports.getActive = async (req, res) => {
   try {
-    const trades = await Trade.find({ userId: req.user._id, status: 'pending' })
-      .sort({ createdAt: -1 })
-      .lean();
+    const trades = await Trade.find({ userId: req.user._id, status: 'pending' }).sort({ createdAt: -1 }).lean();
     return res.json({ trades });
   } catch (err) {
     console.error('[trade] getActive error:', err);
@@ -243,10 +233,10 @@ exports.getActive = async (req, res) => {
   }
 };
 
-// ── GET /api/trade/history?limit=&offset= ──
+// ── GET /api/trade/history ──
 exports.getHistory = async (req, res) => {
   try {
-    const limit  = Math.min(Math.max(parseInt(req.query.limit,  10) || 20, 1), 100);
+    const limit  = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
     const filter = { userId: req.user._id, status: { $ne: 'pending' } };
     const [trades, total] = await Promise.all([
@@ -275,16 +265,12 @@ exports.getOne = async (req, res) => {
 // ── GET /api/trade/admin/all ──
 exports.adminListAll = async (req, res) => {
   try {
-    const limit  = Math.min(Math.max(parseInt(req.query.limit, 10)  || 50, 1), 200);
+    const limit  = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
     const filter = {};
     if (req.query.userId)  filter.userId = req.query.userId;
-    if (req.query.status && ['pending','won','lost','cancelled'].includes(req.query.status)) {
-      filter.status = req.query.status;
-    }
-    if (req.query.planKey && ['SILVER','GOLD','PLATINUM','DIAMOND','ELITE'].includes(req.query.planKey)) {
-      filter.planKey = req.query.planKey;
-    }
+    if (req.query.status && ['pending','won','lost','cancelled'].includes(req.query.status)) filter.status = req.query.status;
+    if (req.query.planKey && ['SILVER','GOLD','PLATINUM','DIAMOND','ELITE'].includes(req.query.planKey)) filter.planKey = req.query.planKey;
     const [trades, total] = await Promise.all([
       Trade.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit).populate('userId', 'name email').lean(),
       Trade.countDocuments(filter),
@@ -301,27 +287,16 @@ exports.adminUpdateConfig = async (req, res) => {
   try {
     const { plans, feeBps, enabledPairs } = req.body;
     const config = await getOrCreateConfig();
-
     if (Array.isArray(plans)) {
       for (const p of plans) {
-        if (
-          !p ||
-          !['SILVER','GOLD','PLATINUM','DIAMOND','ELITE'].includes(p.key) ||
-          typeof p.multiplier !== 'number' || p.multiplier < 0 ||
-          typeof p.durationSec !== 'number' || p.durationSec < 1 ||
-          typeof p.minUsd !== 'number' || p.minUsd < 0
-        ) {
+        if (!p || !['SILVER','GOLD','PLATINUM','DIAMOND','ELITE'].includes(p.key) || typeof p.multiplier !== 'number' || p.multiplier < 0 || typeof p.durationSec !== 'number' || p.durationSec < 1 || typeof p.minUsd !== 'number' || p.minUsd < 0) {
           return res.status(400).json({ message: `Invalid plan entry: ${p?.key || 'unknown'}` });
         }
       }
-      config.plans = plans.map((p) => ({
-        key: p.key, multiplier: p.multiplier, durationSec: p.durationSec, minUsd: p.minUsd, active: p.active !== false,
-      }));
+      config.plans = plans.map((p) => ({ key: p.key, multiplier: p.multiplier, durationSec: p.durationSec, minUsd: p.minUsd, active: p.active !== false }));
     }
-
     if (typeof feeBps === 'number' && feeBps >= 0 && feeBps <= 5000) config.feeBps = feeBps;
     if (Array.isArray(enabledPairs)) config.enabledPairs = enabledPairs.map((s) => String(s).toUpperCase());
-
     config.updatedBy = req.user._id;
     await config.save();
     return res.json({ config });

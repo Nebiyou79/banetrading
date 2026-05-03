@@ -1,22 +1,21 @@
 // components/trade/ActiveTradeCard.tsx
-// ── ACTIVE TRADE CARD ──
+// ── ACTIVE TRADE CARD — Professional countdown display ──
+
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Timer } from 'lucide-react';
 import type { Trade } from '@/types/trade';
 
 interface ActiveTradeCardProps {
   trade: Trade;
 }
 
-const CIRCUMFERENCE = 2 * Math.PI * 52; // ~326.725
+const CIRCUMFERENCE = 2 * Math.PI * 48;
 
 export function ActiveTradeCard({ trade }: ActiveTradeCardProps) {
   const expiresAtMs = new Date(trade.expiresAt).getTime();
   const durationSec = trade.planDurationSec;
 
-  const calcSecondsLeft = () =>
-    Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
-
+  const calcSecondsLeft = () => Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 1000));
   const [secondsLeft, setSecondsLeft] = useState(calcSecondsLeft);
 
   useEffect(() => {
@@ -25,10 +24,9 @@ export function ActiveTradeCard({ trade }: ActiveTradeCardProps) {
       const next = calcSecondsLeft();
       setSecondsLeft(next);
       if (next <= 0) clearInterval(interval);
-    }, 1000);
+    }, 500);
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expiresAtMs, durationSec]);
+  }, [expiresAtMs]);
 
   const minutes = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
@@ -38,107 +36,75 @@ export function ActiveTradeCard({ trade }: ActiveTradeCardProps) {
   const ratio = secondsLeft > 0 ? Math.min(elapsed / durationSec, 1) : 1;
   const dashOffset = CIRCUMFERENCE * (1 - ratio);
 
-  const grossWin = trade.stake * (1 + trade.planMultiplier);
-  const profit = grossWin - trade.stake;
-  const fee = profit * (trade.feeBps / 10000);
-  const estimatedPayout = grossWin - fee;
-
-  function formatNum(v: number): string {
-    if (trade.tradingAsset === 'USDT') return v.toFixed(2);
-    if (v < 0.0001) return v.toFixed(8);
-    if (v < 1) return v.toFixed(6);
-    return v.toFixed(4);
-  }
+  const estimatedPayout = trade.stake * (1 + trade.planMultiplier) * (1 - trade.feeBps / 10000);
 
   return (
-    <div className="relative animate-modal-in rounded-xl border border-[var(--accent)] bg-[var(--accent-muted)] p-4">
-      {/* Pulse dot */}
-      <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[var(--success)] animate-ping" />
-      <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-[var(--success)]" />
+    <div className="relative rounded-xl border border-[var(--accent)]/40 bg-[var(--accent-muted)]/50 p-4 overflow-hidden">
+      {/* Background pulse */}
+      <div className="absolute inset-0 bg-[var(--accent)]/5 animate-pulse" />
 
-      {/* Top row */}
-      <div className="flex items-center gap-2">
-        <span className="rounded-md bg-[var(--bg-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--text-primary)]">
-          {trade.pairDisplay}
-        </span>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-bold ${
+      <div className="relative z-10">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-4">
+          <span className="inline-flex items-center gap-1 rounded-md bg-[var(--bg-muted)] px-2 py-1 text-xs font-semibold text-[var(--text-primary)]">
+            {trade.pairDisplay}
+          </span>
+          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-bold ${
             trade.direction === 'buy'
               ? 'bg-[var(--success-muted)] text-[var(--success)]'
               : 'bg-[var(--danger-muted)] text-[var(--danger)]'
-          }`}
-        >
-          {trade.direction.toUpperCase()}
-        </span>
-        <span className="rounded-full bg-[var(--info-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--info)]">
-          Active
-        </span>
-      </div>
+          }`}>
+            {trade.direction.toUpperCase()}
+          </span>
+          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--info-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--info)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--info)] animate-pulse" />
+            Active
+          </span>
+        </div>
 
-      {/* Countdown ring + timer */}
-      <div className="my-5 flex items-center justify-center">
-        <div className="relative inline-flex items-center justify-center">
-          <svg className="h-28 w-28 -rotate-90" viewBox="0 0 120 120">
-            <circle
-              cx={60}
-              cy={60}
-              r={52}
-              fill="none"
-              stroke="var(--border)"
-              strokeWidth={6}
-            />
-            <circle
-              cx={60}
-              cy={60}
-              r={52}
-              fill="none"
-              stroke="var(--accent)"
-              strokeWidth={6}
-              strokeLinecap="round"
-              strokeDasharray={CIRCUMFERENCE.toFixed(1)}
-              strokeDashoffset={dashOffset.toFixed(1)}
-              style={{ transition: 'stroke-dashoffset 1s linear' }}
-            />
-          </svg>
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
-            {secondsLeft > 0 ? (
-              <span className="tabular text-3xl font-bold text-[var(--accent)]">
-                {timeStr}
-              </span>
-            ) : (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-[var(--warning)]">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Resolving...
-              </span>
-            )}
+        {/* Timer */}
+        <div className="flex items-center justify-center mb-4">
+          <div className="relative inline-flex items-center justify-center">
+            <svg className="w-28 h-28 -rotate-90" viewBox="0 0 112 112">
+              <circle cx={56} cy={56} r={48} fill="none" stroke="var(--border)" strokeWidth={5} />
+              <circle
+                cx={56} cy={56} r={48} fill="none" stroke="var(--accent)" strokeWidth={5}
+                strokeLinecap="round" strokeDasharray={CIRCUMFERENCE.toFixed(1)}
+                strokeDashoffset={dashOffset.toFixed(1)}
+                style={{ transition: 'stroke-dashoffset 0.5s linear' }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              {secondsLeft > 0 ? (
+                <span className="tabular text-2xl font-bold text-[var(--accent)]">{timeStr}</span>
+              ) : (
+                <Loader2 className="w-6 h-6 text-[var(--warning)] animate-spin" />
+              )}
+              <span className="text-[10px] text-[var(--text-muted)]">remaining</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Details */}
+        <div className="grid grid-cols-3 gap-2 text-center">
+          <div>
+            <span className="text-[10px] text-[var(--text-muted)] uppercase">Stake</span>
+            <p className="tabular text-sm font-semibold text-[var(--text-primary)]">
+              {trade.stake.toFixed(4)} {trade.tradingAsset}
+            </p>
+          </div>
+          <div>
+            <span className="text-[10px] text-[var(--text-muted)] uppercase">Plan</span>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">{trade.planKey}</p>
+          </div>
+          <div>
+            <span className="text-[10px] text-[var(--text-muted)] uppercase">Est. Payout</span>
+            <p className="tabular text-sm font-semibold text-[var(--success)]">
+              +{estimatedPayout.toFixed(4)}
+            </p>
           </div>
         </div>
       </div>
-
-      {/* Bottom info */}
-      <div className="flex items-center justify-between text-xs text-[var(--text-secondary)]">
-        <span>
-          Stake:{' '}
-          <span className="tabular font-medium text-[var(--text-primary)]">
-            {formatNum(trade.stake)} {trade.tradingAsset}
-          </span>
-        </span>
-        <span>
-          Plan:{' '}
-          <span className="font-medium text-[var(--text-primary)]">
-            {trade.planKey}
-          </span>
-        </span>
-        <span>
-          Entry:{' '}
-          <span className="tabular font-medium text-[var(--text-primary)]">
-            {formatNum(trade.entryPrice)}
-          </span>
-        </span>
-      </div>
-      <p className="mt-2 text-sm font-semibold tabular text-[var(--success)]">
-        Est. payout: {formatNum(estimatedPayout)} {trade.tradingAsset}
-      </p>
     </div>
   );
 }

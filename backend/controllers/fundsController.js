@@ -1,18 +1,17 @@
 // controllers/fundsController.js
-// ── Funds controller ──
+// Funds controller
 //
 // BALANCE FIX:
-// 1. getBalance: now returns both `balances` (available) and `lockedBalances` (pending withdrawal).
-// 2. withdrawFunds: on submit, moves gross amount from balances → lockedBalances,
-//    so the user can see exactly what is held. markModified called on both maps.
-// 3. depositFunds: no balance change at submit (admin approval credits balance). Unchanged.
+// 1. getBalance: returns both balances (available) and lockedBalances (pending withdrawal).
+// 2. withdrawFunds: moves gross amount from balances to lockedBalances on submit.
+//    markModified called on both maps so Mongoose persists nested object changes.
+// 3. depositFunds: no balance change at submit (admin approval credits balance).
 //
-// Balance accounting rules enforced here:
-//   • Available balance  = user.balances[currency]       (ready to spend)
-//   • Locked balance     = user.lockedBalances[currency]  (pending withdrawal)
-//   • Total balance      = available + locked
-//   • Withdrawal check   uses available only
-//   • Conversion check   uses available only
+// Balance accounting:
+//   Available balance  = user.balances[currency]       (ready to spend)
+//   Locked balance     = user.lockedBalances[currency]  (pending withdrawal)
+//   Withdrawal check   uses available only
+//   Conversion check   uses available only
 
 const fs = require('fs');
 
@@ -29,13 +28,11 @@ function safeUnlink(absPath) {
   });
 }
 
-// ── GET /api/funds/balance ──
-// Returns available balances, locked balances, and freeze state.
+// GET /api/funds/balance
 async function getBalance(req, res) {
   try {
     const user = req.user;
 
-    // Ensure lockedBalances exists (migration safety for existing users)
     const lockedBalances = user.lockedBalances || {
       USDT: 0, BTC: 0, ETH: 0, SOL: 0, BNB: 0, XRP: 0,
     };
@@ -52,9 +49,7 @@ async function getBalance(req, res) {
   }
 }
 
-// ── POST /api/funds/deposit ──
-// Submits a deposit for admin review. No balance change here — credit happens
-// in adminController.approveDeposit after admin review.
+// POST /api/funds/deposit
 async function depositFunds(req, res) {
   try {
     if (req.user.isFrozen) {
@@ -65,16 +60,23 @@ async function depositFunds(req, res) {
     const { amount, currency, network, note } = req.body;
     const numericAmount = Number(amount);
 
+    // DEBUG LOG - shows exactly what the server receives from the frontend.
+    // Remove once deposits are confirmed working.
+    console.log('[depositFunds] received body:', { currency, network, amount });
+
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
       if (req.file && req.file.path) safeUnlink(req.file.path);
       return res.status(400).json({ message: 'Amount must be greater than 0' });
     }
 
-    // isValidDepositCombo must accept the unified network values
-    // (e.g. 'USDT-ERC20', 'BTC', 'ETH') — update coinNetwork util accordingly.
+    // Validates (currency, network) is an allowed combination.
+    // Both must use the unified format: currency='USDT', network='USDT-ERC20' etc.
     if (!isValidDepositCombo(currency, network)) {
       if (req.file && req.file.path) safeUnlink(req.file.path);
-      return res.status(400).json({ message: 'Selected network is not valid for this coin' });
+      console.error('[depositFunds] invalid combo:', { currency, network });
+      return res.status(400).json({
+        message: `Network "${network}" is not valid for ${currency}. Expected one of: USDT-ERC20, USDT-TRC20, USDT-BEP20, BTC, ETH`,
+      });
     }
 
     const proofPath = req.file ? `/uploads/${req.file.filename}` : undefined;
@@ -90,7 +92,7 @@ async function depositFunds(req, res) {
     });
 
     return res.status(201).json({
-      message: 'Deposit submitted — pending review',
+      message: 'Deposit submitted, pending review',
       deposit,
     });
   } catch (err) {
@@ -100,10 +102,7 @@ async function depositFunds(req, res) {
   }
 }
 
-// ── POST /api/funds/withdraw ──
-// Validates balance, deducts gross from available, adds to lockedBalances.
-// Admin approve clears the lock (funds leave platform).
-// Admin reject refunds gross to available and clears lock.
+// POST /api/funds/withdraw
 async function withdrawFunds(req, res) {
   try {
     if (req.user.isFrozen) {
@@ -123,7 +122,6 @@ async function withdrawFunds(req, res) {
       return res.status(400).json({ message: 'Destination address is required' });
     }
 
-    // Look up the network fee
     const feeDoc = await NetworkFee.findOne({ network });
     if (!feeDoc) {
       return res.status(404).json({ message: 'Network fee not configured. Please contact support.' });
@@ -134,11 +132,9 @@ async function withdrawFunds(req, res) {
       return res.status(400).json({ message: `Amount must be greater than the network fee (${fee}).` });
     }
 
-    // Re-fetch user to get a fresh document for balance mutation
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Check available balance ONLY (do not count locked funds)
     const available = Number(user.balances[currency] || 0);
     if (available < numericAmount) {
       return res.status(400).json({
@@ -148,13 +144,11 @@ async function withdrawFunds(req, res) {
 
     const netAmount = Math.max(0, numericAmount - fee);
 
-    // ── Move gross from available → locked ──
-    // This makes the "pending withdrawal" visible to the user as locked,
-    // not simply missing from their balance with no explanation.
+    // Move gross from available into locked
     user.balances[currency]       = available - numericAmount;
     user.lockedBalances[currency] = (user.lockedBalances[currency] || 0) + numericAmount;
 
-    // CRITICAL: markModified so Mongoose detects the nested object changes.
+    // CRITICAL: markModified so Mongoose detects nested object mutations
     user.markModified('balances');
     user.markModified('lockedBalances');
     await user.save();
@@ -172,7 +166,7 @@ async function withdrawFunds(req, res) {
     });
 
     return res.status(201).json({
-      message:        'Withdrawal submitted — pending review',
+      message:        'Withdrawal submitted, pending review',
       withdrawal,
       newBalances:    user.balances,
       lockedBalances: user.lockedBalances,
@@ -183,7 +177,7 @@ async function withdrawFunds(req, res) {
   }
 }
 
-// ── GET /api/funds/deposits/me ──
+// GET /api/funds/deposits/me
 async function getMyDeposits(req, res) {
   try {
     const limit = Math.min(Math.max(Number.parseInt(String(req.query.limit ?? '20'), 10) || 20, 1), 100);
@@ -201,7 +195,7 @@ async function getMyDeposits(req, res) {
   }
 }
 
-// ── GET /api/funds/withdrawals/me ──
+// GET /api/funds/withdrawals/me
 async function getMyWithdrawals(req, res) {
   try {
     const limit = Math.min(Math.max(Number.parseInt(String(req.query.limit ?? '20'), 10) || 20, 1), 100);

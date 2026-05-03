@@ -1,6 +1,6 @@
 // components/trade/YourTradesTable.tsx
-// ── YOUR TRADES TABLE ──
-import { useState, useEffect } from 'react';
+// ── YOUR TRADES TABLE — Professional trade history ──
+
 import { BarChart2 } from 'lucide-react';
 import type { Trade } from '@/types/trade';
 
@@ -29,95 +29,6 @@ function formatNum(v: number, asset: string): string {
   return v.toFixed(4);
 }
 
-function ActiveCountdown({ expiresAt }: { expiresAt: string }) {
-  const calc = () =>
-    Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 1000));
-  const [s, setS] = useState(calc);
-
-  useEffect(() => {
-    const i = setInterval(() => {
-      const n = calc();
-      setS(n);
-      if (n <= 0) clearInterval(i);
-    }, 1000);
-    return () => clearInterval(i);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expiresAt]);
-
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return (
-    <span className="tabular text-[var(--accent)]">{`${m}:${String(sec).padStart(2, '0')} ⏱`}</span>
-  );
-}
-
-function Row({ trade, isActive }: { trade: Trade; isActive: boolean }) {
-  const isWon = trade.status === 'won';
-  const isLost = trade.status === 'lost';
-
-  return (
-    <div className="flex flex-col gap-1.5 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-3 md:contents">
-      {/* Pair */}
-      <span className="md:flex md:items-center md:py-3 md:pr-4">
-        <span className="rounded-md bg-[var(--bg-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--text-primary)]">
-          {trade.pairDisplay}
-        </span>
-      </span>
-
-      {/* Amount */}
-      <span className="tabular text-sm font-medium text-[var(--text-primary)] md:py-3 md:pr-4">
-        {formatNum(trade.stake, trade.tradingAsset)} {trade.tradingAsset}
-      </span>
-
-      {/* Plan */}
-      <span className="md:py-3 md:pr-4">
-        <span className="inline-flex rounded-full bg-[var(--accent-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--accent)]">
-          {trade.planKey} · {trade.planDurationSec}s
-        </span>
-      </span>
-
-      {/* Time */}
-      <span className="text-sm text-[var(--text-secondary)] md:py-3 md:pr-4">
-        {isActive ? (
-          <ActiveCountdown expiresAt={trade.expiresAt} />
-        ) : (
-          relativeTime(trade.createdAt)
-        )}
-      </span>
-
-      {/* Status */}
-      <span className="md:py-3 md:pr-4">
-        <span
-          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
-            isActive
-              ? 'bg-[var(--info-muted)] text-[var(--info)]'
-              : isWon
-              ? 'bg-[var(--success-muted)] text-[var(--success)]'
-              : 'bg-[var(--danger-muted)] text-[var(--danger)]'
-          }`}
-        >
-          {isActive ? 'Active' : isWon ? 'Won' : 'Lost'}
-        </span>
-      </span>
-
-      {/* Result */}
-      <span
-        className={`tabular text-sm font-semibold md:py-3 ${
-          isActive
-            ? 'text-[var(--text-muted)]'
-            : isWon
-            ? 'text-gain'
-            : 'text-loss'
-        }`}
-      >
-        {isActive
-          ? '—'
-          : `${isWon ? '+' : ''}${formatNum(trade.netResult ?? 0, trade.tradingAsset)} ${trade.tradingAsset}`}
-      </span>
-    </div>
-  );
-}
-
 export function YourTradesTable({
   activeTrades,
   historyTrades,
@@ -126,73 +37,148 @@ export function YourTradesTable({
   onLoadMore,
   isLoading,
 }: YourTradesTableProps) {
-  const hasMore = historyOffset + historyTrades.length < historyTotal;
   const isEmpty = activeTrades.length === 0 && historyTrades.length === 0;
-
-  if (isEmpty && !isLoading) {
-    return (
-      <div className="flex flex-col items-center gap-2 py-16">
-        <BarChart2 className="h-10 w-10 text-[var(--text-muted)]" />
-        <p className="text-sm text-[var(--text-muted)]">No trades yet</p>
-      </div>
-    );
-  }
+  const hasMore = historyOffset + historyTrades.length < historyTotal;
 
   return (
-    <div>
-      <h2 className="mb-3 text-lg font-bold text-[var(--text-primary)]">
-        Your Trades
-      </h2>
-
-      {/* Desktop table */}
-      <div className="hidden overflow-hidden rounded-xl border border-[var(--border)] md:block">
-        <div className="grid grid-cols-6 gap-2 bg-[var(--bg-muted)] px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
-          <span>Pair</span>
-          <span>Amount</span>
-          <span>Plan</span>
-          <span>Time</span>
-          <span>Status</span>
-          <span>Result</span>
-        </div>
-        <div className="flex flex-col">
-          {activeTrades.map((t) => (
-            <div
-              key={t._id}
-              className="grid grid-cols-6 gap-2 border-b border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3"
-            >
-              <Row trade={t} isActive />
-            </div>
-          ))}
-          {historyTrades.map((t) => (
-            <div
-              key={t._id}
-              className="grid grid-cols-6 gap-2 border-b border-[var(--border)] bg-[var(--bg-elevated)] px-4 py-3 last:border-none"
-            >
-              <Row trade={t} isActive={false} />
-            </div>
-          ))}
-        </div>
+    <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-[var(--border)]">
+        <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wide">
+          Trade History
+        </h3>
       </div>
 
-      {/* Mobile cards */}
-      <div className="flex flex-col gap-3 md:hidden">
-        {activeTrades.map((t) => (
-          <Row key={t._id} trade={t} isActive />
-        ))}
-        {historyTrades.map((t) => (
-          <Row key={t._id} trade={t} isActive={false} />
-        ))}
-      </div>
+      {isEmpty && !isLoading ? (
+        <div className="flex flex-col items-center gap-3 py-16">
+          <BarChart2 className="w-12 h-12 text-[var(--text-muted)]/30" />
+          <p className="text-sm text-[var(--text-muted)]">No trades yet</p>
+          <p className="text-xs text-[var(--text-muted)]/70">Your trade history will appear here</p>
+        </div>
+      ) : (
+        <>
+          {/* Desktop Table */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[var(--border)] bg-[var(--bg-muted)]/50">
+                  <th className="py-2.5 px-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Pair</th>
+                  <th className="py-2.5 px-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Amount</th>
+                  <th className="py-2.5 px-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Plan</th>
+                  <th className="py-2.5 px-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Time</th>
+                  <th className="py-2.5 px-4 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
+                  <th className="py-2.5 px-4 text-right text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Result</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border)]">
+                {activeTrades.map((t) => (
+                  <tr key={t._id} className="hover:bg-[var(--hover-bg)] transition-colors">
+                    <td className="py-3 px-4">
+                      <span className="inline-flex rounded-md bg-[var(--bg-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--text-primary)]">
+                        {t.pairDisplay}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 tabular text-sm text-[var(--text-primary)]">
+                      {formatNum(t.stake, t.tradingAsset)} {t.tradingAsset}
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex rounded-full bg-[var(--accent-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--accent)]">
+                        {t.planKey}
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-sm text-[var(--accent)] font-medium">
+                      ⏱ Active
+                    </td>
+                    <td className="py-3 px-4">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--info-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--info)]">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--info)] animate-pulse" />
+                        Active
+                      </span>
+                    </td>
+                    <td className="py-3 px-4 text-right text-sm text-[var(--text-muted)]">—</td>
+                  </tr>
+                ))}
+                {historyTrades.map((t) => {
+                  const isWon = t.status === 'won';
+                  return (
+                    <tr key={t._id} className="hover:bg-[var(--hover-bg)] transition-colors">
+                      <td className="py-3 px-4">
+                        <span className="inline-flex rounded-md bg-[var(--bg-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--text-primary)]">
+                          {t.pairDisplay}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 tabular text-sm text-[var(--text-primary)]">
+                        {formatNum(t.stake, t.tradingAsset)} {t.tradingAsset}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="inline-flex rounded-full bg-[var(--accent-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--accent)]">
+                          {t.planKey}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-[var(--text-secondary)]">
+                        {relativeTime(t.createdAt)}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          isWon ? 'bg-[var(--success-muted)] text-[var(--success)]' : 'bg-[var(--danger-muted)] text-[var(--danger)]'
+                        }`}>
+                          {isWon ? 'Won' : 'Lost'}
+                        </span>
+                      </td>
+                      <td className={`py-3 px-4 text-right tabular text-sm font-semibold ${
+                        isWon ? 'text-[var(--success)]' : 'text-[var(--danger)]'
+                      }`}>
+                        {isWon ? '+' : ''}{formatNum(t.netResult ?? 0, t.tradingAsset)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
+          {/* Mobile Cards */}
+          <div className="md:hidden divide-y divide-[var(--border)]">
+            {activeTrades.map((t) => (
+              <div key={t._id} className="p-4 hover:bg-[var(--hover-bg)]">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-sm">{t.pairDisplay}</span>
+                  <span className="text-xs text-[var(--info)] animate-pulse">Active</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--text-secondary)]">{formatNum(t.stake, t.tradingAsset)}</span>
+                  <span className="text-[var(--text-secondary)]">{t.planKey}</span>
+                </div>
+              </div>
+            ))}
+            {historyTrades.map((t) => (
+              <div key={t._id} className="p-4 hover:bg-[var(--hover-bg)]">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold text-sm">{t.pairDisplay}</span>
+                  <span className={`text-xs font-semibold ${t.status === 'won' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                    {t.status === 'won' ? '+' : ''}{formatNum(t.netResult ?? 0, t.tradingAsset)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-xs text-[var(--text-muted)]">
+                  <span>{formatNum(t.stake, t.tradingAsset)}</span>
+                  <span>{relativeTime(t.createdAt)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* Load More */}
       {hasMore && (
-        <div className="mt-4 flex justify-center">
+        <div className="px-4 py-3 border-t border-[var(--border)] flex justify-center">
           <button
             type="button"
             onClick={onLoadMore}
             disabled={isLoading}
-            className="rounded-xl border border-[var(--border)] px-6 py-2.5 text-sm text-[var(--text-secondary)] transition-colors hover:bg-[var(--hover-bg)] disabled:opacity-50"
+            className="px-6 py-2 rounded-lg text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors disabled:opacity-50"
           >
-            {isLoading ? 'Loading…' : 'Load more'}
+            {isLoading ? 'Loading...' : 'Load More'}
           </button>
         </div>
       )}

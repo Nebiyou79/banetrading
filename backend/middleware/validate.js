@@ -26,6 +26,10 @@ const ALL_CURRENCIES = ['USDT', 'BTC', 'ETH', 'SOL', 'BNB', 'XRP'];
 const DEPOSIT_CURRENCIES = ['USDT', 'BTC', 'ETH'];
 const WITHDRAW_CURRENCIES = ['USDT', 'BTC', 'ETH'];
 
+// ── Unified network values ──
+const DEPOSIT_NETWORKS = ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH'];
+const WITHDRAW_NETWORKS = ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH'];
+
 // ── Auth schemas ──
 const registerSchema = z.object({
   name:      z.string().trim().min(1, 'Name is required').max(80),
@@ -120,44 +124,21 @@ const changePasswordSchema = z.object({
   message: 'New password must differ from your current password',
 });
 
-// ── Funds: Deposit ──
-const DEPOSIT_NETWORKS = ['ERC20', 'TRC20', 'BEP20', 'Bitcoin', 'Ethereum'];
-
-const DEPOSIT_NETWORKS_FOR_COIN = {
-  USDT: ['ERC20', 'TRC20', 'BEP20'],
-  BTC:  ['Bitcoin'],
-  ETH:  ['Ethereum'],
-};
-
+// ── Funds: Deposit & Withdraw schemas ──
 const depositSchema = z.object({
-  amount:   z.coerce.number({ invalid_type_error: 'Amount must be a number' }).positive('Amount must be greater than 0'),
-  currency: z.enum(DEPOSIT_CURRENCIES, { errorMap: () => ({ message: 'Invalid coin' }) }),
-  network:  z.enum(DEPOSIT_NETWORKS, { errorMap: () => ({ message: 'Invalid network' }) }),
-  note:     z.string().trim().max(500, 'Note must be at most 500 characters').optional(),
-}).refine(
-  (d) => DEPOSIT_NETWORKS_FOR_COIN[d.currency].includes(d.network),
-  { path: ['network'], message: 'Selected network is not valid for this coin' },
-);
-
-// ── Funds: Withdraw ──
-const WITHDRAW_NETWORKS = ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20', 'BTC', 'ETH'];
-
-const WITHDRAW_NETWORKS_FOR_COIN = {
-  USDT: ['USDT-ERC20', 'USDT-TRC20', 'USDT-BEP20'],
-  BTC:  ['BTC'],
-  ETH:  ['ETH'],
-};
+  amount:   z.coerce.number().positive('Amount must be greater than 0'),
+  currency: z.enum(DEPOSIT_CURRENCIES, { errorMap: () => ({ message: 'Currency must be USDT, BTC, or ETH' }) }),
+  network:  z.enum(DEPOSIT_NETWORKS, { errorMap: () => ({ message: 'Invalid deposit network' }) }),
+  note:     z.string().max(500).optional().default(''),
+});
 
 const withdrawSchema = z.object({
-  amount:    z.coerce.number({ invalid_type_error: 'Amount must be a number' }).positive('Amount must be greater than 0'),
-  currency:  z.enum(WITHDRAW_CURRENCIES, { errorMap: () => ({ message: 'Invalid coin' }) }),
-  network:   z.enum(WITHDRAW_NETWORKS, { errorMap: () => ({ message: 'Invalid network' }) }),
-  toAddress: z.string().trim().min(8, 'Destination address is too short').max(120, 'Destination address is too long'),
-  note:      z.string().trim().max(500).optional(),
-}).refine(
-  (d) => WITHDRAW_NETWORKS_FOR_COIN[d.currency].includes(d.network),
-  { path: ['network'], message: 'Selected network is not valid for this coin' },
-);
+  amount:    z.coerce.number().positive('Amount must be greater than 0'),
+  currency:  z.enum(WITHDRAW_CURRENCIES, { errorMap: () => ({ message: 'Currency must be USDT, BTC, or ETH' }) }),
+  network:   z.enum(WITHDRAW_NETWORKS, { errorMap: () => ({ message: 'Invalid withdrawal network' }) }),
+  toAddress: z.string().min(8, 'Address must be at least 8 characters'),
+  note:      z.string().max(500).optional().default(''),
+});
 
 // ── Admin: deposit addresses + network fees ──
 const addressEntry = z.union([z.string().trim().min(8, 'Address is too short').max(120, 'Address is too long'), z.literal('')]);

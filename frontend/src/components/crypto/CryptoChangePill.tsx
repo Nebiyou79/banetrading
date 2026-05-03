@@ -1,5 +1,5 @@
 // components/crypto/CryptoChangePill.tsx
-// ── 24H CHANGE PILL ──
+// ── 24H CHANGE PILL — Professional gain/loss indicator ──
 
 import React from 'react';
 import clsx from 'clsx';
@@ -10,17 +10,31 @@ interface CryptoChangePillProps {
 }
 
 export default function CryptoChangePill({ value, className = '' }: CryptoChangePillProps) {
-  if (value === null || value === undefined) {
-    return <span className={clsx('inline-flex items-center rounded-full px-2 py-0.5 text-sm tabular bg-[var(--bg-muted)] text-[var(--text-muted)]', className)}>—</span>;
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return (
+      <span className={clsx(
+        'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold tabular',
+        'bg-[var(--bg-muted)] text-[var(--text-muted)]',
+        className
+      )}>—</span>
+    );
   }
-  const isGain = value > 0;
-  const isLoss = value < 0;
+
+  const isUp = value > 0;
+  const isDown = value < 0;
   const formatted = `${Math.abs(value).toFixed(2)}%`;
+
   return (
-    <span className={clsx('inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-sm font-medium tabular transition-colors duration-150', isGain && 'text-gain bg-[var(--success-muted)]', isLoss && 'text-loss bg-[var(--danger-muted)]', !isGain && !isLoss && 'bg-[var(--bg-muted)] text-[var(--text-muted)]', className)}>
-      {isGain && <span aria-hidden="true">▲</span>}
-      {isLoss && <span aria-hidden="true">▼</span>}
-      <span>{isGain ? '+' : ''}{formatted}</span>
+    <span className={clsx(
+      'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold tabular transition-colors duration-200',
+      isUp && 'bg-[var(--success-muted)] text-[var(--success)]',
+      isDown && 'bg-[var(--danger-muted)] text-[var(--danger)]',
+      !isUp && !isDown && 'bg-[var(--bg-muted)] text-[var(--text-muted)]',
+      className
+    )}>
+      {isUp && <span aria-hidden="true" className="text-[10px]">▲</span>}
+      {isDown && <span aria-hidden="true" className="text-[10px]">▼</span>}
+      <span>{isUp ? '+' : ''}{formatted}</span>
     </span>
   );
 }

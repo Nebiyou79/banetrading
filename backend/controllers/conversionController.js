@@ -1,20 +1,39 @@
 // controllers/conversionController.js
 // ── ASSET CONVERSION CONTROLLER ──
-//
-// BALANCE FIX:
-// 1. Added u.markModified('balances') before every u.save() that mutates balances.
-//    Without this Mongoose silently skips nested-object changes.
-// 2. Balance availability check uses user.balances[from] only (available, not locked).
-// 3. No lockedBalances involved in conversions — they are instant atomic swaps.
+// Updated to use new market aggregator system
 
 const mongoose = require('mongoose');
 const User             = require('../models/User');
 const Conversion       = require('../models/Conversion');
 const ConversionConfig = require('../models/ConversionConfig');
-const { getMarketList }      = require('../services/priceAggregator');
-const { getForexAndMetals }  = require('../services/forexAggregator');
 
-const SLIPPAGE_TOLERANCE = 0.005; // 0.5%
+const SLIPPAGE_TOLERANCE = 0.005;
+
+// ── Lazy-load aggregators ──
+let _priceAggregator = null;
+let _forexAggregator = null;
+let _marketService = null;
+
+function getPriceAggregator() {
+  if (!_priceAggregator) {
+    try { _priceAggregator = require('../services/market/market.aggregator'); } catch { _priceAggregator = null; }
+  }
+  return _priceAggregator;
+}
+
+function getForexAggregator() {
+  if (!_forexAggregator) {
+    try { _forexAggregator = require('../services/forexAggregator'); } catch { _forexAggregator = null; }
+  }
+  return _forexAggregator;
+}
+
+function getMarketService() {
+  if (!_marketService) {
+    try { _marketService = require('../src/services/market/market.service'); } catch { _marketService = null; }
+  }
+  return _marketService;
+}
 
 // ── Helpers ──
 
@@ -24,14 +43,33 @@ function getPrice(rows, symbol) {
 }
 
 async function getCurrentPrices() {
+  const priceAgg = getPriceAggregator();
+  const forexAgg = getForexAggregator();
+
   const [crypto, fx] = await Promise.all([
-    getMarketList().catch(() => null),
-    getForexAndMetals().catch(() => null),
+    priceAgg ? priceAgg.getMarketList().catch(() => null) : Promise.resolve(null),
+    forexAgg ? forexAgg.getForexAndMetals().catch(() => null) : Promise.resolve(null),
   ]);
+
   return {
     cryptoRows: crypto?.rows || [],
     fxRows:     fx?.rows    || [],
   };
+}
+
+async function getPriceFromService(symbol) {
+  // Try new market service first
+  const marketService = getMarketService();
+  if (marketService) {
+    try {
+      const result = await marketService.getPrice(symbol);
+      if (result?.price) return result.price;
+    } catch {}
+  }
+
+  // Fall back to old aggregators
+  const { cryptoRows } = await getCurrentPrices();
+  return getPrice(cryptoRows, symbol);
 }
 
 function computeMarketRate(from, to, rows) {
@@ -68,7 +106,7 @@ exports.quote = async (req, res) => {
     }
 
     const { cryptoRows } = await getCurrentPrices();
-    const config         = await ConversionConfig.findOne() || { feeBps: 100 };
+    const config = await ConversionConfig.findOne() || { feeBps: 100 };
 
     const marketRate = computeMarketRate(from, to, cryptoRows);
     if (!marketRate) {
@@ -105,7 +143,6 @@ exports.execute = async (req, res) => {
     const user   = req.user;
     const config = await ConversionConfig.findOne() || { feeBps: 100 };
 
-    // ── Check available balance only (not locked) ──
     const available = Number(user.balances[from] || 0);
     if (available < fromAmount) {
       return res.status(400).json({
@@ -113,14 +150,12 @@ exports.execute = async (req, res) => {
       });
     }
 
-    // ── Re-quote for fresh market rate ──
     const { cryptoRows } = await getCurrentPrices();
     const freshMarketRate = computeMarketRate(from, to, cryptoRows);
     if (!freshMarketRate) {
       return res.status(503).json({ message: 'Unable to fetch market rate — please retry.' });
     }
 
-    // ── Slippage check (0.5% tolerance) ──
     const slippage = Math.abs(freshMarketRate - quotedRate) / Math.abs(quotedRate);
     if (slippage > SLIPPAGE_TOLERANCE) {
       return res.status(400).json({
@@ -132,7 +167,6 @@ exports.execute = async (req, res) => {
     const effectiveRate = freshMarketRate * (1 - config.feeBps / 10000);
     const toAmount      = fromAmount * effectiveRate;
 
-    // ── Atomic debit/credit ──
     try {
       session = await mongoose.startSession();
       session.startTransaction();
@@ -149,11 +183,8 @@ exports.execute = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Debit source currency, credit target currency
     u.balances[from] = (u.balances[from] || 0) - fromAmount;
     u.balances[to]   = (u.balances[to]   || 0) + toAmount;
-
-    // CRITICAL: markModified so Mongoose detects the nested object mutation
     u.markModified('balances');
     await u.save({ session });
 
@@ -183,12 +214,12 @@ exports.execute = async (req, res) => {
   } catch (err) {
     console.error('[convert] execute:', err);
     if (session) {
-      try { await session.abortTransaction(); } catch { /* ignore */ }
+      try { await session.abortTransaction(); } catch {}
     }
     return res.status(500).json({ message: 'Server error' });
   } finally {
     if (session) {
-      try { await session.endSession(); } catch { /* ignore */ }
+      try { await session.endSession(); } catch {}
     }
   }
 };

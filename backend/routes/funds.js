@@ -1,19 +1,22 @@
 // routes/funds.js
-// ── User-facing funds routes (deposit/withdraw + history) ──
+// User-facing funds routes (deposit/withdraw + history)
 
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 
-const ctrl = require('../controllers/fundsController');
-const auth = require('../middleware/auth');
+const ctrl   = require('../controllers/fundsController');
+const auth   = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { validate, depositSchema, withdrawSchema } = require('../middleware/validate');
 
-router.get('/balance',         auth,                                                ctrl.getBalance);
-router.post('/deposit',        auth, upload.single('proof'), validate(depositSchema),  ctrl.depositFunds);
-router.post('/withdraw',       auth, validate(withdrawSchema),                       ctrl.withdrawFunds);
-router.get('/deposits/me',     auth,                                                ctrl.getMyDeposits);
-router.get('/withdrawals/me',  auth,                                                ctrl.getMyWithdrawals);
+router.get('/balance',        auth,                              ctrl.getBalance);
+
+// Validation is now handled by the Zod-based depositSchema middleware
+router.post('/deposit',       auth, upload.single('proof'),      validate(depositSchema), ctrl.depositFunds);
+
+router.post('/withdraw',      auth, validate(withdrawSchema),    ctrl.withdrawFunds);
+router.get('/deposits/me',    auth,                              ctrl.getMyDeposits);
+router.get('/withdrawals/me', auth,                              ctrl.getMyWithdrawals);
 
 router.use((err, _req, res, _next) => {
   if (err) {

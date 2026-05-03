@@ -1,5 +1,5 @@
 // components/crypto/CoinIcon.tsx
-// ── COIN ICON WITH CSS FALLBACK BADGE ──
+// ── COIN ICON — Image with CSS fallback badge ──
 
 import React, { useState } from 'react';
 
@@ -22,14 +22,28 @@ export default function CoinIcon({ iconUrl, symbol, size = 32, color }: CoinIcon
   const [imgError, setImgError] = useState(false);
   const showImage = iconUrl && !imgError;
   const fallbackColor = color || hashColor(symbol);
-  const fontSize = Math.max(size * 0.45, 12);
+  const fontSize = Math.max(size * 0.42, 11);
 
   return (
-    <div className="relative flex-shrink-0 rounded-full overflow-hidden" style={{ width: size, height: size }} aria-hidden="true">
+    <div
+      className="relative shrink-0 rounded-full overflow-hidden shadow-sm"
+      style={{ width: size, height: size }}
+      aria-hidden="true"
+    >
       {showImage ? (
-        <img src={iconUrl} alt={`${symbol} icon`} width={size} height={size} className="object-cover w-full h-full" onError={() => setImgError(true)} />
+        <img
+          src={iconUrl}
+          alt={`${symbol} icon`}
+          width={size}
+          height={size}
+          className="object-cover w-full h-full"
+          onError={() => setImgError(true)}
+        />
       ) : (
-        <div className="w-full h-full flex items-center justify-center rounded-full font-bold text-[var(--text-inverse)] select-none" style={{ backgroundColor: fallbackColor, fontSize }}>
+        <div
+          className="w-full h-full flex items-center justify-center rounded-full font-bold text-white select-none"
+          style={{ backgroundColor: fallbackColor, fontSize }}
+        >
           {symbol.charAt(0).toUpperCase()}
         </div>
       )}

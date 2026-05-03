@@ -1,5 +1,5 @@
 // src/services/market/providers/base.provider.js
-// ── ABSTRACT BASE PROVIDER ──
+// ── ABSTRACT BASE PROVIDER (UPDATED) ──
 
 const { withRetry } = require('../utils/retry');
 
@@ -10,9 +10,6 @@ class BaseProvider {
     this.startTime = Date.now();
   }
 
-  /**
-   * Override in subclass
-   */
   get name() {
     throw new Error('Provider must define `name`');
   }
@@ -29,13 +26,11 @@ class BaseProvider {
     throw new Error('Not implemented');
   }
 
+  // ⚠️ Default: return empty (not all providers have market lists)
   async fetchMarkets() {
-    throw new Error('Not implemented');
+    return [];
   }
 
-  /**
-   * Public method with retry wrapper
-   */
   async getPrice(symbol) {
     this.startTime = Date.now();
     try {

@@ -1,27 +1,36 @@
 // services/tradeResolver.js
 // ── TRADE RESOLVER ──
-// FIXED P&L: fee = 2% of STAKE (not profit)
-//
-// WIN:
-//   profit    = stake * multiplier
-//   fee       = stake * 0.02
-//   credit    = stake + profit - fee
-//   netResult = profit - fee
-//
-// LOSS:
-//   loss      = stake * multiplier
-//   fee       = stake * 0.02
-//   netResult = -(loss + fee)
-//   credit    = stake - loss - fee   (remaining returned to user)
+// Updated to use new market aggregator system
 
 const mongoose = require('mongoose');
 const Trade = require('../models/Trade');
 const User = require('../models/User');
-const { getMarketList } = require('./priceAggregator');
-const { getForexAndMetals } = require('./forexAggregator');
+const { FOREX_PAIRS } = require('../config/forex');
+const { METAL_PAIRS } = require('../config/metals');
 const { BY_BINANCE } = require('../config/coins');
-const { FX_BY_SYMBOL } = require('../config/forex');
-const { METAL_BY_SYMBOL } = require('../config/metals');
+
+// ── Lazy-load aggregators ──
+let _marketService = null;
+let _forexAggregator = null;
+
+function getMarketService() {
+  if (!_marketService) {
+    try {
+      _marketService = require('./src/services/market/market.service');
+    } catch {
+      // Fall back to old aggregator
+      _marketService = require('./market/market.aggregator');
+    }
+  }
+  return _marketService;
+}
+
+function getForexAggregator() {
+  if (!_forexAggregator) {
+    _forexAggregator = require('./forexAggregator');
+  }
+  return _forexAggregator;
+}
 
 // ── Active timers keyed by trade id ──
 const timers = new Map();
@@ -43,13 +52,12 @@ function scheduleResolution(trade) {
 
 // ── Public: resolve a single trade by id ──
 async function resolve(tradeId) {
-  // Atomic lock — only one resolver wins per trade
   const trade = await Trade.findOneAndUpdate(
     { _id: tradeId, status: 'pending' },
-    { $set: { status: 'pending' } },   // no-op write to confirm lock
+    { $set: { status: 'pending' } },
     { new: true },
   );
-  if (!trade) return;   // already resolved or missing
+  if (!trade) return;
 
   const user = await User.findById(trade.userId);
   if (!user) {
@@ -60,7 +68,7 @@ async function resolve(tradeId) {
     return;
   }
 
-  // ── Decide outcome from user.autoMode ──
+  // ── Decide outcome ──
   const mode = typeof user.autoMode === 'string' ? user.autoMode : 'random';
   let win;
   let resolvedBy;
@@ -71,26 +79,21 @@ async function resolve(tradeId) {
     resolvedBy = win ? 'random-win' : 'random-lose';
   }
 
-  // ── Get exit price (best-effort; outcome already decided) ──
+  // ── Get exit price ──
   const exitPrice = await fetchPriceForPair(trade.pair, trade.pairClass).catch(() => trade.entryPrice);
 
   const stake      = Number(trade.stake);
   const multiplier = Number(trade.planMultiplier);
-  // ── FEE = 2% of STAKE (fixed, regardless of win/loss) ──
-  const fee        = stake * (Number(trade.feeBps) / 10000);  // feeBps=200 → 0.02
+  const fee        = stake * (Number(trade.feeBps) / 10000);
 
   if (win) {
-    // profit    = stake × multiplier
-    // credit    = stake + profit - fee   (stake returned + profit, minus fee)
-    // netResult = profit - fee           (signed net gain)
     const profit    = stake * multiplier;
     const credit    = stake + profit - fee;
     const netResult = profit - fee;
-
-    // Guard against negative credit (edge case: very small stake + large fee)
     const safecredit = Math.max(0, credit);
 
     user.balances[trade.tradingAsset] = (user.balances[trade.tradingAsset] || 0) + safecredit;
+    user.markModified('balances');
     await user.save();
 
     trade.status     = 'won';
@@ -102,16 +105,13 @@ async function resolve(tradeId) {
     trade.resolvedBy = resolvedBy;
     await trade.save();
   } else {
-    // loss      = stake × multiplier
-    // remaining = stake - loss - fee     (what the user gets back, if anything)
-    // netResult = -(loss + fee)          (total signed loss)
     const loss      = stake * multiplier;
     const remaining = stake - loss - fee;
     const netResult = -(loss + fee);
 
-    // If remaining > 0, refund it; stake was already debited at placement
     if (remaining > 0) {
       user.balances[trade.tradingAsset] = (user.balances[trade.tradingAsset] || 0) + remaining;
+      user.markModified('balances');
       await user.save();
     }
 
@@ -126,7 +126,6 @@ async function resolve(tradeId) {
   }
 }
 
-// ── Public: cancel a scheduled timer ──
 function cancelScheduled(tradeId) {
   const id = String(tradeId);
   if (timers.has(id)) {
@@ -135,7 +134,6 @@ function cancelScheduled(tradeId) {
   }
 }
 
-// ── Public: boot recovery ──
 async function resumePendingOnBoot() {
   if (mongoose.connection.readyState !== 1) {
     console.warn('[tradeResolver] DB not ready, skipping boot recovery');
@@ -160,22 +158,42 @@ async function resumePendingOnBoot() {
   console.log(`[tradeResolver] boot recovery: ${overdue} resolved, ${rescheduled} rescheduled`);
 }
 
-// ── Helpers ──
+// ── Helper: fetch price from either new market service or old aggregator ──
 async function fetchPriceForPair(pair, pairClass) {
-  if (pairClass === 'crypto') {
-    const meta = BY_BINANCE[pair];
-    if (!meta) return null;
-    const { rows } = await getMarketList();
-    const row = rows.find((r) => r.symbol === meta.symbol);
-    return row?.price ?? null;
+  // Try new market service first
+  try {
+    const marketService = getMarketService();
+    
+    if (typeof marketService.getPrice === 'function') {
+      const result = await marketService.getPrice(pair);
+      if (result?.price) return result.price;
+    }
+    
+    // Old aggregator format
+    if (typeof marketService.getMarketList === 'function' && pairClass === 'crypto') {
+      const { rows } = await marketService.getMarketList();
+      const meta = BY_BINANCE[pair];
+      if (meta) {
+        const row = rows.find((r) => r.symbol === meta.symbol);
+        if (row?.price) return row.price;
+      }
+    }
+  } catch (err) {
+    console.warn('[tradeResolver] marketService.getPrice failed:', err.message);
   }
+
+  // Try forex aggregator for forex/metals
   if (pairClass === 'forex' || pairClass === 'metals') {
-    const meta = FX_BY_SYMBOL[pair] || METAL_BY_SYMBOL[pair];
-    if (!meta) return null;
-    const { rows } = await getForexAndMetals();
-    const row = rows.find((r) => r.symbol === pair);
-    return row?.price ?? null;
+    try {
+      const forexAgg = getForexAggregator();
+      const { rows } = await forexAgg.getForexAndMetals();
+      const row = rows.find((r) => r.symbol === pair);
+      if (row?.price) return row.price;
+    } catch (err) {
+      console.warn('[tradeResolver] forexAggregator failed:', err.message);
+    }
   }
+
   return null;
 }
 
