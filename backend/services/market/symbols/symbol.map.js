@@ -1,4 +1,4 @@
-// src/services/market/symbols/symbol.map.js
+// services/market/symbols/symbol.map.js
 // ── UNIVERSAL SYMBOL MAPPING ──
 // All symbols normalize to Binance format (e.g., "BTCUSDT")
 

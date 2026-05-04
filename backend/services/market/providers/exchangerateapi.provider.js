@@ -1,4 +1,4 @@
-// src/services/market/providers/exchangerateapi.provider.js
+// services/market/providers/exchangerateapi.provider.js
 // ── EXCHANGERATE-API.COM PROVIDER (forex, free, no key) ──
 
 const { BaseProvider } = require('./base.provider');

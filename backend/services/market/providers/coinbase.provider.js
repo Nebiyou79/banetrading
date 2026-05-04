@@ -1,4 +1,4 @@
-// src/services/market/providers/coinbase.provider.js
+// services/market/providers/coinbase.provider.js
 // ── COINBASE PROVIDER (free, no key, 10 req/sec) ──
 // API: https://api.coinbase.com/v2
 // Docs: https://docs.cloud.coinbase.com/sign-in-with-coinbase/docs/api-prices

@@ -1,4 +1,4 @@
-// src/services/market/providers/base.provider.js
+// services/market/providers/base.provider.js
 // ── ABSTRACT BASE PROVIDER (UPDATED) ──
 
 const { withRetry } = require('../utils/retry');

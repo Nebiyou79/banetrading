@@ -1,4 +1,4 @@
-// src/services/market/websocket/client.broadcaster.js
+// services/market/websocket/client.broadcaster.js
 // ── BROWSER CLIENT BROADCASTER (FIXED) ──
 
 const WebSocket = require('ws');

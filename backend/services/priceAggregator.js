@@ -37,7 +37,7 @@ function getForexAggregator() {
 function getMarketService() {
   if (!_marketService) {
     try {
-      _marketService = require('../src/services/market/market.service');
+      _marketService = require('../services/market/market.service');
     } catch {
       _marketService = null;
     }

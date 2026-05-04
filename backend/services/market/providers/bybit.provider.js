@@ -1,4 +1,4 @@
-// src/services/market/providers/bybit.provider.js
+// services/market/providers/bybit.provider.js
 // ── BYBIT PROVIDER (free, no key, 50 req/sec) ──
 
 const { BaseProvider } = require('./base.provider');

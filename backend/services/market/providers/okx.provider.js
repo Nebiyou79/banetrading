@@ -1,4 +1,4 @@
-// src/services/market/providers/okx.provider.js
+// services/market/providers/okx.provider.js
 // ── OKX PROVIDER (free, no key, 10 req/sec) ──
 // API: https://www.okx.com/api/v5
 // Docs: https://www.okx.com/docs-v5/

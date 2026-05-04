@@ -1,4 +1,4 @@
-// src/services/market/providers/frankfurter.provider.js
+// services/market/providers/frankfurter.provider.js
 // ── FRANKFURTER PROVIDER (forex daily candles, free, no key) ──
 
 const { BaseProvider } = require('./base.provider');

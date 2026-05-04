@@ -1,4 +1,4 @@
-// src/services/market/providers/kucoin.provider.js
+// services/market/providers/kucoin.provider.js
 // ── KUCOIN PROVIDER (free, no key for public endpoints) ──
 // API: https://api.kucoin.com/api/v1
 // Docs: https://docs.kucoin.com/

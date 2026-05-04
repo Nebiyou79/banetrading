@@ -1,4 +1,4 @@
-// src/services/market/providers/twelvedata.provider.js
+// services/market/providers/twelvedata.provider.js
 // ── TWELVE DATA PROVIDER (forex + metals, 800 req/day free) ──
 
 const { BaseProvider } = require('./base.provider');

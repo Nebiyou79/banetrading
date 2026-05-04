@@ -1,4 +1,4 @@
-// src/services/market/providers/exchangeratehost.provider.js
+// services/market/providers/exchangeratehost.provider.js
 // ── EXCHANGERATE.HOST PROVIDER (forex + metals, with API key) ──
 
 const { BaseProvider } = require('./base.provider');

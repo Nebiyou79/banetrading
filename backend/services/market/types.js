@@ -1,4 +1,4 @@
-// src/services/market/types.js
+// services/market/types.js
 // ── TYPE DEFINITIONS (JSDoc for IDE support, no runtime types) ──
 
 /**

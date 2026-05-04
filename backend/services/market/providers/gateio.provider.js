@@ -1,4 +1,4 @@
-// src/services/market/providers/gateio.provider.js
+// services/market/providers/gateio.provider.js
 // ── GATE.IO PROVIDER (free, no key, 200 req/sec) ──
 // API: https://api.gateio.ws/api/v4
 // Docs: https://www.gate.io/docs/developers/apiv4/

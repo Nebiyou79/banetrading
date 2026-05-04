@@ -1,4 +1,4 @@
-// src/services/market/providers/coingecko.provider.js
+// services/market/providers/coingecko.provider.js
 // ── COINGECKO PROVIDER (free, no key, 30 req/min) ──
 
 const { BaseProvider } = require('./base.provider');

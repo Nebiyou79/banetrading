@@ -1,4 +1,4 @@
-// src/services/market/market.aggregator.js
+// services/market/market.aggregator.js
 // ── MARKET AGGREGATOR — CRYPTO + FOREX + METALS ──
 
 // ── Crypto providers ──

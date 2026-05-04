@@ -1,5 +1,5 @@
 // pages/trade/index.tsx
-// ── TRADING PAGE — Professional layout ──
+// ── TRADING PAGE — Professional layout with fixed chart colors ──
 
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -21,50 +21,54 @@ import { ActiveTradeCard } from '@/components/trade/ActiveTradeCard';
 import { YourTradesTable } from '@/components/trade/YourTradesTable';
 import { TradeResultModal } from '@/components/trade/TradeResultModal';
 import { useMarketCandles } from '@/hooks/useMarketCandles';
-import { useMarketStore as useStore } from '@/stores/market.store';
+import TimeframeSelector from '@/components/crypto/TimeframeSelector';
 import type { PairClass, TradingPair, Trade } from '@/types/trade';
 import type { Currency } from '@/types/convert';
 import type { Timeframe } from '@/types/markets';
-import TimeframeSelector from '@/components/crypto/TimeframeSelector';
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'NebaTrade';
+
+// ⚠️ Hardcoded colors — lightweight-charts v5 CANNOT parse CSS variables
+const CHART_COLORS = {
+  dark:  { bg: 'transparent', text: '#848E9C', grid: 'rgba(255,255,255,0.06)', border: '#2B3139', up: '#0ECB81', down: '#F6465D', lblBg: '#2B3139', volUp: 'rgba(14,203,129,0.25)', volDown: 'rgba(246,70,93,0.25)' },
+  light: { bg: 'transparent', text: '#474D57', grid: 'rgba(0,0,0,0.06)',       border: '#E0E3EB', up: '#0ECB81', down: '#F6465D', lblBg: '#E0E3EB', volUp: 'rgba(14,203,129,0.25)', volDown: 'rgba(246,70,93,0.25)' },
+};
 
 function TradePage(): JSX.Element {
   const router = useRouter();
   const symbolParam = (router.query.symbol as string) || 'BTCUSDT';
 
-  const { config } = useTradingConfig();
-  const { pairs } = useTradePairs();
-  const { balances } = useUserBalances();
+  const { config }  = useTradingConfig();
+  const { pairs }   = useTradePairs();
+  const { balances }= useUserBalances();
   const { trades: activeTrades, recentlyResolved, clearResolved } = useActiveTrades();
 
   const [historyOffset, setHistoryOffset] = useState(0);
   const { trades: historyTrades, total: historyTotal, isLoading: historyLoading } = useTradeHistory(20, historyOffset);
 
-  const [activePair, setActivePair] = useState<TradingPair | null>(null);
+  const [activePair,      setActivePair]      = useState<TradingPair | null>(null);
   const [activePairClass, setActivePairClass] = useState<PairClass>('crypto');
   const [resultModalTrade, setResultModalTrade] = useState<Trade | null>(null);
+  const [chartTimeframe, setChartTimeframe]   = useState<Timeframe>('1h');
 
-  // WebSocket subscription
   usePageMarketWebSocket(activePair?.symbol ?? '');
 
-  // Live prices from store
-  const livePrice = useStore((s) => s.prices[activePair?.symbol ?? ''] ?? null);
-  const wsTicker = useStore((s) => s.tickers[activePair?.symbol ?? ''] ?? null);
+  const livePrice = useMarketStore(s => s.prices[activePair?.symbol ?? ''] ?? null);
+  const wsTicker  = useMarketStore(s => s.tickers[activePair?.symbol ?? ''] ?? null);
 
   // Resolve pair from URL
   useEffect(() => {
     if (!pairs) return;
     const found =
-      pairs.crypto.find((p) => p.symbol === symbolParam) ??
-      pairs.forex.find((p) => p.symbol === symbolParam) ??
-      pairs.metals.find((p) => p.symbol === symbolParam) ??
+      pairs.crypto.find(p => p.symbol === symbolParam) ??
+      pairs.forex.find(p => p.symbol === symbolParam)  ??
+      pairs.metals.find(p => p.symbol === symbolParam) ??
       pairs.crypto[0] ?? null;
     if (found) {
-      setActivePair((prev) => prev?.symbol === found.symbol ? prev : found);
+      setActivePair(prev => prev?.symbol === found.symbol ? prev : found);
       setActivePairClass(
         pairs.crypto.includes(found) ? 'crypto' :
-        pairs.forex.includes(found) ? 'forex' : 'metals'
+        pairs.forex.includes(found)  ? 'forex'  : 'metals'
       );
     }
   }, [symbolParam, pairs]);
@@ -86,19 +90,19 @@ function TradePage(): JSX.Element {
     clearResolved();
   }, [clearResolved]);
 
-  const pendingTrades = useMemo(() => activeTrades.filter((t) => t.status === 'pending'), [activeTrades]);
+  const pendingTrades = useMemo(() => activeTrades.filter(t => t.status === 'pending'), [activeTrades]);
 
   return (
     <>
       <Head><title>Trade · {BRAND}</title></Head>
       <AuthenticatedShell>
         <div className="flex flex-col gap-3">
-          {/* ── Pairs Bar ── */}
+          {/* Pairs Bar */}
           <PairsBar
             pairs={pairs}
             activeClass={activePairClass}
             activeSymbol={activePair?.symbol ?? ''}
-            onClassChange={(c) => {
+            onClassChange={c => {
               setActivePairClass(c);
               const first = pairs[c][0];
               if (first) handleSelectPair(first);
@@ -106,29 +110,29 @@ function TradePage(): JSX.Element {
             onSelectPair={handleSelectPair}
           />
 
-          {/* ── Main Grid: Chart + Trade Panel ── */}
+          {/* Main Grid */}
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_380px]">
             {/* Chart Column */}
             <div className="flex flex-col gap-3 min-w-0">
-              {/* Chart Container */}
               <ChartContainer
                 toolbar={
                   <TimeframeSelector
-                    active="1h"
-                    onChange={(tf) => {}}
+                    active={chartTimeframe}
+                    onChange={setChartTimeframe}
+                    disabledTimeframes={activePairClass !== 'crypto' ? ['1m','5m','15m'] : []}
                   />
                 }
               >
                 <TradingChartInner
                   symbol={activePair?.symbol ?? 'BTCUSDT'}
                   pairClass={activePairClass}
+                  timeframe={chartTimeframe}
                 />
               </ChartContainer>
             </div>
 
             {/* Trade Panel Column */}
             <div className="flex flex-col gap-3">
-              {/* Asset Header */}
               <AssetHeader
                 pair={activePair}
                 pairClass={activePairClass}
@@ -137,8 +141,6 @@ function TradePage(): JSX.Element {
                 high24h={wsTicker?.high24h ?? null}
                 low24h={wsTicker?.low24h ?? null}
               />
-
-              {/* Trade Panel */}
               <TradingPanel
                 pair={activePair}
                 pairClass={activePairClass}
@@ -149,22 +151,20 @@ function TradePage(): JSX.Element {
             </div>
           </div>
 
-          {/* ── Active Trades ── */}
+          {/* Active Trades */}
           {pendingTrades.length > 0 && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {pendingTrades.map((t) => (
-                <ActiveTradeCard key={t._id} trade={t} />
-              ))}
+              {pendingTrades.map(t => <ActiveTradeCard key={t._id} trade={t} />)}
             </div>
           )}
 
-          {/* ── Trade History ── */}
+          {/* Trade History */}
           <YourTradesTable
             activeTrades={pendingTrades}
             historyTrades={historyTrades}
             historyTotal={historyTotal}
             historyOffset={historyOffset}
-            onLoadMore={() => setHistoryOffset((o) => o + 20)}
+            onLoadMore={() => setHistoryOffset(o => o + 20)}
             isLoading={historyLoading}
           />
         </div>
@@ -175,62 +175,107 @@ function TradePage(): JSX.Element {
   );
 }
 
-// Inner chart component (lazy-loaded lightweight-charts)
-function TradingChartInner({ symbol, pairClass }: { symbol: string; pairClass: PairClass }) {
+// ── Inner chart with hardcoded colors ──
+function TradingChartInner({
+  symbol, pairClass, timeframe,
+}: {
+  symbol: string; pairClass: PairClass; timeframe: Timeframe;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const seriesRef = useRef<any>(null);
-  const [timeframe, setTimeframe] = useState<Timeframe>('1h');
+  const chartRef     = useRef<any>(null);
+  const seriesRef    = useRef<any>(null);
+  const volRef       = useRef<any>(null);
+  const mountedRef   = useRef(true);
 
   const { data: candlesData, isLoading, error, refetch } = useMarketCandles(symbol, timeframe, pairClass);
-  const wsPrice = useStore((s) => s.prices[symbol]);
+  const wsPrice = useMarketStore(s => s.prices[symbol]);
 
-  const CHART_HEIGHT = 480;
+  const CHART_H = 480;
+
+  function getColors() {
+    if (typeof document === 'undefined') return CHART_COLORS.dark;
+    return document.documentElement.getAttribute('data-theme') === 'light'
+      ? CHART_COLORS.light : CHART_COLORS.dark;
+  }
 
   useEffect(() => {
+    mountedRef.current = true;
     const container = containerRef.current;
     if (!container) return;
 
-    import('lightweight-charts').then(({ createChart, ColorType }) => {
-      const chart = createChart(container, {
-        width: container.clientWidth,
-        height: CHART_HEIGHT,
-        layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: 'var(--text-secondary)' },
-        grid: { vertLines: { color: 'var(--chart-grid)' }, horzLines: { color: 'var(--chart-grid)' } },
-        timeScale: { borderColor: 'var(--border)', timeVisible: true },
-        rightPriceScale: { borderColor: 'var(--border)' },
-        crosshair: { mode: 0 },
+    if (chartRef.current) {
+      try { chartRef.current.remove(); } catch {}
+      chartRef.current = null; seriesRef.current = null; volRef.current = null;
+    }
+
+    let chart: any = null;
+    let ro: ResizeObserver | null = null;
+    const c = getColors();
+
+    import('lightweight-charts').then(({ createChart, ColorType, CrosshairMode }) => {
+      if (!mountedRef.current || !containerRef.current) return;
+
+      chart = createChart(containerRef.current, {
+        width:  containerRef.current.clientWidth,
+        height: CHART_H,
+        layout: { background: { type: ColorType.Solid, color: c.bg }, textColor: c.text },
+        grid:   { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+        crosshair: {
+          mode:     CrosshairMode.Normal,
+          vertLine: { color: c.border, labelBackgroundColor: c.lblBg },
+          horzLine: { color: c.border, labelBackgroundColor: c.lblBg },
+        },
+        timeScale:       { borderColor: c.border, timeVisible: true, secondsVisible: false },
+        rightPriceScale: { borderColor: c.border, scaleMargins: { top: 0.08, bottom: 0.18 } },
       });
 
       const series = chart.addCandlestickSeries({
-        upColor: 'var(--chart-up)', downColor: 'var(--chart-down)',
-        borderUpColor: 'var(--chart-up)', borderDownColor: 'var(--chart-down)',
-        wickUpColor: 'var(--chart-up)', wickDownColor: 'var(--chart-down)',
+        upColor: c.up, downColor: c.down, borderUpColor: c.up, borderDownColor: c.down, wickUpColor: c.up, wickDownColor: c.down,
       });
 
-      chartRef.current = chart;
-      seriesRef.current = series;
+      const vol = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'vol' });
+      vol.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
 
-      const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }));
+      chartRef.current = chart; seriesRef.current = series; volRef.current = vol;
+
+      if (candlesData?.length) {
+        series.setData(candlesData.map((k: any) => ({ time: k.time, open: k.open, high: k.high, low: k.low, close: k.close })));
+        vol.setData(candlesData.map((k: any) => ({ time: k.time, value: k.volume ?? 0, color: k.close >= k.open ? c.volUp : c.volDown })));
+        chart.timeScale().fitContent();
+      }
+
+      ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }));
       ro.observe(container);
-
-      return () => { ro.disconnect(); chart.remove(); };
     });
+
+    return () => {
+      mountedRef.current = false;
+      ro?.disconnect();
+      if (chart) { try { chart.remove(); } catch {} }
+      chartRef.current = null; seriesRef.current = null; volRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, pairClass, timeframe]);
 
   useEffect(() => {
     if (!seriesRef.current || !candlesData?.length) return;
-    seriesRef.current.setData(candlesData.map((c: any) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
-    chartRef.current?.timeScale().fitContent();
+    const c = getColors();
+    try {
+      seriesRef.current.setData(candlesData.map((k: any) => ({ time: k.time, open: k.open, high: k.high, low: k.low, close: k.close })));
+      volRef.current?.setData(candlesData.map((k: any) => ({ time: k.time, value: k.volume ?? 0, color: k.close >= k.open ? c.volUp : c.volDown })));
+      chartRef.current?.timeScale().fitContent();
+    } catch {}
   }, [candlesData]);
 
   useEffect(() => {
     if (!wsPrice || !seriesRef.current || !candlesData?.length) return;
     const last = candlesData[candlesData.length - 1];
-    seriesRef.current.update({ time: last.time, close: wsPrice, high: Math.max(last.high, wsPrice), low: Math.min(last.low, wsPrice) });
-  }, [wsPrice]);
+    try {
+      seriesRef.current.update({ time: last.time, open: last.open, high: Math.max(last.high, wsPrice), low: Math.min(last.low, wsPrice), close: wsPrice });
+    } catch {}
+  }, [wsPrice, candlesData]);
 
-  return <div ref={containerRef} style={{ width: '100%', height: CHART_HEIGHT }} />;
+  return <div ref={containerRef} style={{ width: '100%', height: CHART_H }} />;
 }
 
 export default withAuth(TradePage);

@@ -1,4 +1,4 @@
-// src/services/market/utils/retry.js
+// services/market/utils/retry.js
 // ── RETRY UTILITY WITH EXPONENTIAL BACKOFF + RATE LIMIT DETECTION ──
 
 const { RETRY_CONFIG } = require('../constants');

@@ -1,4 +1,4 @@
-// src/services/market/providers/coincap.provider.js
+// services/market/providers/coincap.provider.js
 // ── COINCAP PROVIDER (free, no key, 200 req/min) ──
 
 const { BaseProvider } = require('./base.provider');

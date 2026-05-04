@@ -1,6 +1,5 @@
 // controllers/tradeController.js
-// ── TRADING CONTROLLER (Module 7) ──
-// Updated to use new market aggregator system
+// ── TRADING CONTROLLER — uses new market.service ──
 
 const Trade = require('../models/Trade');
 const TradingConfig = require('../models/TradingConfig');
@@ -12,30 +11,15 @@ const tradeResolver = require('../services/tradeResolver');
 
 const TRADING_ASSETS = ['USDT'];
 
-// ── Lazy-load aggregators ──
-let _priceAggregator = null;
-let _forexAggregator = null;
-let _marketService = null;
-
-function getPriceAggregator() {
-  if (!_priceAggregator) {
-    try { _priceAggregator = require('../services/market/market.aggregator'); } catch { _priceAggregator = null; }
-  }
-  return _priceAggregator;
-}
-
-function getForexAggregator() {
-  if (!_forexAggregator) {
-    try { _forexAggregator = require('../services/forexAggregator'); } catch { _forexAggregator = null; }
-  }
-  return _forexAggregator;
-}
-
+// ── Service loaders ──
+let _ms = null, _fx = null;
 function getMarketService() {
-  if (!_marketService) {
-    try { _marketService = require('../src/services/market/market.service'); } catch { _marketService = null; }
-  }
-  return _marketService;
+  if (!_ms) { try { _ms = require('../services/market/market.service'); } catch { _ms = null; } }
+  return _ms;
+}
+function getForexAggregator() {
+  if (!_fx) { try { _fx = require('../services/forexAggregator'); } catch { _fx = null; } }
+  return _fx;
 }
 
 async function getOrCreateConfig() {
@@ -57,32 +41,28 @@ async function getOrCreateConfig() {
 }
 
 async function fetchPairPrice(pair, pairClass) {
-  // Try new market service first
-  const marketService = getMarketService();
-  if (marketService) {
+  const ms = getMarketService();
+
+  // Try new market service first (handles all classes)
+  if (ms) {
     try {
-      const result = await marketService.getPrice(pair);
-      if (result?.price) return result.price;
-    } catch {}
+      const result = await ms.getPrice(pair);
+      if (result?.price && result.price > 0) return result.price;
+    } catch (e) {
+      console.warn(`[tradeController] market.service.getPrice failed for ${pair}: ${e.message}`);
+    }
   }
 
-  // Fall back to old aggregators
-  if (pairClass === 'crypto') {
-    const priceAgg = getPriceAggregator();
-    if (!priceAgg) return null;
-    const meta = BY_BINANCE[pair];
-    if (!meta) return null;
-    const { rows } = await priceAgg.getMarketList();
-    const row = rows.find((r) => r.symbol === meta.symbol);
-    return row?.price ?? null;
-  }
-
+  // Forex/metals fallback
   if (pairClass === 'forex' || pairClass === 'metals') {
-    const forexAgg = getForexAggregator();
-    if (!forexAgg) return null;
-    const { rows } = await forexAgg.getForexAndMetals();
-    const row = rows.find((r) => r.symbol === pair);
-    return row?.price ?? null;
+    const fx = getForexAggregator();
+    if (fx) {
+      try {
+        const { rows } = await fx.getForexAndMetals();
+        const row = rows.find(r => r.symbol === pair);
+        if (row?.price) return row.price;
+      } catch {}
+    }
   }
 
   return null;
@@ -109,7 +89,7 @@ exports.getConfig = async (_req, res) => {
   try {
     const config = await getOrCreateConfig();
     return res.json({
-      plans: config.plans.filter((p) => p.active),
+      plans: config.plans.filter(p => p.active),
       feeBps: config.feeBps,
       enabledPairs: config.enabledPairs,
       tradingAssets: TRADING_ASSETS,
@@ -124,22 +104,20 @@ exports.getConfig = async (_req, res) => {
 exports.getPairs = async (_req, res) => {
   try {
     const config = await getOrCreateConfig();
-    const enabled = (config.enabledPairs || []).map((s) => s.toUpperCase());
-    const isEnabled = (sym) => enabled.length === 0 || enabled.includes(sym.toUpperCase());
+    const enabled = (config.enabledPairs || []).map(s => s.toUpperCase());
+    const isEnabled = sym => enabled.length === 0 || enabled.includes(sym.toUpperCase());
 
     const crypto = TIER_1
-      .filter((c) => c.binanceSymbol && isEnabled(c.binanceSymbol))
-      .map((c) => ({
-        symbol: c.binanceSymbol, display: `${c.symbol}/USDT`, base: c.symbol, quote: 'USDT', name: c.name, color: c.color,
-      }));
+      .filter(c => c.binanceSymbol && isEnabled(c.binanceSymbol))
+      .map(c => ({ symbol: c.binanceSymbol, display: `${c.symbol}/USDT`, base: c.symbol, quote: 'USDT', name: c.name, color: c.color }));
 
     const forex = FOREX_PAIRS
-      .filter((p) => isEnabled(p.symbol))
-      .map((p) => ({ symbol: p.symbol, display: p.display, base: p.base, quote: p.quote, name: p.name, color: p.color }));
+      .filter(p => isEnabled(p.symbol))
+      .map(p => ({ symbol: p.symbol, display: p.display, base: p.base, quote: p.quote, name: p.name, color: p.color }));
 
     const metals = METAL_PAIRS
-      .filter((p) => isEnabled(p.symbol))
-      .map((p) => ({ symbol: p.symbol, display: p.display, base: p.base, quote: p.quote, name: p.name, color: p.color }));
+      .filter(p => isEnabled(p.symbol))
+      .map(p => ({ symbol: p.symbol, display: p.display, base: p.base, quote: p.quote, name: p.name, color: p.color }));
 
     return res.json({ crypto, forex, metals });
   } catch (err) {
@@ -164,36 +142,27 @@ exports.placeTrade = async (req, res) => {
       });
     }
 
-    if (direction !== 'buy' && direction !== 'sell') {
-      return res.status(400).json({ message: 'Invalid direction' });
-    }
+    if (direction !== 'buy' && direction !== 'sell') return res.status(400).json({ message: 'Invalid direction' });
 
     const stakeNum = Number(stake);
-    if (!Number.isFinite(stakeNum) || stakeNum <= 0) {
-      return res.status(400).json({ message: 'Invalid stake amount' });
-    }
+    if (!Number.isFinite(stakeNum) || stakeNum <= 0) return res.status(400).json({ message: 'Invalid stake amount' });
 
     const config = await getOrCreateConfig();
-    const plan = config.plans.find((p) => p.key === planKey && p.active);
+    const plan = config.plans.find(p => p.key === planKey && p.active);
     if (!plan) return res.status(400).json({ message: 'Selected plan is unavailable' });
 
-    const enabled = (config.enabledPairs || []).map((s) => s.toUpperCase());
+    const enabled = (config.enabledPairs || []).map(s => s.toUpperCase());
     if (enabled.length > 0 && !enabled.includes(pair.toUpperCase())) {
       return res.status(400).json({ message: 'This pair is not currently tradeable' });
     }
 
     if (stakeNum < plan.minUsd) {
-      return res.status(400).json({
-        message: `Below minimum: ${plan.minUsd} USDT required for ${plan.key} plan`,
-        minInAsset: plan.minUsd,
-      });
+      return res.status(400).json({ message: `Below minimum: ${plan.minUsd} USDT required for ${plan.key} plan`, minInAsset: plan.minUsd });
     }
 
     const available = user.balances?.USDT || 0;
     if (available < stakeNum) {
-      return res.status(400).json({
-        message: `Insufficient USDT balance. Available: ${available.toFixed(2)} USDT`,
-      });
+      return res.status(400).json({ message: `Insufficient USDT balance. Available: ${available.toFixed(2)} USDT` });
     }
 
     const entryPrice = await fetchPairPrice(pair, pairMeta.class);
@@ -268,7 +237,7 @@ exports.adminListAll = async (req, res) => {
     const limit  = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
     const filter = {};
-    if (req.query.userId)  filter.userId = req.query.userId;
+    if (req.query.userId) filter.userId = req.query.userId;
     if (req.query.status && ['pending','won','lost','cancelled'].includes(req.query.status)) filter.status = req.query.status;
     if (req.query.planKey && ['SILVER','GOLD','PLATINUM','DIAMOND','ELITE'].includes(req.query.planKey)) filter.planKey = req.query.planKey;
     const [trades, total] = await Promise.all([
@@ -289,14 +258,14 @@ exports.adminUpdateConfig = async (req, res) => {
     const config = await getOrCreateConfig();
     if (Array.isArray(plans)) {
       for (const p of plans) {
-        if (!p || !['SILVER','GOLD','PLATINUM','DIAMOND','ELITE'].includes(p.key) || typeof p.multiplier !== 'number' || p.multiplier < 0 || typeof p.durationSec !== 'number' || p.durationSec < 1 || typeof p.minUsd !== 'number' || p.minUsd < 0) {
+        if (!p || !['SILVER','GOLD','PLATINUM','DIAMOND','ELITE'].includes(p.key) || typeof p.multiplier !== 'number' || typeof p.durationSec !== 'number' || typeof p.minUsd !== 'number') {
           return res.status(400).json({ message: `Invalid plan entry: ${p?.key || 'unknown'}` });
         }
       }
-      config.plans = plans.map((p) => ({ key: p.key, multiplier: p.multiplier, durationSec: p.durationSec, minUsd: p.minUsd, active: p.active !== false }));
+      config.plans = plans.map(p => ({ key: p.key, multiplier: p.multiplier, durationSec: p.durationSec, minUsd: p.minUsd, active: p.active !== false }));
     }
     if (typeof feeBps === 'number' && feeBps >= 0 && feeBps <= 5000) config.feeBps = feeBps;
-    if (Array.isArray(enabledPairs)) config.enabledPairs = enabledPairs.map((s) => String(s).toUpperCase());
+    if (Array.isArray(enabledPairs)) config.enabledPairs = enabledPairs.map(s => String(s).toUpperCase());
     config.updatedBy = req.user._id;
     await config.save();
     return res.json({ config });

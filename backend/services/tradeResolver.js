@@ -1,41 +1,34 @@
 // services/tradeResolver.js
 // ── TRADE RESOLVER ──
-// Updated to use new market aggregator system
+// Schedules and resolves binary-option trades at expiry.
+// Uses the new market.service exclusively for price lookups.
 
 const mongoose = require('mongoose');
 const Trade = require('../models/Trade');
-const User = require('../models/User');
-const { FOREX_PAIRS } = require('../config/forex');
-const { METAL_PAIRS } = require('../config/metals');
-const { BY_BINANCE } = require('../config/coins');
+const User  = require('../models/User');
 
 // ── Lazy-load aggregators ──
-let _marketService = null;
+let _marketService   = null;
 let _forexAggregator = null;
 
 function getMarketService() {
   if (!_marketService) {
-    try {
-      _marketService = require('./src/services/market/market.service');
-    } catch {
-      // Fall back to old aggregator
-      _marketService = require('./market/market.aggregator');
-    }
+    try { _marketService = require('./market/market.service'); } catch { _marketService = null; }
   }
   return _marketService;
 }
 
 function getForexAggregator() {
   if (!_forexAggregator) {
-    _forexAggregator = require('./forexAggregator');
+    try { _forexAggregator = require('./forexAggregator'); } catch { _forexAggregator = null; }
   }
   return _forexAggregator;
 }
 
-// ── Active timers keyed by trade id ──
+// ── In-memory timer map (tradeId → Timeout handle) ──
 const timers = new Map();
 
-// ── Public: schedule resolution for a freshly placed trade ──
+// ── Schedule resolution for a freshly placed trade ──
 function scheduleResolution(trade) {
   const id = String(trade._id);
   if (timers.has(id)) {
@@ -43,21 +36,19 @@ function scheduleResolution(trade) {
     timers.delete(id);
   }
   const ms = Math.max(0, new Date(trade.expiresAt).getTime() - Date.now());
-  const timer = setTimeout(() => {
+  const handle = setTimeout(() => {
     timers.delete(id);
-    resolve(id).catch((err) => console.error(`[tradeResolver] resolve(${id}) failed:`, err.message));
+    resolve(id).catch((err) =>
+      console.error(`[tradeResolver] resolve(${id}) failed:`, err.message)
+    );
   }, ms);
-  timers.set(id, timer);
+  timers.set(id, handle);
 }
 
-// ── Public: resolve a single trade by id ──
+// ── Resolve a single trade by id ──
 async function resolve(tradeId) {
-  const trade = await Trade.findOneAndUpdate(
-    { _id: tradeId, status: 'pending' },
-    { $set: { status: 'pending' } },
-    { new: true },
-  );
-  if (!trade) return;
+  const trade = await Trade.findOne({ _id: tradeId, status: 'pending' });
+  if (!trade) return; // already resolved or cancelled
 
   const user = await User.findById(trade.userId);
   if (!user) {
@@ -68,64 +59,56 @@ async function resolve(tradeId) {
     return;
   }
 
-  // ── Decide outcome ──
+  // ── Determine outcome based on autoMode ──
   const mode = typeof user.autoMode === 'string' ? user.autoMode : 'random';
   let win;
   let resolvedBy;
-  if (mode === 'alwaysWin')        { win = true;  resolvedBy = 'auto-win';    }
-  else if (mode === 'alwaysLose')  { win = false; resolvedBy = 'auto-lose';   }
+  if (mode === 'alwaysWin')       { win = true;  resolvedBy = 'auto-win';    }
+  else if (mode === 'alwaysLose') { win = false; resolvedBy = 'auto-lose';   }
   else {
     win        = Math.random() < 0.5;
     resolvedBy = win ? 'random-win' : 'random-lose';
   }
 
-  // ── Get exit price ──
+  // ── Snapshot exit price (informational only) ──
   const exitPrice = await fetchPriceForPair(trade.pair, trade.pairClass).catch(() => trade.entryPrice);
 
   const stake      = Number(trade.stake);
   const multiplier = Number(trade.planMultiplier);
-  const fee        = stake * (Number(trade.feeBps) / 10000);
+  const feeBps     = Number(trade.feeBps);
 
   if (win) {
     const profit    = stake * multiplier;
+    const fee       = profit * (feeBps / 10000);
     const credit    = stake + profit - fee;
     const netResult = profit - fee;
-    const safecredit = Math.max(0, credit);
 
-    user.balances[trade.tradingAsset] = (user.balances[trade.tradingAsset] || 0) + safecredit;
+    user.balances[trade.tradingAsset] = (user.balances[trade.tradingAsset] || 0) + Math.max(0, credit);
     user.markModified('balances');
     await user.save();
 
     trade.status     = 'won';
     trade.resolvedAt = new Date();
     trade.exitPrice  = exitPrice;
-    trade.payout     = safecredit;
+    trade.payout     = Math.max(0, credit);
     trade.feeAmount  = fee;
     trade.netResult  = netResult;
     trade.resolvedBy = resolvedBy;
     await trade.save();
   } else {
-    const loss      = stake * multiplier;
-    const remaining = stake - loss - fee;
-    const netResult = -(loss + fee);
-
-    if (remaining > 0) {
-      user.balances[trade.tradingAsset] = (user.balances[trade.tradingAsset] || 0) + remaining;
-      user.markModified('balances');
-      await user.save();
-    }
-
+    // On loss the stake was already debited at placement — nothing to refund.
     trade.status     = 'lost';
     trade.resolvedAt = new Date();
     trade.exitPrice  = exitPrice;
-    trade.payout     = Math.max(0, remaining);
-    trade.feeAmount  = fee;
-    trade.netResult  = netResult;
+    trade.payout     = 0;
+    trade.feeAmount  = 0;
+    trade.netResult  = -stake;
     trade.resolvedBy = resolvedBy;
     await trade.save();
   }
 }
 
+// ── Cancel a scheduled (but not yet resolved) trade ──
 function cancelScheduled(tradeId) {
   const id = String(tradeId);
   if (timers.has(id)) {
@@ -134,15 +117,18 @@ function cancelScheduled(tradeId) {
   }
 }
 
+// ── Resume pending trades on server boot ──
 async function resumePendingOnBoot() {
   if (mongoose.connection.readyState !== 1) {
-    console.warn('[tradeResolver] DB not ready, skipping boot recovery');
+    console.warn('[tradeResolver] DB not ready — skipping boot recovery');
     return;
   }
+
   const pending = await Trade.find({ status: 'pending' }).lean();
   let overdue    = 0;
   let rescheduled = 0;
   const now = Date.now();
+
   for (const t of pending) {
     const ms = new Date(t.expiresAt).getTime() - now;
     if (ms <= 0) {
@@ -155,42 +141,32 @@ async function resumePendingOnBoot() {
       scheduleResolution(t);
     }
   }
-  console.log(`[tradeResolver] boot recovery: ${overdue} resolved, ${rescheduled} rescheduled`);
+
+  console.log(`[tradeResolver] boot recovery: ${overdue} resolved immediately, ${rescheduled} rescheduled`);
 }
 
-// ── Helper: fetch price from either new market service or old aggregator ──
+// ── Helper: fetch current price for a trading pair ──
 async function fetchPriceForPair(pair, pairClass) {
-  // Try new market service first
-  try {
+  // Crypto
+  if (pairClass === 'crypto') {
     const marketService = getMarketService();
-    
-    if (typeof marketService.getPrice === 'function') {
-      const result = await marketService.getPrice(pair);
-      if (result?.price) return result.price;
+    if (marketService) {
+      try {
+        const result = await marketService.getPrice(pair);
+        if (result?.price && result.price > 0) return result.price;
+      } catch { /* fall through */ }
     }
-    
-    // Old aggregator format
-    if (typeof marketService.getMarketList === 'function' && pairClass === 'crypto') {
-      const { rows } = await marketService.getMarketList();
-      const meta = BY_BINANCE[pair];
-      if (meta) {
-        const row = rows.find((r) => r.symbol === meta.symbol);
-        if (row?.price) return row.price;
-      }
-    }
-  } catch (err) {
-    console.warn('[tradeResolver] marketService.getPrice failed:', err.message);
   }
 
-  // Try forex aggregator for forex/metals
+  // Forex / Metals
   if (pairClass === 'forex' || pairClass === 'metals') {
-    try {
-      const forexAgg = getForexAggregator();
-      const { rows } = await forexAgg.getForexAndMetals();
-      const row = rows.find((r) => r.symbol === pair);
-      if (row?.price) return row.price;
-    } catch (err) {
-      console.warn('[tradeResolver] forexAggregator failed:', err.message);
+    const forexAgg = getForexAggregator();
+    if (forexAgg) {
+      try {
+        const { rows } = await forexAgg.getForexAndMetals();
+        const row = rows.find((r) => r.symbol === pair);
+        if (row?.price && row.price > 0) return row.price;
+      } catch { /* fall through */ }
     }
   }
 

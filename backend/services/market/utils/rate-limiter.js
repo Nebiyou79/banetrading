@@ -1,4 +1,4 @@
-// src/services/market/utils/rate-limiter.js
+// services/market/utils/rate-limiter.js
 // ── PROVIDER-AWARE RATE LIMIT TRACKER ──
 
 const { RATE_LIMITS } = require('../constants');

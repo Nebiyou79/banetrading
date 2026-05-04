@@ -1,4 +1,4 @@
-// src/services/market/providers/binance.provider.js
+// services/market/providers/binance.provider.js
 // ── BINANCE PROVIDER (Primary — real-time + candles) ──
 
 const { BaseProvider } = require('./base.provider');

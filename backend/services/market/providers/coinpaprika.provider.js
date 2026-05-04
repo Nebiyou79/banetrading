@@ -1,4 +1,4 @@
-// src/services/market/providers/coinpaprika.provider.js
+// services/market/providers/coinpaprika.provider.js
 // ── COINPAPRIKA PROVIDER (free, no key, 25k req/month) ──
 
 const { BaseProvider } = require('./base.provider');

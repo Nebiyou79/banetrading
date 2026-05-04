@@ -1,4 +1,4 @@
-// src/services/market/providers/kraken.provider.js
+// services/market/providers/kraken.provider.js
 // ── KRAKEN PROVIDER (Fallback crypto) ──
 
 const { BaseProvider } = require('./base.provider');

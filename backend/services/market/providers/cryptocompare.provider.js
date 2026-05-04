@@ -1,4 +1,4 @@
-// src/services/market/providers/cryptocompare.provider.js
+// services/market/providers/cryptocompare.provider.js
 // ── CRYPTOCOMPARE PROVIDER (free, no key, 100k calls/month) ──
 
 const { BaseProvider } = require('./base.provider');

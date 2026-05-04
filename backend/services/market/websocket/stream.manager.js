@@ -1,4 +1,4 @@
-// src/services/market/websocket/stream.manager.js
+// services/market/websocket/stream.manager.js
 // ── BINANCE WEBSOCKET STREAM MANAGER (FIXED — HANDLES ECONNRESET) ──
 
 const WebSocket = require('ws');
