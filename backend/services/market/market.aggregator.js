@@ -1,37 +1,48 @@
 // services/market/market.aggregator.js
 // ── MARKET AGGREGATOR — CRYPTO + FOREX + METALS ──
+// FIXED:
+//   - CoinGecko moved to LAST position (try cheaper providers first)
+//   - TwelveData excluded from metals (XAUUSD/XAGUSD) — free tier doesn't support them
+//   - All provider errors caught and logged
 
-// ── Crypto providers ──
-const { CoinGeckoProvider } = require('./providers/coingecko.provider');
-const { CoinCapProvider } = require('./providers/coincap.provider');
-const { CoinPaprikaProvider } = require('./providers/coinpaprika.provider');
-const { GateIoProvider } = require('./providers/gateio.provider');
-const { KuCoinProvider } = require('./providers/kucoin.provider');
-const { CoinbaseProvider } = require('./providers/coinbase.provider');
+// ── Crypto providers (ordered cheapest/fastest first, CoinGecko last) ──
+const { CoinCapProvider }       = require('./providers/coincap.provider');
+const { CoinPaprikaProvider }   = require('./providers/coinpaprika.provider');
+const { GateIoProvider }        = require('./providers/gateio.provider');
+const { KuCoinProvider }        = require('./providers/kucoin.provider');
+const { CoinbaseProvider }      = require('./providers/coinbase.provider');
 const { CryptoCompareProvider } = require('./providers/cryptocompare.provider');
+const { CoinGeckoProvider }     = require('./providers/coingecko.provider'); // ← LAST
 
 // ── Forex/Metals providers ──
-const { TwelveDataProvider } = require('./providers/twelvedata.provider');
+const { TwelveDataProvider }       = require('./providers/twelvedata.provider');
 const { ExchangeRateHostProvider } = require('./providers/exchangeratehost.provider');
-const { FrankfurterProvider } = require('./providers/frankfurter.provider');
-const { ExchangeRateApiProvider } = require('./providers/exchangerateapi.provider');
+const { FrankfurterProvider }      = require('./providers/frankfurter.provider');
+const { ExchangeRateApiProvider }  = require('./providers/exchangerateapi.provider');
 
 const { isProviderRateLimited } = require('./utils/retry');
 
-// ── 7 crypto providers ──
+// ── Crypto: CoinGecko is LAST (rate-limited, expensive) ──
 const cryptoProviders = [
-  new CoinGeckoProvider(),
-  new CoinCapProvider(),
-  new GateIoProvider(),
-  new KuCoinProvider(),
-  new CoinbaseProvider(),
-  new CryptoCompareProvider(),
-  new CoinPaprikaProvider(),
+  new CoinCapProvider(),       // priority 2 — free, fast
+  new GateIoProvider(),        // priority 7 — free, fast
+  new KuCoinProvider(),        // free
+  new CoinbaseProvider(),      // free
+  new CryptoCompareProvider(), // free
+  new CoinPaprikaProvider(),   // free
+  new CoinGeckoProvider(),     // LAST — 30 req/min free tier, rate-limited
 ];
 
-// ── 4 forex/metals providers ──
+// ── Forex providers — TwelveData first for forex (not metals!) ──
 const forexProviders = [
-  new TwelveDataProvider(),
+  new TwelveDataProvider(),       // forex only (EURUSD etc.) — excludes metals
+  new ExchangeRateHostProvider(),
+  new FrankfurterProvider(),
+  new ExchangeRateApiProvider(),
+];
+
+// ── Metals providers — NO TwelveData (premium required for XAU/XAG) ──
+const metalsProviders = [
   new ExchangeRateHostProvider(),
   new FrankfurterProvider(),
   new ExchangeRateApiProvider(),
@@ -47,14 +58,24 @@ function isUnreachable(name) {
 }
 function markUnreachable(name) { unreachable.set(name, Date.now()); }
 
-function isForexOrMetals(symbol) {
-  return ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'XAUUSD', 'XAGUSD'].includes(symbol);
+function isMetals(symbol) {
+  return symbol.startsWith('XA'); // XAUUSD, XAGUSD
+}
+
+function isForex(symbol) {
+  return ['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD'].includes(symbol);
+}
+
+function getProviders(symbol) {
+  if (isMetals(symbol)) return metalsProviders; // metals: never TwelveData
+  if (isForex(symbol))  return forexProviders;  // forex: TwelveData OK
+  return cryptoProviders;
 }
 
 async function getAggregatedPrice(symbol) {
-  const providers = isForexOrMetals(symbol) ? forexProviders : cryptoProviders;
+  const providers = getProviders(symbol);
   const available = providers.filter(p => !isProviderRateLimited(p.name) && !isUnreachable(p.name));
-  const errors = [];
+  const errors    = [];
 
   for (const p of available) {
     try {
@@ -71,7 +92,7 @@ async function getAggregatedPrice(symbol) {
 }
 
 async function getAggregatedCandles(symbol, interval, limit = 500) {
-  const providers = isForexOrMetals(symbol) ? forexProviders : cryptoProviders;
+  const providers = getProviders(symbol);
   const available = providers.filter(p => !isProviderRateLimited(p.name) && !isUnreachable(p.name));
 
   for (const p of available) {
@@ -88,17 +109,19 @@ async function getAggregatedCandles(symbol, interval, limit = 500) {
 }
 
 async function getAggregatedMarkets() {
+  // Try each crypto provider in order (CoinGecko is last)
   const available = cryptoProviders.filter(p => !isUnreachable(p.name));
-  
+
   for (const p of available) {
     try {
       const data = await p.getMarkets();
       if (data && data.length > 0) {
+        // Optionally enrich with CoinGecko images (best-effort, not required)
         try {
-          const gecko = new CoinGeckoProvider();
+          const gecko    = new CoinGeckoProvider();
           const geckoData = await gecko.getMarkets().catch(() => []);
-          const geckoMap = new Map(geckoData.map(m => [m.symbol, m]));
-          const merged = data.map(m => {
+          const geckoMap  = new Map(geckoData.map(m => [m.symbol, m]));
+          const merged    = data.map(m => {
             const g = geckoMap.get(m.symbol);
             return g ? { ...m, image: g.image, marketCap: g.marketCap || m.marketCap } : m;
           });
@@ -107,7 +130,7 @@ async function getAggregatedMarkets() {
           return { success: true, data, provider: p.name };
         }
       }
-    } catch {}
+    } catch { /* try next */ }
   }
   return { success: false, data: [], provider: 'none' };
 }
@@ -116,7 +139,7 @@ async function getProviderHealth() {
   const allProviders = [...cryptoProviders, ...forexProviders];
   const results = await Promise.allSettled(
     allProviders.map(async p => {
-      const start = Date.now();
+      const start   = Date.now();
       const healthy = await p.healthCheck().catch(() => false);
       return { ...p.getHealth(), healthy, latency: Date.now() - start };
     })

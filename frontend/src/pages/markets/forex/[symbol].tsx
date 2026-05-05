@@ -175,16 +175,17 @@ function ChartInner({ candles, symbol }: { candles: any[]; symbol: string }) {
       const chart = createChart(container, {
         width: container.clientWidth,
         height: 460,
-        layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: 'var(--text-secondary)' },
-        grid: { vertLines: { color: 'var(--chart-grid)' }, horzLines: { color: 'var(--chart-grid)' } },
-        timeScale: { borderColor: 'var(--border)', timeVisible: true },
-        rightPriceScale: { borderColor: 'var(--border)' },
+        // ⚠️ Hardcoded hex — lightweight-charts v5 cannot parse CSS variables
+        layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#848E9C' },
+        grid: { vertLines: { color: 'rgba(255,255,255,0.06)' }, horzLines: { color: 'rgba(255,255,255,0.06)' } },
+        timeScale: { borderColor: '#2B3139', timeVisible: true },
+        rightPriceScale: { borderColor: '#2B3139' },
       });
 
       const series = chart.addCandlestickSeries({
-        upColor: 'var(--chart-up)', downColor: 'var(--chart-down)',
-        borderUpColor: 'var(--chart-up)', borderDownColor: 'var(--chart-down)',
-        wickUpColor: 'var(--chart-up)', wickDownColor: 'var(--chart-down)',
+        upColor: '#0ECB81', downColor: '#F6465D',
+        borderUpColor: '#0ECB81', borderDownColor: '#F6465D',
+        wickUpColor: '#0ECB81', wickDownColor: '#F6465D',
       });
 
       series.setData(candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));

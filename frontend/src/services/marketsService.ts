@@ -16,8 +16,20 @@ import type {
 } from '@/types/markets';
 
 export const marketsService = {
-  // ── Crypto (existing) ──
+  // ── Crypto (existing) ── with /market/markets fallback
   async getMarketsList(): Promise<MarketsListResponse> {
+    // Try new unified endpoint first
+    try {
+      const { data } = await apiClient.get<any>('/market/markets');
+      if (data?.success && data?.data?.length > 0) {
+        return {
+          rows:   data.data,
+          source: data.provider || 'market-service',
+          stale:  false,
+        } as MarketsListResponse;
+      }
+    } catch { /* fall through to legacy */ }
+    // Fallback to legacy /markets/list
     const { data } = await apiClient.get<MarketsListResponse>('/markets/list');
     return data;
   },

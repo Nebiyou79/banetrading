@@ -5,15 +5,16 @@ import { useQuery } from '@tanstack/react-query';
 import { marketsService } from '@/services/marketsService';
 import type { OhlcCandle, Timeframe, AssetClass } from '@/types/markets';
 
-// ── Longer refetch intervals to avoid rate limiting ──
+// ── Refetch intervals — deliberately conservative to avoid CoinGecko 429s ──
+// CoinGecko free tier: 30 req/min. With staleTime high, browser won't hammer it.
 const REFETCH_INTERVAL_BY_TF: Record<Timeframe, number | false> = {
-  '1m':  30_000,
-  '5m':  30_000,
-  '15m': 60_000,
-  '1h':  60_000,
-  '4h':  120_000,   // 2 minutes
-  '1d':  300_000,   // 5 minutes
-  '1w':  600_000,   // 10 minutes
+  '1m':  60_000,    // 1 minute
+  '5m':  60_000,    // 1 minute
+  '15m': 120_000,   // 2 minutes
+  '1h':  120_000,   // 2 minutes
+  '4h':  300_000,   // 5 minutes
+  '1d':  600_000,   // 10 minutes
+  '1w':  900_000,   // 15 minutes
 };
 
 export interface UseOhlcReturn {

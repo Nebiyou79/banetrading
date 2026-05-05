@@ -18,9 +18,17 @@ export const METAL_PAIRS = [
 export const FX_BY_SYMBOL  = Object.fromEntries(FX_PAIRS.map(p    => [p.symbol, p]));
 export const METAL_BY_SYMBOL = Object.fromEntries(METAL_PAIRS.map(p => [p.symbol, p]));
 
+// TIER_1_SYMBOLS: accepts BOTH bare symbols (BTC) AND USDT pairs (BTCUSDT)
+// Fix for "Coin Not Found — BTCUSDT": navigation uses BTCUSDT format
 export const TIER_1_SYMBOLS = new Set([
+  // Bare symbols (legacy)
   'BTC', 'ETH', 'USDT', 'BNB', 'SOL', 'XRP', 'ADA', 'DOGE',
-  'TRX', 'MATIC', 'DOT', 'LTC', 'AVAX', 'LINK', 'BCH',
+  'TRX', 'MATIC', 'DOT', 'LTC', 'AVAX', 'LINK', 'BCH', 'ETC',
+  'ATOM', 'UNI',
+  // USDT pairs (new routing format)
+  'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT', 'XRPUSDT', 'ADAUSDT',
+  'DOGEUSDT', 'TRXUSDT', 'MATICUSDT', 'DOTUSDT', 'LTCUSDT', 'AVAXUSDT',
+  'LINKUSDT', 'BCHUSDT', 'ETCUSDT', 'ATOMUSDT', 'UNIUSDT',
 ]);
 
 export type AssetClass = 'crypto' | 'forex' | 'metals';

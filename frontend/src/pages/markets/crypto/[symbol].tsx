@@ -172,49 +172,79 @@ function CoinDetailPage(): JSX.Element {
   );
 }
 
-// Inner chart component (simplified)
-function CoinChartInner({ candles, wsPrice, symbol }: { candles: any[]; wsPrice: number | null; symbol: string }) {
+// ⚠️ HARDCODED hex colors — lightweight-charts v5 CANNOT parse CSS variables
+const CHART_THEME = {
+  dark:  { bg: 'transparent', text: '#848E9C', grid: 'rgba(255,255,255,0.06)', border: '#2B3139', up: '#0ECB81', down: '#F6465D', lblBg: '#2B3139' },
+  light: { bg: 'transparent', text: '#474D57', grid: 'rgba(0,0,0,0.06)',       border: '#E0E3EB', up: '#0ECB81', down: '#F6465D', lblBg: '#E0E3EB' },
+};
+
+// Inner chart component — hardcoded colors only, NO CSS variables
+function CoinChartInner({ candles, wsPrice, symbol, theme = 'dark' }: { candles: any[]; wsPrice: number | null; symbol: string; theme?: 'dark' | 'light' }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
     const container = containerRef.current;
     if (!container) return;
+    const c = CHART_THEME[theme] || CHART_THEME.dark;
+    let chart: any = null;
+    let ro: ResizeObserver | null = null;
 
-    import('lightweight-charts').then(({ createChart, ColorType }) => {
-      const chart = createChart(container, {
-        width: container.clientWidth,
+    import('lightweight-charts').then(({ createChart, ColorType, CrosshairMode }) => {
+      if (!mountedRef.current || !container) return;
+      chart = createChart(container, {
+        width:  container.clientWidth || 600,
         height: 460,
-        layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: 'var(--text-secondary)' },
-        grid: { vertLines: { color: 'var(--chart-grid)' }, horzLines: { color: 'var(--chart-grid)' } },
-        timeScale: { borderColor: 'var(--border)', timeVisible: true },
-        rightPriceScale: { borderColor: 'var(--border)' },
+        layout: { background: { type: ColorType.Solid, color: c.bg }, textColor: c.text },
+        grid:   { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+        crosshair: { mode: CrosshairMode.Normal, vertLine: { color: c.border, labelBackgroundColor: c.lblBg }, horzLine: { color: c.border, labelBackgroundColor: c.lblBg } },
+        timeScale: { borderColor: c.border, timeVisible: true, secondsVisible: false },
+        rightPriceScale: { borderColor: c.border },
+        handleScroll: true,
+        handleScale:  true,
       });
-
       const series = chart.addCandlestickSeries({
-        upColor: 'var(--chart-up)', downColor: 'var(--chart-down)',
-        borderUpColor: 'var(--chart-up)', borderDownColor: 'var(--chart-down)',
-        wickUpColor: 'var(--chart-up)', wickDownColor: 'var(--chart-down)',
+        upColor: c.up, downColor: c.down,
+        borderUpColor: c.up, borderDownColor: c.down,
+        wickUpColor: c.up, wickDownColor: c.down,
       });
-
-      series.setData(candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
-      chart.timeScale().fitContent();
-
-      chartRef.current = chart;
+      if (candles?.length) {
+        series.setData(candles.map((k) => ({ time: k.time, open: k.open, high: k.high, low: k.low, close: k.close })));
+        chart.timeScale().fitContent();
+      }
+      chartRef.current  = chart;
       seriesRef.current = series;
-
-      const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }));
+      ro = new ResizeObserver(() => { if (container && chart) chart.applyOptions({ width: container.clientWidth }); });
       ro.observe(container);
-      return () => { ro.disconnect(); chart.remove(); };
-    });
+    }).catch(e => console.error('[CoinChartInner] init error:', e));
+
+    return () => {
+      mountedRef.current = false;
+      ro?.disconnect();
+      if (chart) { try { chart.remove(); } catch {} }
+      chartRef.current = null; seriesRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme]);
+
+  useEffect(() => {
+    if (!candles?.length || !seriesRef.current) return;
+    try {
+      seriesRef.current.setData(candles.map((k) => ({ time: k.time, open: k.open, high: k.high, low: k.low, close: k.close })));
+      chartRef.current?.timeScale().fitContent();
+    } catch (e) { console.warn('[CoinChartInner] setData:', e); }
   }, [candles]);
 
   useEffect(() => {
     if (!wsPrice || !seriesRef.current || !candles?.length) return;
     const last = candles[candles.length - 1];
-    seriesRef.current.update({ time: last.time, close: wsPrice, high: Math.max(last.high, wsPrice), low: Math.min(last.low, wsPrice) });
-  }, [wsPrice]);
+    try {
+      seriesRef.current.update({ time: last.time, open: last.open, close: wsPrice, high: Math.max(last.high, wsPrice), low: Math.min(last.low, wsPrice) });
+    } catch { /* stale ref */ }
+  }, [wsPrice, candles]);
 
   return <div ref={containerRef} style={{ width: '100%', height: 460 }} />;
 }

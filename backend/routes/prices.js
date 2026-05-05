@@ -122,13 +122,19 @@ router.get('/:symbol/ohlc', async (req, res) => {
   }
 });
 
-// ── Single symbol ──
+// ── Single symbol ── accepts both BTC and BTCUSDT format
 router.get('/:symbol', async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const rawSym = req.params.symbol.toUpperCase();
     const ms = svc();
 
-    if (BY_SYMBOL[symbol]) {
+    // Normalize: BTCUSDT → BTC (for BY_SYMBOL lookup)
+    // Also support bare symbol lookup for BTCUSDT pairs
+    const symbol = rawSym;
+    const bareSymbol = rawSym.endsWith('USDT') ? rawSym.slice(0, -4) : rawSym;
+    const usedSymbol = BY_SYMBOL[symbol] ? symbol : (BY_SYMBOL[bareSymbol] ? bareSymbol : symbol);
+
+    if (BY_SYMBOL[usedSymbol] || (rawSym.endsWith('USDT') && rawSym.length > 5)) {
       if (!ms) return res.status(503).json({ success: false, message: 'Feed unavailable' });
       const markets = await ms.getMarkets();
       const row = (markets || []).find(r => r.symbol === symbol);
