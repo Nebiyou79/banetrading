@@ -2,7 +2,7 @@
 // context/ThemeContext.tsx
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getThemeVars, type Theme } from '@/styles/colors';
+import { getTheme, type Theme } from '@/styles/colors';
 
 interface ThemeContextValue {
   theme: Theme;
@@ -21,7 +21,7 @@ export const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    const vars = getThemeVars(theme);
+    const vars = getTheme(theme);
     const root = document.documentElement;
     Object.entries(vars).forEach(([key, val]) => root.style.setProperty(key, val));
     root.setAttribute('data-theme', theme);
