@@ -1,7 +1,10 @@
 // hooks/useSendMessage.ts
-// ── SEND MESSAGE MUTATION WITH OPTIMISTIC UPDATE ──
+// ── SEND-MESSAGE MUTATION HOOK ──
+// Used by the TicketChatPage to send a single message to a specific ticket.
+// Keeps isSending state locally so the composer disables itself during flight.
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supportService } from '@/services/supportService';
 import type { TicketMessage } from '@/types/support';
 
@@ -13,70 +16,47 @@ interface UseSendMessageReturn {
 
 export function useSendMessage(): UseSendMessageReturn {
   const queryClient = useQueryClient();
+  const [isSending, setIsSending] = useState(false);
+  const [error, setError]         = useState<string | null>(null);
 
-  const mutation = useMutation({
-    mutationFn: async ({ ticketId, body, file }: { ticketId: string; body: string; file?: File | null }) => {
-      const formData = new FormData();
-      formData.append('body', body);
-      if (file) formData.append('attachment', file);
-      const result = await supportService.sendMessage(ticketId, formData);
-      return result.message;
-    },
+  const sendMessage = useCallback(
+    async (ticketId: string, body: string, file?: File | null): Promise<TicketMessage> => {
+      setIsSending(true);
+      setError(null);
 
-    // ── Optimistic update ──
-    onMutate: async ({ ticketId, body }) => {
-      await queryClient.cancelQueries({ queryKey: ['support', 'ticket', ticketId] });
+      try {
+        const formData = new FormData();
+        formData.append('body', body.trim());
+        if (file) formData.append('attachment', file);
 
-      const previous = queryClient.getQueryData(['support', 'ticket', ticketId]);
+        const { message } = await supportService.sendMessage(ticketId, formData);
 
-      // Create optimistic message
-      const optimisticMsg: TicketMessage = {
-        _id: `temp-${Date.now()}`,
-        ticketId,
-        senderId: 'me',
-        senderRole: 'user',
-        body,
-        attachments: [],
-        createdAt: new Date().toISOString(),
-      } as TicketMessage;
-
-      queryClient.setQueryData(['support', 'ticket', ticketId], (old: unknown) => {
-        if (!old) return old;
-        const typed = old as { ticket: unknown; messages: TicketMessage[] };
-        return { ...typed, messages: [...typed.messages, optimisticMsg] };
-      });
-
-      return { previous, tempId: optimisticMsg._id };
-    },
-
-    // ── On success: replace optimistic with real ──
-    onSuccess: (realMsg, { ticketId }, context) => {
-      queryClient.setQueryData(['support', 'ticket', ticketId], (old: unknown) => {
-        if (!old) return old;
-        const typed = old as { ticket: unknown; messages: TicketMessage[] };
-        const updated = typed.messages.map(m =>
-          m._id === context?.tempId ? realMsg : m,
+        // Optimistically update the react-query cache so the bubble appears immediately
+        queryClient.setQueryData<{ ticket: unknown; messages: TicketMessage[] }>(
+          ['support', 'ticket', ticketId],
+          old => {
+            if (!old) return old;
+            const exists = old.messages.some(m => m._id === message._id);
+            return exists
+              ? old
+              : { ...old, messages: [...old.messages, message] };
+          },
         );
-        return { ...typed, messages: updated };
-      });
-      queryClient.invalidateQueries({ queryKey: ['support', 'tickets'] });
-    },
 
-    // ── On error: rollback ──
-    onError: (_err, { ticketId }, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(['support', 'ticket', ticketId], context.previous);
+        // Invalidate so the next background refetch reconciles with server
+        queryClient.invalidateQueries({ queryKey: ['support', 'ticket', ticketId] });
+
+        return message;
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'Failed to send message';
+        setError(msg);
+        throw err;
+      } finally {
+        setIsSending(false);
       }
     },
-  });
+    [queryClient],
+  );
 
-  const sendMessage = async (ticketId: string, body: string, file?: File | null): Promise<TicketMessage> => {
-    return mutation.mutateAsync({ ticketId, body, file });
-  };
-
-  return {
-    sendMessage,
-    isSending: mutation.isPending,
-    error: mutation.error ? (mutation.error as Error).message : null,
-  };
+  return { sendMessage, isSending, error };
 }

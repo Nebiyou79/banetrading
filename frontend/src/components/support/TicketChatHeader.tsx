@@ -3,33 +3,30 @@
 
 import React from 'react';
 import { useRouter } from 'next/router';
-import type { Ticket } from '@/types/support';
+import type { SupportTicket } from '@/types/support';
 import { StatusPillFromString } from '@/components/ui/StatusPill';
 
 interface TicketChatHeaderProps {
-  ticket: Ticket;
+  ticket: SupportTicket;
   isAdmin?: boolean;
   onStatusChange?: (status: string) => void;
 }
 
-export default function TicketChatHeader({ ticket, isAdmin = false, onStatusChange }: TicketChatHeaderProps) {
+// ── Helpers to safely unwrap userId union ──
+function getUserId(userId: SupportTicket['userId']): string {
+  return typeof userId === 'object' && userId !== null ? userId._id : userId;
+}
+
+function getUserName(userId: SupportTicket['userId']): string {
+  return typeof userId === 'object' && userId !== null ? userId.name : 'User';
+}
+
+export default function TicketChatHeader({
+  ticket,
+  isAdmin = false,
+  onStatusChange,
+}: TicketChatHeaderProps) {
   const router = useRouter();
-
-  // Helper to get userId as string
-  const getUserId = (userId: Ticket['userId']): string => {
-    if (typeof userId === 'object' && userId !== null) {
-      return (userId as { _id: string; name: string; email: string })._id;
-    }
-    return userId;
-  };
-
-  // Helper to get user name
-  const getUserName = (userId: Ticket['userId']): string => {
-    if (typeof userId === 'object' && userId !== null) {
-      return (userId as { _id: string; name: string; email: string }).name;
-    }
-    return 'User';
-  };
 
   return (
     <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-[var(--surface)] border-b border-[var(--border)] backdrop-blur-sm">
@@ -37,7 +34,7 @@ export default function TicketChatHeader({ ticket, isAdmin = false, onStatusChan
       <button
         onClick={() => router.back()}
         className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--hover-bg)] transition-colors duration-150"
-        aria-label="Back"
+        aria-label="Go back"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -49,6 +46,7 @@ export default function TicketChatHeader({ ticket, isAdmin = false, onStatusChan
         <span className="font-semibold text-sm text-[var(--text-primary)] truncate">
           {ticket.subject}
         </span>
+
         {isAdmin ? (
           <select
             value={ticket.status}
@@ -65,9 +63,9 @@ export default function TicketChatHeader({ ticket, isAdmin = false, onStatusChan
         )}
       </div>
 
-      {/* ── User info for admin view ── */}
+      {/* ── Admin: show user name ── */}
       {isAdmin && (
-        <div className="text-xs text-[var(--text-muted)]">
+        <div className="text-xs text-[var(--text-muted)] flex-shrink-0">
           {getUserName(ticket.userId)}
         </div>
       )}
