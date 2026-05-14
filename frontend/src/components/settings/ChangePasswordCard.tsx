@@ -52,7 +52,7 @@ export function ChangePasswordCard(): JSX.Element | null {
 
   if (!profile) return null;
 
-  const summary = `Last changed ${daysSince(profile.passwordUpdatedAt)}`;
+  const summary = `Last changed ${daysSince(profile.updatedAt)}`;
 
   const close = (): void => {
     setExpanded(false);
