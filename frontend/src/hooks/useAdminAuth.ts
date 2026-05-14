@@ -34,7 +34,7 @@ export function useAdminAuth(): UseAdminAuthReturn {
 
   return {
     adminUser: auth.user?.role === 'admin' ? auth.user : null,
-    isLoading: auth.isLoading,
+    isLoading: auth.loading,
     isAuthenticated: auth.isAuthenticated && auth.user?.role === 'admin',
     login,
     logout,

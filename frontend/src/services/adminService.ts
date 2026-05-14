@@ -24,7 +24,7 @@ function getFullFileUrl(path: string | undefined): string | null {
 // KycSubmission interface with file URLs
 interface KycSubmission {
   _id: string;
-  userId: { _id: string; email: string; name: string; name?: string; kycTier: number };
+  userId: { _id: string; email: string; name?: string; kycTier: number };
   level2: {
     status: string;
     fullName?: string;

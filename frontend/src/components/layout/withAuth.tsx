@@ -23,15 +23,15 @@ export function withAuth<P extends object>(Component: ComponentType<P>): Compone
         });
         return;
       }
-      if (!isLoading && !isAuthenticated && !user) {
+      if (!loading && !isAuthenticated && !user) {
         router.replace({
           pathname: '/auth/login',
           query: { redirect: router.asPath },
         });
       }
-    }, [router, hasToken, isLoading, isAuthenticated, user]);
+    }, [router, hasToken, loading, isAuthenticated, user]);
 
-    if (!hasToken || isLoading || !user) {
+    if (!hasToken || loading || !user) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-base">
           <Spinner size="lg" className="text-accent" />
