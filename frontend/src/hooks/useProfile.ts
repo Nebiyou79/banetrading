@@ -59,10 +59,9 @@ export function useProfile(): UseProfileReturn {
 
   const uploadAvatarMutation = useMutation({
     mutationFn: async (file: File) => profileService.uploadAvatar(file),
-    // Optimistic preview using an in-memory object URL
     onMutate: async (file: File) => {
       await queryClient.cancelQueries({ queryKey: PROFILE_QUERY_KEY });
-      const previous = queryClient.getQueryData<UserProfile>(PROFILE_QUERY_KEY) ?? null;
+      const previous = queryClient.getQueryData<UserProfile>(PROFILE_QUERY_KEY);
       if (previous) {
         const previewUrl = URL.createObjectURL(file);
         const optimistic: UserProfile = { ...previous, avatarUrl: previewUrl };
@@ -70,7 +69,7 @@ export function useProfile(): UseProfileReturn {
         queryClient.setQueryData(ME_QUERY_KEY, optimistic);
         return { previous, previewUrl };
       }
-      return { previous, previewUrl: null };
+      return { previous: null, previewUrl: null };
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.previous) {
@@ -94,7 +93,6 @@ export function useProfile(): UseProfileReturn {
     mutationFn: async (vars: { current: string; next: string }) =>
       profileService.changePassword(vars.current, vars.next),
     onSuccess: () => {
-      // Backend invalidated sessions; drop local tokens.
       tokenStore.clear();
       queryClient.setQueryData(PROFILE_QUERY_KEY, null);
       queryClient.setQueryData(ME_QUERY_KEY, null);
@@ -127,7 +125,7 @@ export function useProfile(): UseProfileReturn {
   }, [changePasswordMutation]);
 
   return {
-    profile: (query.data ?? null) as UserProfile | null,
+    profile: query.data ?? null,
     isLoading: hasToken && query.isLoading,
     isFetching: query.isFetching,
     error: query.error ? normalizeError(query.error).message : null,

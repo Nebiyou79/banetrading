@@ -43,7 +43,14 @@ function TicketChatPage(): JSX.Element {
     await sendMessage(ticketId, body, file);
   };
 
-  const isClosed = ticket?.status === 'resolved' || ticket?.status === 'closed';
+  // Normalize ticket for the component - FIX: Convert null to undefined
+  const normalizedTicket = ticket ? {
+    ...ticket,
+    userId: typeof ticket.userId === 'object' ? ticket.userId._id : ticket.userId,
+    assignedTo: ticket.assignedTo === null ? undefined : ticket.assignedTo,
+  } : null;
+
+  const isClosed = normalizedTicket?.status === 'resolved' || normalizedTicket?.status === 'closed';
 
   if (!router.isReady || isLoading) {
     return (
@@ -55,7 +62,7 @@ function TicketChatPage(): JSX.Element {
     );
   }
 
-  if (!ticket) {
+  if (!normalizedTicket) {
     return (
       <AuthenticatedShell>
         <div className="py-16 text-center">
@@ -67,10 +74,10 @@ function TicketChatPage(): JSX.Element {
 
   return (
     <>
-      <Head><title>{ticket.subject} · {BRAND}</title></Head>
+      <Head><title>{normalizedTicket.subject} · {BRAND}</title></Head>
       <AuthenticatedShell contained={false}>
         <div className="flex flex-col h-[calc(100vh-4rem)]">
-          <TicketChatHeader ticket={ticket} />
+          <TicketChatHeader ticket={normalizedTicket} />
 
           {/* ── Messages area ── */}
           <div

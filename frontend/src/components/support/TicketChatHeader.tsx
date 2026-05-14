@@ -15,6 +15,22 @@ interface TicketChatHeaderProps {
 export default function TicketChatHeader({ ticket, isAdmin = false, onStatusChange }: TicketChatHeaderProps) {
   const router = useRouter();
 
+  // Helper to get userId as string
+  const getUserId = (userId: Ticket['userId']): string => {
+    if (typeof userId === 'object' && userId !== null) {
+      return (userId as { _id: string; name: string; email: string })._id;
+    }
+    return userId;
+  };
+
+  // Helper to get user name
+  const getUserName = (userId: Ticket['userId']): string => {
+    if (typeof userId === 'object' && userId !== null) {
+      return (userId as { _id: string; name: string; email: string }).name;
+    }
+    return 'User';
+  };
+
   return (
     <div className="sticky top-0 z-10 flex items-center gap-3 px-4 py-3 bg-[var(--surface)] border-b border-[var(--border)] backdrop-blur-sm">
       {/* ── Back ── */}
@@ -48,6 +64,13 @@ export default function TicketChatHeader({ ticket, isAdmin = false, onStatusChan
           <StatusPillFromString status={ticket.status} />
         )}
       </div>
+
+      {/* ── User info for admin view ── */}
+      {isAdmin && (
+        <div className="text-xs text-[var(--text-muted)]">
+          {getUserName(ticket.userId)}
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 
 import { useAuthContext } from '@/context/AuthContext';
 import type { User, LoginPayload, LoginResponse, RegisterPayload, RegisterResponse } from '@/types';
-
+export const ME_QUERY_KEY = ['me'] as const;
 interface UseAuthReturn {
   user: User | null;
   loading: boolean;

@@ -25,7 +25,7 @@ const KYC_KEY = ['admin', 'kyc'];
 
 interface KycSubmission {
   _id: string;
-  userId: { _id: string; email: string; name: string; name?: string; kycTier: number };
+  userId: { _id: string; email: string; name?: string; kycTier: number };
   level2: any;
   level3: any;
   updatedAt: string;
