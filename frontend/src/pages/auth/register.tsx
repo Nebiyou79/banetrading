@@ -1,5 +1,5 @@
 // pages/auth/register.tsx
-// ── BigOneTrading · Register — Teal / Network theme ──
+// ── BigOneTrading · Register — Teal / Network theme with Google Sign-Up ──
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ import { Mail, Lock, User as UserIcon, Check, X, Tag } from 'lucide-react';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { FormField } from '../../components/auth/FormField';
 import { PasswordStrengthMeter } from '../../components/auth/PasswordStrengthMeter';
+import { GoogleSignInButton } from '../../components/auth/GoogleSignInButton';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Select } from '../../components/ui/Select';
@@ -55,31 +56,40 @@ export default function RegisterPage(): JSX.Element {
 
   const password = watch('password') || '';
   const promoValue = watch('promoCode') || '';
+// Replace lines 60-80 with this:
 
-  // Live promo validation
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const raw = (promoValue || '').trim();
-    if (!raw) { setPromoState({ status: 'idle' }); return; }
-    if (!/^[A-Za-z0-9]{6,12}$/.test(raw)) {
-      setPromoState({ status: 'invalid', reason: 'format' });
-      return;
-    }
-    setPromoState({ status: 'checking' });
-    debounceRef.current = setTimeout(async () => {
-      try {
-        const resp = await promoService.validatePromo(raw);
-        if (resp.valid && resp.code) {
-          setPromoState({ status: 'valid', code: resp.code });
-        } else {
-          setPromoState({ status: 'invalid', reason: (resp.reason as 'not_found' | 'inactive' | 'format') || 'not_found' });
-        }
-      } catch {
-        setPromoState({ status: 'invalid', reason: 'not_found' });
+useEffect(() => {
+  if (debounceRef.current) clearTimeout(debounceRef.current);
+  const raw = (promoValue || '').trim();
+  if (!raw) { 
+    setPromoState({ status: 'idle' }); 
+    return; 
+  }
+  if (!/^[A-Za-z0-9]{6,12}$/.test(raw)) {
+    setPromoState({ status: 'invalid', reason: 'format' });
+    return;
+  }
+  setPromoState({ status: 'checking' });
+  debounceRef.current = setTimeout(async () => {
+    try {
+      const resp = await promoService.validatePromo(raw);
+      // Fix: Check if the code exists and is a string
+      if (resp.valid && resp.data?.code) {
+        setPromoState({ status: 'valid', code: resp.data.code });
+      } else if (resp.valid && typeof resp.code === 'string') {
+        setPromoState({ status: 'valid', code: resp.code });
+      } else {
+        setPromoState({ 
+          status: 'invalid', 
+          reason: (resp.reason as 'not_found' | 'inactive' | 'format') || 'not_found' 
+        });
       }
-    }, 350);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [promoValue]);
+    } catch {
+      setPromoState({ status: 'invalid', reason: 'not_found' });
+    }
+  }, 350);
+  return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+}, [promoValue]);
 
   const onSubmit = async (values: RegisterFormValues): Promise<void> => {
     setServerError(null);
@@ -266,6 +276,18 @@ export default function RegisterPage(): JSX.Element {
             {' '}and{' '}
             <Link href="/privacy" className="underline hover:text-[var(--text-secondary)]">Privacy Policy</Link>.
           </p>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 text-xs text-[var(--text-muted)]" style={{ animation: 'authFadeUp 0.4s 0.64s both' }}>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+            <span>or sign up with</span>
+            <div className="flex-1 h-px bg-[var(--border)]" />
+          </div>
+
+          {/* Google Sign-Up */}
+          <div style={{ animation: 'authFadeUp 0.4s 0.68s both' }}>
+            <GoogleSignInButton />
+          </div>
         </form>
       </AuthLayout>
     </>

@@ -48,6 +48,7 @@ export interface User {
 }
 
 // ── Auth Payloads & Responses ─────────────────────────────────────────────
+export type OtpPurpose = 'email_verification' | 'password_reset';
 
 export interface RegisterPayload {
   name: string;
@@ -99,6 +100,7 @@ export interface ForgotPasswordPayload {
 export interface VerifyResetOtpPayload {
   email: string;
   otp: string;
+  purpose: OtpPurpose;
 }
 
 export interface VerifyResetOtpResponse {

@@ -35,7 +35,13 @@ export const WITHDRAW_NETWORKS_FOR_COIN: Record<Coin, WithdrawNetwork[]> = {
   BTC:  ['BTC'],
   ETH:  ['ETH'],
 };
-
+export const ALL_WITHDRAW_NETWORKS: WithdrawNetwork[] = [
+  'USDT-ERC20',
+  'USDT-TRC20', 
+  'USDT-BEP20',
+  'BTC',
+  'ETH'
+];
 // ── Coin/network label and address-key helpers ────────────────────────────────
 
 const NETWORK_LABELS: Record<DepositNetwork | WithdrawNetwork, string> = {

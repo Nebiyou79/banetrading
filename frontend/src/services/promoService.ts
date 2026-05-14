@@ -3,11 +3,13 @@
 
 import { apiClient } from './apiClient';
 import type {
+  PromoStats,
+  LeaderboardEntry,
+  MyReferral,
   PromoValidateResponse,
   PromoMeResponse,
   PromoGenerateResponse,
-} from '../types/auth';
-import type { PromoStats, LeaderboardEntry, MyReferral } from '../types/promo';
+} from '../types/promo';
 
 export const promoService = {
   // ── Existing (Module 1) ──

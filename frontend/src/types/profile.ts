@@ -41,7 +41,6 @@ export interface Portfolio {
 
 export interface UpdateProfilePayload {
   name?: string;
-  name?: string;
   country?: string;
   phone?: string;
 }
