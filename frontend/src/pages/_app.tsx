@@ -1,6 +1,4 @@
 // pages/_app.tsx
-// ── Global wrapper: Theme + Query + Toast ──
-
 import type { AppProps } from 'next/app';
 import Head from 'next/head';
 import { Inter } from 'next/font/google';
@@ -9,6 +7,7 @@ import '../styles/globals.css';
 import { ThemeProvider } from '../components/theme/ThemeProvider';
 import { QueryProvider } from '../providers/QueryProvider';
 import { ToastProvider } from '../components/ui/Toast';
+import { AuthProvider } from '../context/AuthContext';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -28,10 +27,12 @@ export default function App({ Component, pageProps }: AppProps): JSX.Element {
       </Head>
       <QueryProvider>
         <ThemeProvider defaultTheme="dark">
-          <div className={inter.className}>
-            <Component {...pageProps} />
-            <ToastProvider />
-          </div>
+          <AuthProvider>
+            <div className={inter.className}>
+              <Component {...pageProps} />
+              <ToastProvider />
+            </div>
+          </AuthProvider>
         </ThemeProvider>
       </QueryProvider>
     </>
