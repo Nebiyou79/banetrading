@@ -5,6 +5,7 @@ import React from 'react';
 import { useResponsive } from '@/hooks/useResponsive';
 import type { DepositHistoryItem } from '@/types/history';
 import { StatusPillFromString } from '@/components/ui/StatusPill';
+import { Inbox } from 'lucide-react';
 
 interface DepositsHistoryTableProps {
   items: DepositHistoryItem[];
@@ -30,7 +31,19 @@ export default function DepositsHistoryTable({ items, isLoading = false }: Depos
     );
   }
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--bg-muted)]">
+          <Inbox className="h-6 w-6 text-[var(--text-muted)]" />
+        </div>
+        <div className="mt-4">
+          <p className="text-sm font-medium text-[var(--text-secondary)]">No deposits yet</p>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">Fund your account to get started</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isMobile) {
     return (
@@ -45,7 +58,7 @@ export default function DepositsHistoryTable({ items, isLoading = false }: Depos
               <StatusPillFromString status={item.status} />
             </div>
             <div className="flex justify-between mt-2">
-              <span className="tabular text-sm font-semibold text-[var(--text-primary)]">{item.amount.toFixed(4)}</span>
+              <span className="tabular text-sm font-semibold text-[var(--text-primary)]">+{item.amount.toFixed(4)}</span>
               <span className="text-xs text-[var(--text-muted)]">{formatDate(item.createdAt)}</span>
             </div>
           </div>
@@ -74,7 +87,7 @@ export default function DepositsHistoryTable({ items, isLoading = false }: Depos
                   <div className="text-xs text-[var(--text-muted)]">{item.network}</div>
                 </div>
               </td>
-              <td className="py-3 px-4 text-sm tabular text-[var(--text-primary)]">{item.amount.toFixed(4)}</td>
+              <td className="py-3 px-4 text-sm tabular text-[var(--text-primary)]">+{item.amount.toFixed(4)}</td>
               <td className="py-3 px-4 text-sm tabular text-[var(--text-muted)]">{formatDate(item.createdAt)}</td>
               <td className="py-3 px-4 text-right">
                 <StatusPillFromString status={item.status} />

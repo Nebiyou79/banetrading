@@ -24,6 +24,9 @@ const {
   otpResendLimiter,
   forgotPasswordLimiter,
 } = require('../middleware/rareLimiter');
+// ── Google OAuth routes ──
+const googleCtrl = require('../controllers/googleAuthController');
+const { googleSignInLimiter } = require('../middleware/rareLimiter');
 
 router.post('/register',          registerLimiter,        validate(registerSchema),                 ctrl.register);
 router.post('/verify-otp',        otpVerifyLimiter,       validate(verifyOtpSchema),                ctrl.verifyOtp);
@@ -34,5 +37,6 @@ router.post('/forgot-password',   forgotPasswordLimiter,  validate(forgotPasswor
 router.post('/verify-reset-otp',  otpVerifyLimiter,       validate(verifyResetOtpSchema),           ctrl.verifyResetOtp);
 router.post('/reset-password',                             validate(resetPasswordWithTokenSchema),   ctrl.resetPassword);
 router.post('/logout',            auth,                   ctrl.logout);
-
+router.post('/google',          googleSignInLimiter,                        googleCtrl.googleSignIn);
+router.get('/google/url',       googleCtrl.getGoogleAuthUrl);
 module.exports = router;

@@ -1,7 +1,7 @@
 // types/history.ts
 // ── HISTORY MODULE TYPES ──
 
-export type HistoryItemType = 'trade' | 'deposit' | 'withdrawal' | 'conversion';
+export type HistoryItemType = 'trade' | 'deposit' | 'withdrawal' | 'conversion' | 'all';
 
 interface BaseHistoryItem {
   id: string;

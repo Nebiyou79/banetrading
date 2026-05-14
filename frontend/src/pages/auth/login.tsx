@@ -1,5 +1,5 @@
 // pages/auth/login.tsx
-// ── BaneTrading · Login — Indigo / Candlestick theme ──
+// ── BigOneTrading · Login — Indigo / Candlestick theme with Google Sign-In ──
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -11,6 +11,7 @@ import { Mail, Lock } from 'lucide-react';
 
 import { AuthLayout } from '@/components/auth/AuthLayout';
 import { FormField } from '@/components/auth/FormField';
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { toast } from '@/components/ui/Toast';
@@ -18,7 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { loginFormSchema, LoginFormValues } from '@/lib/validators';
 import type { NormalizedApiError } from '@/services/apiClient';
 
-const BRAND = 'BaneTrading';
+const BRAND = 'BigOneTrading';
 
 export default function LoginPage(): JSX.Element {
   const router = useRouter();
@@ -43,9 +44,11 @@ export default function LoginPage(): JSX.Element {
     setServerError(null);
     setNotVerified(null);
     try {
+      // login() now returns LoginResponse, but we don't need it here since
+      // the AuthContext already handles setting the user
       await login({ email: values.email, password: values.password });
       toast.success('Welcome back');
-      const redirect = typeof router.query.redirect === 'string' ? router.query.redirect : '/welcome';
+      const redirect = typeof router.query.redirect === 'string' ? router.query.redirect : '/dashboard';
       router.push(redirect);
     } catch (err) {
       const normalized = err as NormalizedApiError;
@@ -62,7 +65,7 @@ export default function LoginPage(): JSX.Element {
     <>
       <Head>
         <title>Log in · {BRAND}</title>
-        <meta name="description" content="Log in to your BaneTrading account" />
+        <meta name="description" content="Log in to your BigOneTrading account" />
       </Head>
 
       <AuthLayout
@@ -178,7 +181,7 @@ export default function LoginPage(): JSX.Element {
                 boxShadow: '0 0 20px var(--page-accent-muted)',
               }}
             >
-              Log in to BaneTrading
+              Log in to BigOneTrading
             </Button>
           </div>
 
@@ -189,30 +192,21 @@ export default function LoginPage(): JSX.Element {
             <div className="flex-1 h-px bg-[var(--border)]" />
           </div>
 
-          {/* Social placeholder */}
-          <button
-            type="button"
-            className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-[var(--border)] bg-[var(--bg-muted)] px-4 py-2.5 text-sm font-medium text-[var(--text-secondary)] transition-all duration-150 hover:border-[var(--border-strong)] hover:bg-[var(--bg-card-hover)] hover:text-[var(--text-primary)] hover:shadow-[0_0_16px_var(--page-accent-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--page-accent)]"
-            style={{ animation: 'authFadeUp 0.4s 0.52s both' }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.3v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"/>
-              <path fill="#34A853" d="M12.255 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.515 21.3 7.565 24 12.255 24z"/>
-              <path fill="#FBBC05" d="M5.525 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 0 0 0 10.76l3.98-3.09z"/>
-              <path fill="#EA4335" d="M12.255 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.205 1.19 15.495 0 12.255 0c-4.69 0-8.74 2.7-10.71 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"/>
-            </svg>
-            Continue with Google
-          </button>
+          {/* Google Sign-In */}
+          <div style={{ animation: 'authFadeUp 0.4s 0.52s both' }}>
+            <GoogleSignInButton />
+          </div>
+
           {/* Admin login link */}
-<div className="mt-4 text-center" style={{ animation: 'authFadeUp 0.4s 0.56s both' }}>
-  <Link
-    href="/admin/login"
-    className="text-xs transition-colors hover:underline"
-    style={{ color: 'var(--text-muted)' }}
-  >
-    🛡️ Admin Login
-  </Link>
-</div>
+          <div className="mt-4 text-center" style={{ animation: 'authFadeUp 0.4s 0.56s both' }}>
+            <Link
+              href="/admin/login"
+              className="text-xs transition-colors hover:underline"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              🛡️ Admin Login
+            </Link>
+          </div>
         </form>
       </AuthLayout>
     </>

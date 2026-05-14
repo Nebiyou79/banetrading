@@ -1,5 +1,9 @@
 // pages/trade/index.tsx
-// ── TRADING PAGE — Professional layout with fixed chart colors ──
+// ── TRADING PAGE ──
+// FIX: Grid layout [1fr_380px]
+// FIX: 3 timeframes only (15m/1h/4h for crypto, 1h/4h/1d for forex/metals)
+// FIX: Hardcoded hex chart colors (no CSS variables in lightweight-charts v5)
+// BUG 2 FIX: Process recentlyResolved queue one at a time
 
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -22,25 +26,40 @@ import { YourTradesTable } from '@/components/trade/YourTradesTable';
 import { TradeResultModal } from '@/components/trade/TradeResultModal';
 import { useMarketCandles } from '@/hooks/useMarketCandles';
 import TimeframeSelector from '@/components/crypto/TimeframeSelector';
+import ForexTimeframeSelector from '@/components/forexMetals/ForexTimeframeSelector';
 import type { PairClass, TradingPair, Trade } from '@/types/trade';
 import type { Currency } from '@/types/convert';
 import type { Timeframe } from '@/types/markets';
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'NebaTrade';
 
-// ⚠️ Hardcoded colors — lightweight-charts v5 CANNOT parse CSS variables
+// ⚠️ HARDCODED hex — lightweight-charts v5 CANNOT parse CSS variables
 const CHART_COLORS = {
   dark:  { bg: 'transparent', text: '#848E9C', grid: 'rgba(255,255,255,0.06)', border: '#2B3139', up: '#0ECB81', down: '#F6465D', lblBg: '#2B3139', volUp: 'rgba(14,203,129,0.25)', volDown: 'rgba(246,70,93,0.25)' },
   light: { bg: 'transparent', text: '#474D57', grid: 'rgba(0,0,0,0.06)',       border: '#E0E3EB', up: '#0ECB81', down: '#F6465D', lblBg: '#E0E3EB', volUp: 'rgba(14,203,129,0.25)', volDown: 'rgba(246,70,93,0.25)' },
+};
+
+function getColors() {
+  if (typeof document === 'undefined') return CHART_COLORS.dark;
+  return document.documentElement.getAttribute('data-theme') === 'light'
+    ? CHART_COLORS.light : CHART_COLORS.dark;
+}
+
+// Default timeframe per asset class
+const DEFAULT_TF: Record<PairClass, Timeframe> = {
+  crypto: '1h',
+  forex:  '1h',
+  metals: '1h',
 };
 
 function TradePage(): JSX.Element {
   const router = useRouter();
   const symbolParam = (router.query.symbol as string) || 'BTCUSDT';
 
-  const { config }  = useTradingConfig();
-  const { pairs }   = useTradePairs();
-  const { balances }= useUserBalances();
+  const { config }   = useTradingConfig();
+  const { pairs }    = useTradePairs();
+  const { balances } = useUserBalances();
+
   const { trades: activeTrades, recentlyResolved, clearResolved } = useActiveTrades();
 
   const [historyOffset, setHistoryOffset] = useState(0);
@@ -48,8 +67,8 @@ function TradePage(): JSX.Element {
 
   const [activePair,      setActivePair]      = useState<TradingPair | null>(null);
   const [activePairClass, setActivePairClass] = useState<PairClass>('crypto');
-  const [resultModalTrade, setResultModalTrade] = useState<Trade | null>(null);
-  const [chartTimeframe, setChartTimeframe]   = useState<Timeframe>('1h');
+  const [currentResult,   setCurrentResult]   = useState<Trade | null>(null);
+  const [chartTimeframe,  setChartTimeframe]  = useState<Timeframe>('1h');
 
   usePageMarketWebSocket(activePair?.symbol ?? '');
 
@@ -66,29 +85,30 @@ function TradePage(): JSX.Element {
       pairs.crypto[0] ?? null;
     if (found) {
       setActivePair(prev => prev?.symbol === found.symbol ? prev : found);
-      setActivePairClass(
-        pairs.crypto.includes(found) ? 'crypto' :
-        pairs.forex.includes(found)  ? 'forex'  : 'metals'
-      );
+      const cls: PairClass = pairs.crypto.includes(found) ? 'crypto'
+                           : pairs.forex.includes(found)  ? 'forex' : 'metals';
+      setActivePairClass(cls);
+      // Reset timeframe when switching asset classes
+      setChartTimeframe(DEFAULT_TF[cls]);
     }
   }, [symbolParam, pairs]);
 
-  // Result modal queue
+  // BUG 2: Process resolved queue one at a time
   useEffect(() => {
-    if (recentlyResolved.length > 0 && !resultModalTrade) {
-      setResultModalTrade(recentlyResolved[0]);
+    if (!currentResult && recentlyResolved.length > 0) {
+      setCurrentResult(recentlyResolved[0]);
     }
-  }, [recentlyResolved, resultModalTrade]);
+  }, [recentlyResolved, currentResult]);
+
+  const handleCloseResult = useCallback(() => {
+    setCurrentResult(null);
+    clearResolved();
+  }, [clearResolved]);
 
   const handleSelectPair = useCallback((pair: TradingPair) => {
     setActivePair(pair);
     router.replace({ pathname: '/trade', query: { symbol: pair.symbol } }, undefined, { shallow: true, scroll: false });
   }, [router]);
-
-  const handleCloseResult = useCallback(() => {
-    setResultModalTrade(null);
-    clearResolved();
-  }, [clearResolved]);
 
   const pendingTrades = useMemo(() => activeTrades.filter(t => t.status === 'pending'), [activeTrades]);
 
@@ -110,17 +130,15 @@ function TradePage(): JSX.Element {
             onSelectPair={handleSelectPair}
           />
 
-          {/* Main Grid */}
+          {/* Main Grid — chart left, trade panel right */}
           <div className="grid grid-cols-1 gap-3 xl:grid-cols-[1fr_380px]">
             {/* Chart Column */}
             <div className="flex flex-col gap-3 min-w-0">
               <ChartContainer
                 toolbar={
-                  <TimeframeSelector
-                    active={chartTimeframe}
-                    onChange={setChartTimeframe}
-                    disabledTimeframes={activePairClass !== 'crypto' ? ['1m','5m','15m'] : []}
-                  />
+                  activePairClass === 'crypto'
+                    ? <TimeframeSelector active={chartTimeframe} onChange={setChartTimeframe} />
+                    : <ForexTimeframeSelector active={chartTimeframe} onChange={setChartTimeframe} />
                 }
               >
                 <TradingChartInner
@@ -169,13 +187,18 @@ function TradePage(): JSX.Element {
           />
         </div>
 
-        <TradeResultModal trade={resultModalTrade} onClose={handleCloseResult} />
+        {/* BUG 2 FIX: key forces remount + timer reset per result */}
+        <TradeResultModal
+          key={currentResult?._id ?? 'none'}
+          trade={currentResult}
+          onClose={handleCloseResult}
+        />
       </AuthenticatedShell>
     </>
   );
 }
 
-// ── Inner chart with hardcoded colors ──
+// ── Inner chart — hardcoded colors, NO CSS vars ──
 function TradingChartInner({
   symbol, pairClass, timeframe,
 }: {
@@ -187,16 +210,10 @@ function TradingChartInner({
   const volRef       = useRef<any>(null);
   const mountedRef   = useRef(true);
 
-  const { data: candlesData, isLoading, error, refetch } = useMarketCandles(symbol, timeframe, pairClass);
+  const { data: candlesData, isLoading } = useMarketCandles(symbol, timeframe, pairClass);
   const wsPrice = useMarketStore(s => s.prices[symbol]);
 
   const CHART_H = 480;
-
-  function getColors() {
-    if (typeof document === 'undefined') return CHART_COLORS.dark;
-    return document.documentElement.getAttribute('data-theme') === 'light'
-      ? CHART_COLORS.light : CHART_COLORS.dark;
-  }
 
   useEffect(() => {
     mountedRef.current = true;
@@ -275,7 +292,16 @@ function TradingChartInner({
     } catch {}
   }, [wsPrice, candlesData]);
 
-  return <div ref={containerRef} style={{ width: '100%', height: CHART_H }} />;
+  return (
+    <div className="relative" style={{ height: CHART_H }}>
+      <div ref={containerRef} style={{ width: '100%', height: CHART_H }} />
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[var(--bg-elevated)]/60 rounded-lg">
+          <div className="animate-spin w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full" />
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default withAuth(TradePage);

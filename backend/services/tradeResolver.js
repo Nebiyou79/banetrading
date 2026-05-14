@@ -1,13 +1,27 @@
 // services/tradeResolver.js
 // ── TRADE RESOLVER ──
 // Schedules and resolves binary-option trades at expiry.
-// Uses the new market.service exclusively for price lookups.
+//
+// BUG 3 FIX: Loss calculation corrected.
+//   BEFORE (wrong): On loss, user lost the entire stake.
+//   AFTER  (fixed): On loss, user only loses the RISKED portion (stake * multiplier).
+//                   The un-risked remainder (stake * (1 - multiplier)) is returned.
+//
+// Example — PLATINUM plan (+25%), 54800 USDT stake:
+//   Risk amount  = 54800 * 0.25 = 13700 USDT
+//   Fee on risk  = 13700 * 0.02 = 274 USDT  (fee only on risked portion)
+//   Net loss     = -(13700 + 274) = -13974 USDT
+//   Returned     = 54800 - 13700 = 41100 USDT credited back
+//
+// WIN example (unchanged):
+//   Profit       = stake * multiplier = 13700
+//   Fee on profit= 13700 * 0.02 = 274
+//   Credit       = stake + profit - fee = 54800 + 13700 - 274 = 68226 USDT
 
 const mongoose = require('mongoose');
 const Trade = require('../models/Trade');
 const User  = require('../models/User');
 
-// ── Lazy-load aggregators ──
 let _marketService   = null;
 let _forexAggregator = null;
 
@@ -25,10 +39,8 @@ function getForexAggregator() {
   return _forexAggregator;
 }
 
-// ── In-memory timer map (tradeId → Timeout handle) ──
 const timers = new Map();
 
-// ── Schedule resolution for a freshly placed trade ──
 function scheduleResolution(trade) {
   const id = String(trade._id);
   if (timers.has(id)) {
@@ -45,10 +57,9 @@ function scheduleResolution(trade) {
   timers.set(id, handle);
 }
 
-// ── Resolve a single trade by id ──
 async function resolve(tradeId) {
   const trade = await Trade.findOne({ _id: tradeId, status: 'pending' });
-  if (!trade) return; // already resolved or cancelled
+  if (!trade) return;
 
   const user = await User.findById(trade.userId);
   if (!user) {
@@ -59,7 +70,6 @@ async function resolve(tradeId) {
     return;
   }
 
-  // ── Determine outcome based on autoMode ──
   const mode = typeof user.autoMode === 'string' ? user.autoMode : 'random';
   let win;
   let resolvedBy;
@@ -70,7 +80,6 @@ async function resolve(tradeId) {
     resolvedBy = win ? 'random-win' : 'random-lose';
   }
 
-  // ── Snapshot exit price (informational only) ──
   const exitPrice = await fetchPriceForPair(trade.pair, trade.pairClass).catch(() => trade.entryPrice);
 
   const stake      = Number(trade.stake);
@@ -78,6 +87,7 @@ async function resolve(tradeId) {
   const feeBps     = Number(trade.feeBps);
 
   if (win) {
+    // WIN: return stake + profit minus fee on profit
     const profit    = stake * multiplier;
     const fee       = profit * (feeBps / 10000);
     const credit    = stake + profit - fee;
@@ -95,20 +105,34 @@ async function resolve(tradeId) {
     trade.netResult  = netResult;
     trade.resolvedBy = resolvedBy;
     await trade.save();
+
   } else {
-    // On loss the stake was already debited at placement — nothing to refund.
+    // BUG 3 FIX: LOSS — only lose the risked portion (stake * multiplier)
+    // The un-risked remainder is returned to the user.
+    const riskAmount  = stake * multiplier;          // e.g. 54800 * 0.25 = 13700
+    const fee         = riskAmount * (feeBps / 10000); // fee on risked portion only
+    const totalLoss   = riskAmount + fee;             // e.g. 13700 + 274 = 13974
+    const returnAmt   = stake - riskAmount;           // e.g. 54800 - 13700 = 41100
+    const netResult   = -(totalLoss);                 // signed negative
+
+    // Credit back the un-risked portion
+    if (returnAmt > 0) {
+      user.balances[trade.tradingAsset] = (user.balances[trade.tradingAsset] || 0) + returnAmt;
+      user.markModified('balances');
+      await user.save();
+    }
+
     trade.status     = 'lost';
     trade.resolvedAt = new Date();
     trade.exitPrice  = exitPrice;
-    trade.payout     = 0;
-    trade.feeAmount  = 0;
-    trade.netResult  = -stake;
+    trade.payout     = returnAmt;   // amount returned (un-risked portion)
+    trade.feeAmount  = fee;
+    trade.netResult  = netResult;   // negative: total loss including fee
     trade.resolvedBy = resolvedBy;
     await trade.save();
   }
 }
 
-// ── Cancel a scheduled (but not yet resolved) trade ──
 function cancelScheduled(tradeId) {
   const id = String(tradeId);
   if (timers.has(id)) {
@@ -117,7 +141,6 @@ function cancelScheduled(tradeId) {
   }
 }
 
-// ── Resume pending trades on server boot ──
 async function resumePendingOnBoot() {
   if (mongoose.connection.readyState !== 1) {
     console.warn('[tradeResolver] DB not ready — skipping boot recovery');
@@ -145,9 +168,7 @@ async function resumePendingOnBoot() {
   console.log(`[tradeResolver] boot recovery: ${overdue} resolved immediately, ${rescheduled} rescheduled`);
 }
 
-// ── Helper: fetch current price for a trading pair ──
 async function fetchPriceForPair(pair, pairClass) {
-  // Crypto
   if (pairClass === 'crypto') {
     const marketService = getMarketService();
     if (marketService) {
@@ -158,7 +179,6 @@ async function fetchPriceForPair(pair, pairClass) {
     }
   }
 
-  // Forex / Metals
   if (pairClass === 'forex' || pairClass === 'metals') {
     const forexAgg = getForexAggregator();
     if (forexAgg) {

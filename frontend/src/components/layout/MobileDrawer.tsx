@@ -10,7 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { SidebarItem } from './SidebarItem';
 import { SIDEBAR_GROUPS } from './sidebarItems';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade';
 
 export interface MobileDrawerProps {
   open: boolean;

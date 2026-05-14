@@ -1,5 +1,5 @@
 // pages/profile.tsx
-// ── BaneTrading — Profile page with tabs (Binance/Bybit standard) ──
+// ── BigOneTrading — Profile page with tabs (Binance/Bybit standard) ──
 
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
@@ -19,7 +19,7 @@ import { KycStatusCard } from '@/components/profile/KycStatusCard';
 import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
 
-const BRAND = 'BaneTrading';
+const BRAND = 'BigOneTrading';
 
 // ── Tab config ──
 interface TabDef {
@@ -69,6 +69,25 @@ function SectionSkeleton({ rows = 3 }: { rows?: number }): JSX.Element {
   );
 }
 
+// ── Profile header skeleton ──
+function ProfileHeaderSkeleton(): JSX.Element {
+  return (
+    <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-4">
+        <div className="w-16 h-16 rounded-full bg-[var(--bg-muted)] animate-pulse" />
+        <div className="min-w-0 space-y-2">
+          <div className="h-6 w-48 bg-[var(--bg-muted)] rounded animate-pulse" />
+          <div className="h-4 w-32 bg-[var(--bg-muted)] rounded animate-pulse" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <div className="h-6 w-20 bg-[var(--bg-muted)] rounded-full animate-pulse" />
+        <div className="h-6 w-16 bg-[var(--bg-muted)] rounded-full animate-pulse" />
+      </div>
+    </section>
+  );
+}
+
 // ── Section divider with label ──
 function SectionDivider({ label }: { label: string }): JSX.Element {
   return (
@@ -78,70 +97,6 @@ function SectionDivider({ label }: { label: string }): JSX.Element {
         {label}
       </span>
       <div className="flex-1 h-px bg-[var(--border)]" />
-    </div>
-  );
-}
-
-// ── Desktop horizontal tab bar ──
-function TabBar({
-  tabs,
-  active,
-  onChange,
-}: {
-  tabs: TabDef[];
-  active: string;
-  onChange: (id: string) => void;
-}): JSX.Element {
-  return (
-    <div
-      className="overflow-hidden rounded-2xl border border-[var(--border)]"
-      style={{ background: 'var(--bg-muted)' }}
-    >
-      <div className="flex items-center gap-0 border-b border-[var(--border)]" style={{ background: 'var(--bg-elevated)' }}>
-        {tabs.map((tab) => {
-          const isActive = active === tab.id;
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => onChange(tab.id)}
-              className="relative flex items-center gap-2 px-5 py-3.5 text-sm font-semibold transition-all duration-150"
-              style={{
-                color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
-                background: isActive ? 'transparent' : 'transparent',
-              }}
-            >
-              {/* Active indicator bar */}
-              {isActive && (
-                <span
-                  className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full"
-                  style={{ background: 'var(--accent)' }}
-                />
-              )}
-              <span
-                className="transition-colors duration-150"
-                style={{ color: isActive ? 'var(--accent)' : 'var(--text-muted)' }}
-              >
-                {tab.icon}
-              </span>
-              <span>{tab.label}</span>
-              {tab.badge && (
-                <span
-                  className="rounded-full px-1.5 py-0.5 text-[9px] font-bold leading-none"
-                  style={{ background: 'var(--danger)', color: 'var(--text-inverse)' }}
-                >
-                  {tab.badge}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Tab content */}
-      <div className="p-5 sm:p-6 animate-fade-in">
-        {/* Content rendered by parent */}
-      </div>
     </div>
   );
 }
@@ -349,7 +304,7 @@ function ProfilePage(): JSX.Element {
     <>
       <Head>
         <title>Profile · {BRAND}</title>
-        <meta name="description" content="Manage your BaneTrading profile, security, and KYC verification." />
+        <meta name="description" content="Manage your BigOneTrading profile, security, and KYC verification." />
       </Head>
 
       <AuthenticatedShell>
@@ -366,7 +321,11 @@ function ProfilePage(): JSX.Element {
           </div>
 
           {/* ── Profile header card ── */}
-          <ProfileHeader user={profile!} />
+          {isLoading || !profile ? (
+            <ProfileHeaderSkeleton />
+          ) : (
+            <ProfileHeader user={profile} />
+          )}
 
           {/* ── Desktop tab layout ── */}
           {!isMobile && (

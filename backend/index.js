@@ -16,11 +16,40 @@ const seedNetworkFees = require('./scripts/seedNetworkFees');
 
 const app = express();
 
-app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN?.split(',') || '*', credentials: true }));
+// ── Security middleware ──
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+}));
+
+// ── CORS configuration ──
+const corsOrigins = process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'];
+app.use(cors({
+  origin: corsOrigins,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Disposition']
+}));
+
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(process.env.UPLOAD_DIR || './uploads'));
+
+// ── Static files with proper CORS headers ──
+app.use('/uploads', (req, res, next) => {
+  res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+  res.header('Access-Control-Allow-Origin', req.headers.origin || corsOrigins[0]);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  
+  next();
+}, express.static(process.env.UPLOAD_DIR || './uploads'));
+
 app.use('/api', apiLimiter);
 
 // ── Core routes ──

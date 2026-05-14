@@ -1,28 +1,30 @@
 // services/market/providers/kucoin.provider.js
 // ── KUCOIN PROVIDER (free, no key for public endpoints) ──
+// FIX: Candle array indices corrected:
+//   KuCoin format: [timestamp, open, close, high, low, volume, turnover]
+//   Indices:         [0]       [1]   [2]   [3]   [4]   [5]
 // API: https://api.kucoin.com/api/v1
-// Docs: https://docs.kucoin.com/
 
 const { BaseProvider } = require('./base.provider');
 
 const KUCOIN_SYMBOL_MAP = {
-  'BTCUSDT': 'BTC-USDT',
-  'ETHUSDT': 'ETH-USDT',
-  'BNBUSDT': 'BNB-USDT',
-  'SOLUSDT': 'SOL-USDT',
-  'XRPUSDT': 'XRP-USDT',
-  'ADAUSDT': 'ADA-USDT',
+  'BTCUSDT':  'BTC-USDT',
+  'ETHUSDT':  'ETH-USDT',
+  'BNBUSDT':  'BNB-USDT',
+  'SOLUSDT':  'SOL-USDT',
+  'XRPUSDT':  'XRP-USDT',
+  'ADAUSDT':  'ADA-USDT',
   'DOGEUSDT': 'DOGE-USDT',
-  'TRXUSDT': 'TRX-USDT',
-  'MATICUSDT': 'MATIC-USDT',
-  'DOTUSDT': 'DOT-USDT',
-  'LTCUSDT': 'LTC-USDT',
+  'TRXUSDT':  'TRX-USDT',
+  'MATICUSDT':'MATIC-USDT',
+  'DOTUSDT':  'DOT-USDT',
+  'LTCUSDT':  'LTC-USDT',
   'AVAXUSDT': 'AVAX-USDT',
   'LINKUSDT': 'LINK-USDT',
-  'BCHUSDT': 'BCH-USDT',
-  'UNIUSDT': 'UNI-USDT',
+  'BCHUSDT':  'BCH-USDT',
+  'UNIUSDT':  'UNI-USDT',
   'ATOMUSDT': 'ATOM-USDT',
-  'ETCUSDT': 'ETC-USDT',
+  'ETCUSDT':  'ETC-USDT',
 };
 
 class KuCoinProvider extends BaseProvider {
@@ -45,20 +47,25 @@ class KuCoinProvider extends BaseProvider {
     const data = await res.json();
     const tickers = data?.data?.ticker || [];
 
+    const validKucoinSymbols = new Set(Object.values(KUCOIN_SYMBOL_MAP));
+    const reverseMap = Object.fromEntries(
+      Object.entries(KUCOIN_SYMBOL_MAP).map(([k, v]) => [v, k])
+    );
+
     return tickers
-      .filter(t => Object.values(KUCOIN_SYMBOL_MAP).includes(t.symbol))
+      .filter(t => validKucoinSymbols.has(t.symbol))
       .map(t => {
-        const symbol = Object.keys(KUCOIN_SYMBOL_MAP).find(k => KUCOIN_SYMBOL_MAP[k] === t.symbol) || t.symbol;
+        const ourSymbol = reverseMap[t.symbol] || t.symbol;
         return {
-          symbol,
-          name: symbol.replace('USDT', ''),
-          image: null,
-          price: parseFloat(t.last) || 0,
-          change24h: parseFloat(t.changeRate) * 100 || 0,
+          symbol:    ourSymbol,
+          name:      ourSymbol.replace('USDT', ''),
+          image:     null,
+          price:     parseFloat(t.last) || 0,
+          change24h: (parseFloat(t.changeRate) || 0) * 100,
           volume24h: parseFloat(t.volValue) || 0,
           marketCap: null,
-          high24h: parseFloat(t.high) || null,
-          low24h: parseFloat(t.low) || null,
+          high24h:   parseFloat(t.high) || null,
+          low24h:    parseFloat(t.low) || null,
         };
       });
   }
@@ -74,32 +81,31 @@ class KuCoinProvider extends BaseProvider {
     const d = data?.data;
     if (!d) throw new Error('KuCoin: No data');
 
-    const url2 = `${this.config.baseUrl}/market/stats?symbol=${kucoinSymbol}`;
-    let change24h = 0;
-    let high24h = null;
-    let low24h = null;
+    // Get 24h stats
+    let change24h = 0, high24h = null, low24h = null;
     try {
+      const url2 = `${this.config.baseUrl}/market/stats?symbol=${kucoinSymbol}`;
       const res2 = await this.timeout(fetch(url2), 3000);
       if (res2.ok) {
         const stats = await res2.json();
         const s = stats?.data;
         if (s) {
-          change24h = parseFloat(s.changeRate) * 100 || 0;
-          high24h = parseFloat(s.high) || null;
-          low24h = parseFloat(s.low) || null;
+          change24h = (parseFloat(s.changeRate) || 0) * 100;
+          high24h   = parseFloat(s.high) || null;
+          low24h    = parseFloat(s.low) || null;
         }
       }
     } catch {}
 
     return {
       symbol,
-      price: parseFloat(d.price) || 0,
+      price:     parseFloat(d.price) || 0,
       change24h,
       high24h,
       low24h,
       volume24h: parseFloat(d.volValue) || 0,
       timestamp: Date.now(),
-      provider: this.name,
+      provider:  this.name,
     };
   }
 
@@ -119,15 +125,17 @@ class KuCoinProvider extends BaseProvider {
     const data = await res.json();
     const list = data?.data || [];
 
-    // KuCoin: [timestamp, open, close, high, low, volume, turnover]
+    // KuCoin candle format: [timestamp, open, close, high, low, volume, turnover]
+    //                        [0]        [1]   [2]   [3]   [4]   [5]
+    // NOTE: KuCoin returns newest first — we reverse for chronological order
     return list.slice(0, limit).reverse().map(k => ({
-      time: Math.floor(parseFloat(k[0])),
-      open: parseFloat(k[1]) || 0,
-      high: parseFloat(k[3]) || 0,
-      low: parseFloat(k[4]) || 0,
-      close: parseFloat(k[2]) || 0,
+      time:   Math.floor(parseFloat(k[0])),
+      open:   parseFloat(k[1]) || 0,
+      close:  parseFloat(k[2]) || 0,
+      high:   parseFloat(k[3]) || 0,
+      low:    parseFloat(k[4]) || 0,
       volume: parseFloat(k[5]) || 0,
-    }));
+    })).filter(c => c.time > 0 && c.open > 0 && c.high >= c.low);
   }
 
   async healthCheck() {

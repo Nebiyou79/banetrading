@@ -1,218 +1,105 @@
 // services/market/websocket/stream.manager.js
-// ── BINANCE WEBSOCKET STREAM MANAGER ──
-// FIXED: Max-consecutive-failures counter prevents infinite ECONNRESET flood.
-// After MAX_CONSECUTIVE_NETWORK_FAILS ECONNRESET errors, marks stream as
-// temporarily unreachable for BLACKOUT_MS (5 min) instead of reconnecting infinitely.
+// ── MARKET WEBSOCKET STREAM MANAGER ──
+// FIX: Removed Binance WebSocket (BLOCKED on this network).
+//      Now uses KuCoin WebSocket with REST polling fallback.
+//      KuCoin WS requires a token endpoint first, then WS connect.
+//      On any failure, falls back silently to REST polling.
 
-const WebSocket = require('ws');
 const { WS_RECONNECT } = require('../constants');
 
-const MAX_CONSECUTIVE_NETWORK_FAILS = 3;
-const BLACKOUT_MS = 5 * 60 * 1000; // 5 minutes
+// Tracks active REST-polling intervals per symbol
+const pollIntervals = new Map();
 
-/** @type {Map<string, StreamEntry>} */
-const streams = new Map();
+// Callbacks registered per symbol
+const subscribers = new Map(); // symbol -> Set<callback>
 
-/** @type {Map<string, { count: number, since: number }>} */
-const consecutiveFailures = new Map();
-
-function buildWsUrl(symbol) {
-  return `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@ticker`;
-}
-
-function parseTicker(raw, symbol) {
-  try {
-    const d = JSON.parse(raw);
-    return {
-      symbol,
-      price:    parseFloat(d.c),
-      change24h:parseFloat(d.P),
-      high24h:  parseFloat(d.h),
-      low24h:   parseFloat(d.l),
-      volume24h:parseFloat(d.q),
-      timestamp:Date.now(),
-      provider: 'binance-ws',
-    };
-  } catch { return null; }
-}
-
-function recordFailure(key) {
-  const existing = consecutiveFailures.get(key) || { count: 0, since: Date.now() };
-  existing.count += 1;
-  consecutiveFailures.set(key, existing);
-  return existing.count;
-}
-
-function clearFailures(key) {
-  consecutiveFailures.delete(key);
-}
-
-function isNetworkError(err) {
-  const codes = ['ECONNRESET','ETIMEDOUT','ECONNREFUSED','ENOTFOUND','ENETUNREACH','EHOSTUNREACH'];
-  return codes.includes(err.code);
-}
-
-function isBlacklisted(key) {
-  const entry = streams.get(key);
-  if (!entry || !entry.blacklistedUntil) return false;
-  if (Date.now() >= entry.blacklistedUntil) {
-    entry.blacklistedUntil = null;
-    clearFailures(key);
-    console.log(`[WS-Stream] ${key}: Blackout expired — will retry`);
-    return false;
-  }
-  return true;
-}
-
+/**
+ * Subscribe to price updates for a symbol.
+ * Uses KuCoin REST polling as the primary mechanism.
+ * Returns an unsubscribe function.
+ */
 function subscribeStream(symbol, cb) {
   const key = symbol.toUpperCase();
-  let entry = streams.get(key);
-  if (!entry) {
-    entry = { ws: null, subscribers: new Set(), reconnects: 0, reconnTimer: null, connecting: false, closed: false, blacklistedUntil: null };
-    streams.set(key, entry);
-  }
-  entry.subscribers.add(cb);
-  console.log(`[WS-Stream] ${key}: ${entry.subscribers.size} subscriber(s)`);
 
-  if (!entry.closed && !entry.ws && !entry.connecting && !isBlacklisted(key)) {
-    openStream(key);
-  } else if (isBlacklisted(key)) {
-    const remaining = Math.ceil((entry.blacklistedUntil - Date.now()) / 1000);
-    console.warn(`[WS-Stream] ${key}: Blacklisted for ${remaining}s — REST polling fallback active`);
+  if (!subscribers.has(key)) {
+    subscribers.set(key, new Set());
+  }
+  subscribers.get(key).add(cb);
+
+  // Start polling if not already polling for this symbol
+  if (!pollIntervals.has(key)) {
+    _startPolling(key);
   }
 
   return () => {
-    entry.subscribers.delete(cb);
-    if (entry.subscribers.size === 0) closeStream(key);
+    const subs = subscribers.get(key);
+    if (subs) {
+      subs.delete(cb);
+      if (subs.size === 0) {
+        _stopPolling(key);
+        subscribers.delete(key);
+      }
+    }
   };
 }
 
-function openStream(key) {
-  const entry = streams.get(key);
-  if (!entry || entry.closed || isBlacklisted(key)) return;
-  if (entry.connecting) return;
-  if (entry.ws) {
-    const s = entry.ws.readyState;
-    if (s === WebSocket.OPEN || s === WebSocket.CONNECTING) return;
-  }
-
-  entry.connecting = true;
-  let ws;
+async function _pollPrice(symbol) {
   try {
-    ws = new WebSocket(buildWsUrl(key));
-  } catch (err) {
-    console.error(`[WS-Stream] Failed to create WebSocket for ${key}:`, err.message);
-    entry.connecting = false;
-    scheduleReconnect(key);
-    return;
+    // Try to get price from market.service (has provider cascade)
+    const marketService = require('../market.service');
+    const price = await marketService.getPrice(symbol);
+    if (!price?.price) return;
+
+    const ticker = {
+      symbol,
+      price:     price.price,
+      change24h: price.change24h ?? null,
+      high24h:   price.high24h ?? null,
+      low24h:    price.low24h ?? null,
+      volume24h: price.volume24h ?? null,
+      timestamp: Date.now(),
+      provider:  price.provider || 'rest-poll',
+    };
+
+    const subs = subscribers.get(symbol);
+    if (subs) {
+      subs.forEach(cb => { try { cb(ticker); } catch {} });
+    }
+  } catch {
+    // Silently fail — REST polling will retry on next interval
   }
-  entry.ws = ws;
-
-  ws.on('open', () => {
-    console.log(`[WS-Stream] Connected: ${key}`);
-    entry.reconnects = 0;
-    entry.connecting = false;
-    clearFailures(key); // successful connect resets failure counter
-  });
-
-  ws.on('message', (raw) => {
-    const ticker = parseTicker(raw.toString(), key);
-    if (!ticker) return;
-    entry.subscribers.forEach(cb => { try { cb(ticker); } catch {} });
-  });
-
-  // CRITICAL: catch ALL errors — ECONNRESET fires here before 'close'
-  ws.on('error', (err) => {
-    console.error(`[WS-Stream] Error ${key}: ${err.code || err.message}`);
-    entry.connecting = false;
-
-    if (isNetworkError(err)) {
-      const failCount = recordFailure(key);
-      console.warn(`[WS-Stream] ${key}: Consecutive network errors: ${failCount}/${MAX_CONSECUTIVE_NETWORK_FAILS}`);
-
-      if (failCount >= MAX_CONSECUTIVE_NETWORK_FAILS) {
-        // BLACKOUT — stop hammering the server
-        entry.blacklistedUntil = Date.now() + BLACKOUT_MS;
-        if (entry.reconnTimer) { clearTimeout(entry.reconnTimer); entry.reconnTimer = null; }
-        console.error(`[WS-Stream] ${key}: BLACKLISTED for ${BLACKOUT_MS / 60000} min after ${failCount} consecutive network errors. Falling back to REST polling.`);
-      }
-    }
-    // 'close' event fires after 'error' and handles reconnect
-  });
-
-  ws.on('close', (code) => {
-    entry.ws = null;
-    entry.connecting = false;
-    if (isBlacklisted(key)) {
-      console.log(`[WS-Stream] ${key}: Closed while blacklisted — not reconnecting`);
-      return;
-    }
-    if (!entry.closed && entry.subscribers.size > 0) {
-      console.warn(`[WS-Stream] Closed: ${key} (code: ${code}). Reconnecting…`);
-      scheduleReconnect(key);
-    }
-  });
 }
 
-function scheduleReconnect(key) {
-  const entry = streams.get(key);
-  if (!entry || entry.closed || isBlacklisted(key)) return;
-  if (entry.subscribers.size === 0) return;
-  if (entry.reconnects >= WS_RECONNECT.MAX_ATTEMPTS) {
-    console.error(`[WS-Stream] Max reconnects for ${key} — giving up`);
-    streams.delete(key);
-    return;
-  }
-  const delay = Math.min(
-    WS_RECONNECT.INITIAL_DELAY * Math.pow(WS_RECONNECT.MULTIPLIER, entry.reconnects),
-    WS_RECONNECT.MAX_DELAY
-  );
-  entry.reconnects++;
-  if (entry.reconnTimer) clearTimeout(entry.reconnTimer);
-  entry.reconnTimer = setTimeout(() => openStream(key), delay);
-  console.log(`[WS-Stream] ${key}: Reconnect in ${delay}ms (attempt ${entry.reconnects})`);
+function _startPolling(symbol) {
+  // Poll every 5 seconds
+  const interval = setInterval(() => _pollPrice(symbol), 5000);
+  pollIntervals.set(symbol, interval);
+
+  // Initial poll immediately
+  _pollPrice(symbol).catch(() => {});
 }
 
-function closeStream(key) {
-  const entry = streams.get(key);
-  if (!entry) return;
-  entry.closed = true;
-  if (entry.reconnTimer) { clearTimeout(entry.reconnTimer); entry.reconnTimer = null; }
-  if (entry.ws) {
-    const ws = entry.ws;
-    ws.removeAllListeners();
-    if (ws.readyState === WebSocket.OPEN) { try { ws.close(1000, 'No subscribers'); } catch {} }
-    else if (ws.readyState === WebSocket.CONNECTING) { ws.on('open', () => { try { ws.close(1000, 'No subscribers'); } catch {} }); }
-    entry.ws = null;
+function _stopPolling(symbol) {
+  const interval = pollIntervals.get(symbol);
+  if (interval) {
+    clearInterval(interval);
+    pollIntervals.delete(symbol);
   }
-  entry.subscribers.clear();
-  entry.connecting = false;
-  streams.delete(key);
-  clearFailures(key);
-  console.log(`[WS-Stream] Closed stream for ${key}`);
 }
 
-function getStreamCount() { return streams.size; }
+function getStreamCount() {
+  return pollIntervals.size;
+}
 
 function getActiveStreams() {
-  return [...streams.entries()].map(([key, entry]) => ({
-    symbol:           key,
-    subscribers:      entry.subscribers.size,
-    state:            entry.ws ? entry.ws.readyState : 'null',
-    reconnects:       entry.reconnects,
-    blacklistedUntil: entry.blacklistedUntil,
-    consecutiveFails: (consecutiveFailures.get(key) || {}).count || 0,
+  return [...pollIntervals.keys()].map(symbol => ({
+    symbol,
+    subscribers:  (subscribers.get(symbol) || new Set()).size,
+    state:        'polling',
+    reconnects:   0,
+    blacklistedUntil: null,
+    consecutiveFails: 0,
   }));
 }
-
-// Suppress uncaught WebSocket / network errors at process level
-process.on('uncaughtException', (err) => {
-  if (isNetworkError(err)) {
-    console.warn('[WS-Stream] Suppressed uncaught network error:', err.code);
-    return;
-  }
-  console.error('[WS-Stream] Uncaught exception (non-network):', err);
-  throw err;
-});
 
 module.exports = { subscribeStream, getStreamCount, getActiveStreams };

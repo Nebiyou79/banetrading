@@ -21,12 +21,24 @@ function formatDate(iso: string): string {
   });
 }
 
-function formatAmount(amount: number, currency: string): string {
-  // ── Format based on currency type ──
+function formatConversionAmount(amount: number | undefined | null, currency: string): string {
+  if (amount === undefined || amount === null) {
+    // Return default precision based on currency
+    if (currency === 'USDT') return '0.00';
+    if (currency === 'BTC') return '0.00000000';
+    if (currency === 'ETH' || currency === 'SOL' || currency === 'BNB') return '0.000000';
+    return '0.0000';
+  }
+  
   if (currency === 'USDT') return amount.toFixed(2);
   if (currency === 'BTC') return amount.toFixed(8);
   if (currency === 'ETH' || currency === 'SOL' || currency === 'BNB') return amount.toFixed(6);
   return amount.toFixed(4);
+}
+
+function formatRate(rate: number | undefined | null): string {
+  if (rate === undefined || rate === null) return '0.000000';
+  return rate.toFixed(6);
 }
 
 export default function ConversionsHistoryTable({
@@ -75,13 +87,13 @@ export default function ConversionsHistoryTable({
               <div className="flex justify-between text-sm">
                 <span className="text-[var(--text-muted)]">From:</span>
                 <span className="tabular font-medium text-[var(--text-primary)]">
-                  {formatAmount(item.fromAmount, item.fromCurrency)} {item.fromCurrency}
+                  {formatConversionAmount(item.fromAmount, item.fromCurrency)} {item.fromCurrency}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-[var(--text-muted)]">To:</span>
                 <span className="tabular font-medium text-[var(--text-primary)]">
-                  {formatAmount(item.toAmount, item.toCurrency)} {item.toCurrency}
+                  {formatConversionAmount(item.toAmount, item.toCurrency)} {item.toCurrency}
                 </span>
               </div>
             </div>
@@ -89,7 +101,7 @@ export default function ConversionsHistoryTable({
             {/* ── Bottom: Rate + Date ── */}
             <div className="flex justify-between mt-2">
               <span className="text-xs text-[var(--text-muted)] tabular">
-                Rate: {item.rate.toFixed(6)}
+                Rate: {formatRate(item.rate)}
               </span>
               <span className="text-xs text-[var(--text-muted)] tabular">
                 {formatDate(item.createdAt)}
@@ -159,19 +171,19 @@ export default function ConversionsHistoryTable({
 
               {/* ── From Amount ── */}
               <td className="py-3 px-4 text-sm tabular text-[var(--text-primary)]">
-                {formatAmount(item.fromAmount, item.fromCurrency)}{' '}
+                {formatConversionAmount(item.fromAmount, item.fromCurrency)}{' '}
                 <span className="text-[var(--text-muted)]">{item.fromCurrency}</span>
               </td>
 
               {/* ── To Amount ── */}
               <td className="py-3 px-4 text-sm tabular text-[var(--text-primary)]">
-                {formatAmount(item.toAmount, item.toCurrency)}{' '}
+                {formatConversionAmount(item.toAmount, item.toCurrency)}{' '}
                 <span className="text-[var(--text-muted)]">{item.toCurrency}</span>
               </td>
 
               {/* ── Rate ── */}
               <td className="py-3 px-4 text-sm tabular text-[var(--text-secondary)]">
-                {item.rate.toFixed(6)}
+                {formatRate(item.rate)}
               </td>
 
               {/* ── Date ── */}

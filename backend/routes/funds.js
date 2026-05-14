@@ -21,6 +21,9 @@ router.get('/withdrawals/me', auth,                              ctrl.getMyWithd
 router.use((err, _req, res, _next) => {
   if (err) {
     console.error('[funds route] error:', err.message);
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ message: 'File too large. Max size: 10MB' });
+    }
     return res.status(400).json({ message: err.message || 'Request failed' });
   }
   return res.status(500).json({ message: 'Server error' });

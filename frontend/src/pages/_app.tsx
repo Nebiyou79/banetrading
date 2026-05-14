@@ -16,7 +16,7 @@ const inter = Inter({
   variable: '--font-inter',
 });
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade Clone';
 
 export default function App({ Component, pageProps }: AppProps): JSX.Element {
   return (

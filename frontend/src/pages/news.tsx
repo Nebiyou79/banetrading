@@ -1,5 +1,5 @@
 // pages/news.tsx
-// ── BaneTrading — News & Market Commentary page (Binance/Bybit standard) ──
+// ── BigOneTrading — News & Market Commentary page (Binance/Bybit standard) ──
 
 import Head from 'next/head';
 import { useState } from 'react';
@@ -10,7 +10,7 @@ import { FeaturedArticle } from '@/components/news/FeaturedArticle';
 import { NewsGrid } from '@/components/news/NewsGrid';
 import type { NewsArticle } from '@/types/news';
 
-const BRAND = 'BaneTrading';
+const BRAND = 'BigOneTrading';
 
 // ── Static article data ──
 const ARTICLES: NewsArticle[] = [
@@ -235,7 +235,7 @@ function NewsPage(): JSX.Element {
     <>
       <Head>
         <title>News & Markets · {BRAND}</title>
-        <meta name="description" content="Crypto news, market commentary, and on-chain insights from BaneTrading." />
+        <meta name="description" content="Crypto news, market commentary, and on-chain insights from BigOneTrading." />
       </Head>
 
       <AuthenticatedShell>

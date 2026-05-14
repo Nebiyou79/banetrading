@@ -56,6 +56,15 @@ const forgotPasswordLimiter = rateLimit({
   legacyHeaders: false,
   message: { message: 'Too many password reset requests. Please try again later.' },
 });
+// ── Google Sign-In rate limiter ──
+const googleSignInLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 minutes
+  max: 20,                     // 20 Google sign-in attempts
+  message: { message: 'Too many sign-in attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.ip,
+});
 
 module.exports = {
   apiLimiter,
@@ -64,4 +73,5 @@ module.exports = {
   otpVerifyLimiter,
   otpResendLimiter,
   forgotPasswordLimiter,
+  googleSignInLimiter
 };

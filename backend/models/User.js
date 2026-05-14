@@ -19,6 +19,7 @@ const UserSchema = new mongoose.Schema({
   country:          { type: String, trim: true },
   phone:            { type: String, trim: true },
   avatarUrl:        { type: String, trim: true },
+  googleId:         { type: String, unique: true, sparse: true, index: true },
   role:             { type: String, enum: ['user', 'admin'], default: 'user', index: true },
 
   // ── Available balances (multi-currency) ──
@@ -51,7 +52,7 @@ const UserSchema = new mongoose.Schema({
   // ── Email verification ──
   isEmailVerified:  { type: Boolean, default: false },
   emailVerifiedAt:  { type: Date },
-
+authMethod:       { type: String, enum: ['email', 'google', 'both'], default: 'email' },
   // ── Password reset ──
   passwordResetToken:   { type: String },
   passwordResetExpires: { type: Date },
@@ -111,7 +112,13 @@ UserSchema.pre('save', function (next) {
   if (typeof this.autoMode !== 'string' || !VALID.includes(this.autoMode)) {
     this.autoMode = 'random';
   }
-
+// Set auth method based on available credentials
+if (this.googleId && this.isEmailVerified && !this.authMethod) {
+  this.authMethod = 'google';
+}
+if (this.googleId && this.authMethod === 'email') {
+  this.authMethod = 'both';
+}
   next();
 });
 
@@ -128,6 +135,7 @@ UserSchema.methods.toJSON = function () {
   delete obj.otpLastSentAt;
   delete obj.passwordResetToken;
   delete obj.passwordResetExpires;
+  delete obj.password;
   return obj;
 };
 

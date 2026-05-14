@@ -9,7 +9,7 @@ import { SettingsLayout } from '@/components/settings/SettingsLayout';
 import { ChangePasswordCard } from '@/components/settings/ChangePasswordCard';
 import { TwoFactorRow } from '@/components/settings/TwoFactorRow';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade';
 
 function SecuritySettingsPage(): JSX.Element {
   return (

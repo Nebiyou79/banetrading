@@ -1,16 +1,27 @@
 // middleware/upload.js
-// ── Multer configs ──
-// Exposes a default uploader (broader filetypes, 10 MB) and a dedicated
-// avatar uploader (image-only, 5 MB, separate subfolder).
+// ── Multer configs for production with bigonetrading.com ──
 
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+// Use absolute paths for Docker containers
+const UPLOAD_DIR = process.env.UPLOAD_DIR || '/app/uploads';
 const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-if (!fs.existsSync(AVATAR_DIR)) fs.mkdirSync(AVATAR_DIR, { recursive: true });
+const KYC_DIR = path.join(UPLOAD_DIR, 'kyc');
+
+// Ensure directories exist
+[UPLOAD_DIR, AVATAR_DIR, KYC_DIR].forEach(dir => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
+// ── Helper to get file URL for domain ──
+function getFileUrl(req, filename, subDir = '') {
+  const baseUrl = process.env.BACKEND_URL || `https://${req.get('host')}`;
+  const cleanBase = baseUrl.replace(/\/$/, '');
+  const subPath = subDir ? `${subDir}/` : '';
+  return `${cleanBase}/uploads/${subPath}${filename}`;
+}
 
 // ── Default storage (generic uploads) ──
 const storage = multer.diskStorage({
@@ -55,15 +66,7 @@ const uploadAvatar = multer({
   },
 });
 
-module.exports = upload;
-module.exports.uploadAvatar = uploadAvatar;
-module.exports.AVATAR_DIR = AVATAR_DIR;
-module.exports.UPLOAD_DIR = UPLOAD_DIR;
-
 // ── KYC storage (images + PDF) ──
-const KYC_DIR = path.join(UPLOAD_DIR, 'kyc');
-if (!fs.existsSync(KYC_DIR)) fs.mkdirSync(KYC_DIR, { recursive: true });
-
 const KYC_MIME = new Set([
   'image/jpeg',
   'image/jpg',
@@ -107,6 +110,11 @@ const uploadAddressDoc = multer({
   fileFilter: kycFileFilter,
 }).single('document');
 
+module.exports = upload;
+module.exports.uploadAvatar = uploadAvatar;
 module.exports.uploadKYC = uploadKYC;
 module.exports.uploadAddressDoc = uploadAddressDoc;
+module.exports.getFileUrl = getFileUrl;
+module.exports.AVATAR_DIR = AVATAR_DIR;
+module.exports.UPLOAD_DIR = UPLOAD_DIR;
 module.exports.KYC_DIR = KYC_DIR;

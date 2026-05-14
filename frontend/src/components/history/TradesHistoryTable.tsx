@@ -17,6 +17,17 @@ function formatDate(iso: string): string {
   });
 }
 
+function formatTradeAmount(amount: number | undefined | null): string {
+  if (amount === undefined || amount === null) return '0.0000';
+  return amount.toFixed(4);
+}
+
+function formatTradeResult(result: number | undefined | null): string {
+  if (result === undefined || result === null) return '0.00';
+  const prefix = result >= 0 ? '+' : '';
+  return `${prefix}${result.toFixed(2)}`;
+}
+
 export default function TradesHistoryTable({ items, isLoading = false }: TradesHistoryTableProps) {
   const { isMobile } = useResponsive();
 
@@ -42,12 +53,12 @@ export default function TradesHistoryTable({ items, isLoading = false }: TradesH
                 <div className="font-semibold text-sm text-[var(--text-primary)]">{item.pair}</div>
                 <div className="text-xs text-[var(--text-muted)]">{item.plan}</div>
               </div>
-              <span className={`tabular text-sm font-semibold ${item.result >= 0 ? 'text-gain' : 'text-loss'}`}>
-                {item.result >= 0 ? '+' : ''}{item.result.toFixed(2)}
+              <span className={`tabular text-sm font-semibold ${(item.result ?? 0) >= 0 ? 'text-gain' : 'text-loss'}`}>
+                {formatTradeResult(item.result)}
               </span>
             </div>
             <div className="flex justify-between mt-2 text-xs text-[var(--text-muted)]">
-              <span>Amount: <span className="tabular">{item.amount.toFixed(4)}</span></span>
+              <span>Amount: <span className="tabular">{formatTradeAmount(item.amount)}</span></span>
               <span>{formatDate(item.createdAt)}</span>
             </div>
           </div>
@@ -73,12 +84,12 @@ export default function TradesHistoryTable({ items, isLoading = false }: TradesH
           {items.map(item => (
             <tr key={item.id} className="border-t border-[var(--border)] hover:bg-[var(--hover-bg)] transition-colors duration-150">
               <td className="py-3 px-4 text-sm font-medium text-[var(--text-primary)]">{item.pair}</td>
-              <td className="py-3 px-4 text-sm tabular text-[var(--text-primary)]">{item.amount.toFixed(4)}</td>
+              <td className="py-3 px-4 text-sm tabular text-[var(--text-primary)]">{formatTradeAmount(item.amount)}</td>
               <td className="py-3 px-4 text-sm text-[var(--text-secondary)]">{item.plan}</td>
               <td className="py-3 px-4 text-sm tabular text-[var(--text-secondary)]">{item.duration}s</td>
               <td className="py-3 px-4 text-sm tabular text-[var(--text-muted)]">{formatDate(item.createdAt)}</td>
-              <td className={`py-3 px-4 text-sm font-semibold tabular text-right ${item.result >= 0 ? 'text-gain' : 'text-loss'}`}>
-                {item.result >= 0 ? '+' : ''}{item.result.toFixed(2)}
+              <td className={`py-3 px-4 text-sm font-semibold tabular text-right ${(item.result ?? 0) >= 0 ? 'text-gain' : 'text-loss'}`}>
+                {formatTradeResult(item.result)}
               </td>
             </tr>
           ))}

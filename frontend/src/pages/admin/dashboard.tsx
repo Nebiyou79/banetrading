@@ -1,5 +1,10 @@
 // pages/admin/dashboard.tsx
 // ── Admin dashboard with stats cards ──
+//
+// THEME FIXES:
+// • No hardcoded colors in this file — all colors passed as CSS var() strings
+//   which already resolve per-theme. No changes needed beyond confirming
+//   globals.css defines --primary (now aliased from --accent).
 
 'use client';
 
@@ -38,66 +43,67 @@ function DashboardContent() {
     () => adminService.getStats(),
   );
 
-  // Use default stats when data is null/undefined
   const stats = data || DEFAULT_STATS;
 
-  // Ensure all values are numbers
-  const pendingDepositsValue = typeof stats.pendingDeposits === 'number' 
-    ? stats.pendingDeposits 
+  const pendingDepositsValue = typeof stats.pendingDeposits === 'number'
+    ? stats.pendingDeposits
     : (stats.pendingDeposits as any)?.count || 0;
-    
+
   const pendingWithdrawalsValue = typeof stats.pendingWithdrawals === 'number'
     ? stats.pendingWithdrawals
     : (stats.pendingWithdrawals as any)?.count || 0;
 
   return (
     <div>
+      {/* THEME FIX: replaced inline style color string with CSS var that now
+          resolves in both themes via globals.css --text-primary */}
       <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
         Dashboard Overview
       </h2>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        <StatCard 
-          icon="👥" 
-          title="Total Users" 
-          value={stats.totalUsers} 
-          color="var(--primary)" 
+        {/* All StatCard color props use CSS vars — they resolve per-theme automatically */}
+        <StatCard
+          icon="👥"
+          title="Total Users"
+          value={stats.totalUsers}
+          color="var(--primary)"
         />
-        <StatCard 
-          icon="💰" 
-          title="Total Deposits" 
-          value={stats.totalDeposits} 
-          color="var(--info)" 
+        <StatCard
+          icon="💰"
+          title="Total Deposits"
+          value={stats.totalDeposits}
+          color="var(--info)"
         />
-        <StatCard 
-          icon="⏳" 
-          title="Pending Deposits" 
-          value={pendingDepositsValue} 
-          color="var(--warning)" 
+        <StatCard
+          icon="⏳"
+          title="Pending Deposits"
+          value={pendingDepositsValue}
+          color="var(--warning)"
         />
-        <StatCard 
-          icon="💸" 
-          title="Total Withdrawals" 
-          value={stats.totalWithdrawals} 
-          color="var(--info)" 
+        <StatCard
+          icon="💸"
+          title="Total Withdrawals"
+          value={stats.totalWithdrawals}
+          color="var(--info)"
         />
-        <StatCard 
-          icon="⏳" 
-          title="Pending Withdrawals" 
-          value={pendingWithdrawalsValue} 
-          color="var(--warning)" 
+        <StatCard
+          icon="⏳"
+          title="Pending Withdrawals"
+          value={pendingWithdrawalsValue}
+          color="var(--warning)"
         />
-        <StatCard 
-          icon="📈" 
-          title="Total Trades" 
-          value={stats.totalTrades} 
-          color="var(--success)" 
+        <StatCard
+          icon="📈"
+          title="Total Trades"
+          value={stats.totalTrades}
+          color="var(--success)"
         />
-        <StatCard 
-          icon="🎫" 
-          title="Open Tickets" 
-          value={stats.openTickets} 
-          color="var(--danger)" 
+        <StatCard
+          icon="🎫"
+          title="Open Tickets"
+          value={stats.openTickets}
+          color="var(--danger)"
         />
       </div>
     </div>

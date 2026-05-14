@@ -1,17 +1,5 @@
 // controllers/fundsController.js
-// Funds controller
-//
-// BALANCE FIX:
-// 1. getBalance: returns both balances (available) and lockedBalances (pending withdrawal).
-// 2. withdrawFunds: moves gross amount from balances to lockedBalances on submit.
-//    markModified called on both maps so Mongoose persists nested object changes.
-// 3. depositFunds: no balance change at submit (admin approval credits balance).
-//
-// Balance accounting:
-//   Available balance  = user.balances[currency]       (ready to spend)
-//   Locked balance     = user.lockedBalances[currency]  (pending withdrawal)
-//   Withdrawal check   uses available only
-//   Conversion check   uses available only
+// Funds controller with proper file URL handling
 
 const fs = require('fs');
 
@@ -26,6 +14,18 @@ function safeUnlink(absPath) {
   fs.unlink(absPath, (err) => {
     if (err && err.code !== 'ENOENT') console.error('[fundsController] unlink failed:', absPath, err);
   });
+}
+
+function getFullFileUrl(req, filePath) {
+  if (!filePath) return null;
+  // If it's already a full URL, return as is
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    return filePath;
+  }
+  const baseUrl = process.env.BACKEND_URL || `https://${req.get('host')}`;
+  const cleanBase = baseUrl.replace(/\/$/, '');
+  const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+  return `${cleanBase}${cleanPath}`;
 }
 
 // GET /api/funds/balance
@@ -60,8 +60,6 @@ async function depositFunds(req, res) {
     const { amount, currency, network, note } = req.body;
     const numericAmount = Number(amount);
 
-    // DEBUG LOG - shows exactly what the server receives from the frontend.
-    // Remove once deposits are confirmed working.
     console.log('[depositFunds] received body:', { currency, network, amount });
 
     if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
@@ -69,8 +67,6 @@ async function depositFunds(req, res) {
       return res.status(400).json({ message: 'Amount must be greater than 0' });
     }
 
-    // Validates (currency, network) is an allowed combination.
-    // Both must use the unified format: currency='USDT', network='USDT-ERC20' etc.
     if (!isValidDepositCombo(currency, network)) {
       if (req.file && req.file.path) safeUnlink(req.file.path);
       console.error('[depositFunds] invalid combo:', { currency, network });
@@ -91,9 +87,15 @@ async function depositFunds(req, res) {
       status:        'pending',
     });
 
+    // Return full URL for proof file if exists
+    const depositJson = deposit.toJSON();
+    if (depositJson.proofFilePath) {
+      depositJson.proofFileUrl = getFullFileUrl(req, depositJson.proofFilePath);
+    }
+
     return res.status(201).json({
       message: 'Deposit submitted, pending review',
-      deposit,
+      deposit: depositJson,
     });
   } catch (err) {
     console.error('[fundsController] depositFunds:', err);
@@ -188,7 +190,13 @@ async function getMyDeposits(req, res) {
       Deposit.countDocuments({ userId: req.user._id }),
     ]);
 
-    return res.status(200).json({ deposits: items, total });
+    // Add full URLs to proof files
+    const itemsWithUrls = items.map(item => ({
+      ...item,
+      proofFileUrl: item.proofFilePath ? getFullFileUrl(req, item.proofFilePath) : null
+    }));
+
+    return res.status(200).json({ deposits: itemsWithUrls, total });
   } catch (err) {
     console.error('[fundsController] getMyDeposits:', err);
     return res.status(500).json({ message: 'Server error' });

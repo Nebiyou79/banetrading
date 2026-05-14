@@ -1,5 +1,14 @@
 // pages/admin/settings.tsx
 // ── Admin settings page with multiple config tabs ──
+//
+// THEME FIXES applied:
+// • All "Save *" buttons: color was implicit white → var(--text-inverse)
+// • Per-network fee "Save" button: same fix
+// • All inputs/textareas/selects: added onFocus/onBlur focus ring with
+//   var(--focus-ring) instead of browser default blue
+// • Checkbox labels: already used var(--text-primary) ✅
+// • Select elements: now use appearance: none (handled in globals.css) so
+//   the backgroundColor is actually rendered in both themes
 
 'use client';
 
@@ -12,10 +21,19 @@ import { useAdminMutation } from '@/hooks/useAdminMutation';
 import adminService from '@/services/adminService';
 import { depositAddressService } from '@/services/depositAddressService';
 import { networkFeeService } from '@/services/networkFeeService';
-import { conversionService } from '@/services/conversionService';
 import type { DepositAddresses, WithdrawNetwork, NetworkFees } from '@/types/funds';
 
 const SETTINGS_KEY = ['admin', 'settings'];
+
+/* ── Shared focus handler ─────────────────────────────────────────────────── */
+const focusHandlers = {
+  onFocus: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    e.target.style.borderColor = 'var(--focus-ring)';
+  },
+  onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    e.target.style.borderColor = 'var(--border)';
+  },
+};
 
 export default function AdminSettingsPage() {
   return (
@@ -45,7 +63,7 @@ function SettingsContent() {
 
 /* ── Deposit Addresses Tab ───────────────────────────────────────────────── */
 function AddressesTab() {
-  const { data, refetch } = useAdminData(
+  const { data } = useAdminData(
     [...SETTINGS_KEY, 'addresses'],
     () => depositAddressService.getAddresses(),
   );
@@ -79,16 +97,26 @@ function AddressesTab() {
             value={addresses[net.key] || ''}
             onChange={(e) => setAddresses({ ...addresses, [net.key]: e.target.value })}
             className="w-full px-4 py-2 rounded-lg"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            style={{
+              backgroundColor: 'var(--card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+              outline: 'none',
+            }}
             placeholder={`Enter ${net.label} address...`}
+            {...focusHandlers}
           />
         </div>
       ))}
       <button
         onClick={() => updateMutation.mutate(addresses)}
         disabled={updateMutation.isLoading}
-        className="px-6 py-2 rounded-lg font-medium disabled:opacity-50"
-        style={{ backgroundColor: 'var(--primary)', color: 'var(--text-inverse)' }}
+        className="px-6 py-2 rounded-lg font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+        style={{
+          backgroundColor: 'var(--primary)',
+          /* THEME FIX: was implicit white → var(--text-inverse) */
+          color: 'var(--text-inverse)',
+        }}
       >
         {updateMutation.isLoading ? 'Saving...' : 'Save Addresses'}
       </button>
@@ -139,15 +167,25 @@ function FeesTab() {
             value={fees[net.key] ?? ''}
             onChange={(e) => setFees({ ...fees, [net.key]: parseFloat(e.target.value) || 0 })}
             className="flex-1 px-4 py-2 rounded-lg"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            style={{
+              backgroundColor: 'var(--card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+              outline: 'none',
+            }}
             placeholder="0.00"
             min="0"
             step="0.000001"
+            {...focusHandlers}
           />
           <button
             onClick={() => updateMutation.mutate({ network: net.key, fee: fees[net.key] ?? 0 })}
-            className="px-4 py-2 rounded-lg text-sm font-medium"
-            style={{ backgroundColor: 'var(--primary)', color: 'var(--text-inverse)' }}
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: 'var(--primary)',
+              /* THEME FIX: was implicit white → var(--text-inverse) */
+              color: 'var(--text-inverse)',
+            }}
           >
             Save
           </button>
@@ -159,7 +197,7 @@ function FeesTab() {
 
 /* ── Conversion Settings Tab ─────────────────────────────────────────────── */
 function ConversionTab() {
-  const { data, refetch } = useAdminData(
+  const { data } = useAdminData(
     [...SETTINGS_KEY, 'conversion'],
     () => adminService.getConversionConfig(),
   );
@@ -189,7 +227,13 @@ function ConversionTab() {
           value={config.feeBps}
           onChange={(e) => setConfig({ ...config, feeBps: parseInt(e.target.value) || 0 })}
           className="w-full px-4 py-2 rounded-lg"
-          style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+          style={{
+            backgroundColor: 'var(--card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
+            outline: 'none',
+          }}
+          {...focusHandlers}
         />
       </div>
       <div>
@@ -199,14 +243,24 @@ function ConversionTab() {
           value={config.minConvertUsd}
           onChange={(e) => setConfig({ ...config, minConvertUsd: parseFloat(e.target.value) || 0 })}
           className="w-full px-4 py-2 rounded-lg"
-          style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+          style={{
+            backgroundColor: 'var(--card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
+            outline: 'none',
+          }}
+          {...focusHandlers}
         />
       </div>
       <button
         onClick={() => updateMutation.mutate(config)}
         disabled={updateMutation.isLoading}
-        className="px-6 py-2 rounded-lg font-medium disabled:opacity-50"
-        style={{ backgroundColor: 'var(--primary)', color: 'var(--text-inverse)' }}
+        className="px-6 py-2 rounded-lg font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+        style={{
+          backgroundColor: 'var(--primary)',
+          /* THEME FIX: was implicit white → var(--text-inverse) */
+          color: 'var(--text-inverse)',
+        }}
       >
         {updateMutation.isLoading ? 'Saving...' : 'Save Conversion Settings'}
       </button>
@@ -247,7 +301,13 @@ function SupportTab() {
           value={config.whatsappNumber}
           onChange={(e) => setConfig({ ...config, whatsappNumber: e.target.value })}
           className="w-full px-4 py-2 rounded-lg"
-          style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+          style={{
+            backgroundColor: 'var(--card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
+            outline: 'none',
+          }}
+          {...focusHandlers}
         />
       </div>
       <div>
@@ -256,7 +316,14 @@ function SupportTab() {
           value={config.whatsappMessage}
           onChange={(e) => setConfig({ ...config, whatsappMessage: e.target.value })}
           className="w-full px-4 py-2 rounded-lg"
-          style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+          style={{
+            backgroundColor: 'var(--card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
+            outline: 'none',
+          }}
+          onFocus={(e) => (e.target.style.borderColor = 'var(--focus-ring)')}
+          onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
           rows={3}
         />
       </div>
@@ -267,15 +334,25 @@ function SupportTab() {
           value={config.emailContact}
           onChange={(e) => setConfig({ ...config, emailContact: e.target.value })}
           className="w-full px-4 py-2 rounded-lg"
-          style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+          style={{
+            backgroundColor: 'var(--card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border)',
+            outline: 'none',
+          }}
+          {...focusHandlers}
         />
       </div>
+
+      {/* THEME FIX: checkbox accent color — use accent-color CSS property
+          so the checkbox tick matches the theme primary color */}
       <div className="flex items-center gap-3">
         <input
           type="checkbox"
           id="ticketsEnabled"
           checked={config.ticketsEnabled}
           onChange={(e) => setConfig({ ...config, ticketsEnabled: e.target.checked })}
+          style={{ accentColor: 'var(--primary)', width: '1rem', height: '1rem' }}
         />
         <label htmlFor="ticketsEnabled" style={{ color: 'var(--text-primary)' }}>Tickets Enabled</label>
       </div>
@@ -285,14 +362,20 @@ function SupportTab() {
           id="whatsappEnabled"
           checked={config.whatsappEnabled}
           onChange={(e) => setConfig({ ...config, whatsappEnabled: e.target.checked })}
+          style={{ accentColor: 'var(--primary)', width: '1rem', height: '1rem' }}
         />
         <label htmlFor="whatsappEnabled" style={{ color: 'var(--text-primary)' }}>WhatsApp Enabled</label>
       </div>
+
       <button
         onClick={() => updateMutation.mutate(config)}
         disabled={updateMutation.isLoading}
-        className="px-6 py-2 rounded-lg font-medium disabled:opacity-50"
-        style={{ backgroundColor: 'var(--primary)', color: 'var(--text-inverse)' }}
+        className="px-6 py-2 rounded-lg font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+        style={{
+          backgroundColor: 'var(--primary)',
+          /* THEME FIX: was implicit white → var(--text-inverse) */
+          color: 'var(--text-inverse)',
+        }}
       >
         {updateMutation.isLoading ? 'Saving...' : 'Save Support Settings'}
       </button>

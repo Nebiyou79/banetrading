@@ -14,7 +14,7 @@ import { Button } from '../../components/ui/Button';
 import { authService } from '../../services/authService';
 import { normalizeError, NormalizedApiError } from '../../services/apiClient';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade Clone';
 
 type VerifyState = 'pending' | 'success' | 'error';
 

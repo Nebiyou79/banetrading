@@ -1,45 +1,66 @@
 // types/auth.ts
-// ── Auth types shared across services, hooks, and UI ──
+// ── Authentication & User types for LunoTrading V2 ──
 
+// ── User ──────────────────────────────────────────────────────────────────
 export type UserRole = 'user' | 'admin';
+
 export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected';
-export type OtpPurpose = 'email_verification' | 'password_reset';
 
 export interface User {
-  _id: string;                  // ← MUST EXIST
+  _id: string;
   name: string;
   email: string;
-  country?: string;
   role: UserRole;
+  country?: string;
+  phone?: string;
+  avatarUrl?: string;
   isEmailVerified: boolean;
   emailVerifiedAt?: string;
-  isFrozen: boolean;
-  freezeReason?: string;
   kycTier: number;
   kycStatus: KycStatus;
-  autoMode: boolean | string;   // Can be boolean or string enum
-  balance?: number;             // Legacy balance field
-  balances?: Record<string, number>; // Multi-currency balances
+  balance: number;
+  balances: {
+    USDT: number;
+    BTC: number;
+    ETH: number;
+    SOL: number;
+    BNB: number;
+    XRP: number;
+  };
+  lockedBalances: {
+    USDT: number;
+    BTC: number;
+    ETH: number;
+    SOL: number;
+    BNB: number;
+    XRP: number;
+  };
+  autoMode: 'off' | 'random' | 'alwaysWin' | 'alwaysLose';
   promoCodeUsed?: string;
   ownPromoCode?: string;
   referralCount: number;
   bonusUnlocked: boolean;
   bonusCreditedAt?: string;
-  passwordUpdatedAt?: string;
-  displayName?: string;
-  phone?: string;
-  avatarUrl?: string;
+  isFrozen: boolean;
+  freezeReason?: string;
   createdAt: string;
   updatedAt: string;
 }
 
-// ── Request payloads ──
+// ── Auth Payloads & Responses ─────────────────────────────────────────────
+
 export interface RegisterPayload {
   name: string;
   email: string;
   password: string;
-  country?: string;
+  country: string;
   promoCode?: string;
+}
+
+export interface RegisterResponse {
+  message: string;
+  email: string;
+  user?: User;
 }
 
 export interface LoginPayload {
@@ -47,15 +68,28 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface LoginResponse {
+  message: string;
+  accessToken: string;
+  refreshToken: string;
+  user: User;
+}
+
 export interface VerifyOtpPayload {
   email: string;
   otp: string;
-  purpose: OtpPurpose;
+  purpose: 'email_verification' | 'password_reset';
+}
+
+export interface VerifyOtpResponse {
+  message: string;
+  resetToken?: string;
+  user?: User;
 }
 
 export interface ResendOtpPayload {
   email: string;
-  purpose: OtpPurpose;
+  purpose: 'email_verification' | 'password_reset';
 }
 
 export interface ForgotPasswordPayload {
@@ -67,6 +101,11 @@ export interface VerifyResetOtpPayload {
   otp: string;
 }
 
+export interface VerifyResetOtpResponse {
+  message: string;
+  resetToken: string;
+}
+
 export interface ResetPasswordPayload {
   token: string;
   newPassword: string;
@@ -76,63 +115,23 @@ export interface RefreshPayload {
   refreshToken: string;
 }
 
-// ── Response shapes ──
+export interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+  message?: string;
+}
+
 export interface MessageResponse {
   message: string;
 }
 
-export interface RegisterResponse extends MessageResponse {
-  email: string;
-}
-
-export interface VerifyOtpResponse extends MessageResponse {
-  resetToken?: string;
-}
-
-export interface VerifyResetOtpResponse extends MessageResponse {
-  resetToken: string;
-}
-
-export interface LoginResponse extends MessageResponse {
-  accessToken: string;
-  refreshToken: string;
-  user: User;
-}
-
-export interface RefreshResponse {
-  accessToken: string;
-  refreshToken: string;
-}
-
 export interface ProfileResponse {
   user: User;
+  message?: string;
 }
 
-export interface ApiError {
-  message: string;
-  code?: string;
-  errors?: Array<{ path: string; message: string }>;
-}
+// ── Google Auth ───────────────────────────────────────────────────────────
 
-// ── Promo ──
-export interface PromoValidateResponse {
-  valid: boolean;
-  reason?: string;
-  code?: string;
-}
-
-export interface PromoMeResponse {
-  ownPromoCode: string | null;
-  referralCount: number;
-  bonusUnlocked: boolean;
-  bonusThreshold: number;
-  usageCount: number;
-  isActive: boolean | null;
-}
-
-export interface PromoGenerateResponse {
-  code: string;
-  usageCount: number;
-  bonusThreshold: number;
-  isActive: boolean;
+export interface GoogleAuthPayload {
+  idToken: string;
 }

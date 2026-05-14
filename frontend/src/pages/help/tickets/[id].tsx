@@ -14,7 +14,7 @@ import MessageBubble from '@/components/support/MessageBubble';
 import MessageComposer from '@/components/support/MessageComposer';
 import React from 'react';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade Clone';
 
 function TicketChatPage(): JSX.Element {
   const router = useRouter();

@@ -1,5 +1,14 @@
 // pages/admin/trades.tsx
 // ── Admin trades page (read-only) ──
+//
+// THEME FIXES applied:
+// • Pagination buttons: added hover:opacity-80 for visible interactive feedback
+//   in light mode (were relying only on background change which was subtle)
+// • .text-gain / .text-loss classes: defined in globals.css using
+//   var(--success) and var(--danger) — already theme-aware ✅
+// • All inline style colors: already using CSS vars ✅
+// • Badge variants: already theme-aware via Badge component ✅
+// • No hardcoded 'white' colors present — only CSS var() strings ✅
 
 'use client';
 
@@ -53,7 +62,11 @@ function TradesContent() {
         </Badge>
       ),
     },
-    { key: 'stake', header: 'Stake', render: (t: Trade) => (t as any).stake?.toFixed(4) || '-' },
+    {
+      key: 'stake',
+      header: 'Stake',
+      render: (t: Trade) => (t as any).stake?.toFixed(4) || '-',
+    },
     { key: 'planKey', header: 'Plan' },
     {
       key: 'entryPrice',
@@ -80,6 +93,7 @@ function TradesContent() {
       render: (t: Trade) => {
         const payout = (t as any).payout;
         return (
+          /* text-gain / text-loss use var(--success) / var(--danger) from globals.css ✅ */
           <span className={payout > 0 ? 'text-gain' : payout < 0 ? 'text-loss' : ''}>
             {payout?.toFixed(4) || '-'}
           </span>
@@ -103,8 +117,12 @@ function TradesContent() {
           <button
             onClick={() => setPage(Math.max(0, page - 1))}
             disabled={page === 0}
-            className="px-4 py-2 rounded-lg text-sm disabled:opacity-50"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            className="px-4 py-2 rounded-lg text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
           >
             Previous
           </button>
@@ -114,8 +132,12 @@ function TradesContent() {
           <button
             onClick={() => setPage(page + 1)}
             disabled={(page + 1) * 20 >= data.total}
-            className="px-4 py-2 rounded-lg text-sm disabled:opacity-50"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            className="px-4 py-2 rounded-lg text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
           >
             Next
           </button>

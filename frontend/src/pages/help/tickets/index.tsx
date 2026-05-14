@@ -11,7 +11,7 @@ import { useTickets } from '@/hooks/useTickets';
 import TicketsList from '@/components/support/TicketsList';
 import NewTicketModal from '@/components/support/NewTicketModal';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade Clone';
 
 function TicketsListPage(): JSX.Element {
   const router = useRouter();

@@ -1,5 +1,5 @@
 // pages/admin/deposits.tsx
-// ── Admin deposits management page ──
+// ── Admin deposits management page with proper file URL handling ──
 
 'use client';
 
@@ -8,15 +8,19 @@ import AdminLayout from '@/components/admin-ui/AdminLayout';
 import AdminRoute from '@/components/admin-ui/AdminRoute';
 import DataTable from '@/components/admin-ui/DataTable';
 import Modal from '@/components/admin-ui/Modal';
-import Tabs from '@/components/admin-ui/Tabs';
 import SearchInput from '@/components/admin-ui/SearchInput';
-import  Badge  from '@/components/admin-ui/Badge';
+import Badge from '@/components/admin-ui/Badge';
 import { useAdminData } from '@/hooks/useAdminData';
 import { useAdminMutation } from '@/hooks/useAdminMutation';
 import adminService from '@/services/adminService';
 import { Deposit } from '@/types';
 
 const DEPOSITS_KEY = ['admin', 'deposits'];
+
+// Extended Deposit interface with file URL
+interface ExtendedDeposit extends Deposit {
+  proofFileUrl?: string | null;
+}
 
 export default function DepositsPage() {
   return (
@@ -31,9 +35,9 @@ export default function DepositsPage() {
 function DepositsContent() {
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
-  const [selectedDeposit, setSelectedDeposit] = useState<Deposit | null>(null);
+  const [selectedDeposit, setSelectedDeposit] = useState<ExtendedDeposit | null>(null);
 
-  const { data, isLoading, refetch } = useAdminData<{ deposits: Deposit[]; total: number }>(
+  const { data, isLoading, refetch } = useAdminData<{ deposits: ExtendedDeposit[]; total: number }>(
     [...DEPOSITS_KEY, { statusFilter, search }],
     () => adminService.fetchDeposits({ status: statusFilter || undefined, search: search || undefined }),
   );
@@ -60,24 +64,24 @@ function DepositsContent() {
     {
       key: 'userId',
       header: 'User',
-      render: (d: Deposit) => <span className="font-medium">{(d as any).userId?.email || d.userId}</span>,
+      render: (d: ExtendedDeposit) => <span className="font-medium">{(d as any).userId?.email || d.userId}</span>,
     },
     { key: 'amount', header: 'Amount' },
     { key: 'currency', header: 'Currency' },
     { key: 'network', header: 'Network' },
-    { key: 'status', header: 'Status', render: (d: Deposit) => getStatusBadge(d.status) },
+    { key: 'status', header: 'Status', render: (d: ExtendedDeposit) => getStatusBadge(d.status) },
     {
       key: 'createdAt',
       header: 'Date',
-      render: (d: Deposit) => d.createdAt ? new Date(d.createdAt).toLocaleDateString() : '-',
+      render: (d: ExtendedDeposit) => d.createdAt ? new Date(d.createdAt).toLocaleDateString() : '-',
     },
     {
       key: 'actions',
       header: 'Actions',
-      render: (d: Deposit) => (
+      render: (d: ExtendedDeposit) => (
         <button
           onClick={() => setSelectedDeposit(d)}
-          className="px-3 py-1 rounded text-sm font-medium"
+          className="px-3 py-1 rounded text-sm font-medium transition-colors hover:opacity-80"
           style={{ backgroundColor: 'var(--info-muted)', color: 'var(--info)' }}
         >
           Review
@@ -106,7 +110,7 @@ function DepositsContent() {
           <button
             key={tab.key}
             onClick={() => setStatusFilter(tab.key)}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:opacity-90"
             style={{
               backgroundColor: statusFilter === tab.key ? 'var(--primary)' : 'var(--card)',
               color: statusFilter === tab.key ? 'var(--text-inverse)' : 'var(--text-secondary)',
@@ -125,7 +129,6 @@ function DepositsContent() {
         onRowClick={(d) => d.status === 'pending' && setSelectedDeposit(d)}
       />
 
-      {/* Review Modal */}
       <ReviewDepositModal
         deposit={selectedDeposit}
         onClose={() => setSelectedDeposit(null)}
@@ -144,7 +147,7 @@ function ReviewDepositModal({
   onReject,
   isLoading,
 }: {
-  deposit: Deposit | null;
+  deposit: ExtendedDeposit | null;
   onClose: () => void;
   onApprove: (id: string) => Promise<any>;
   onReject: (id: string, reason: string) => Promise<any>;
@@ -163,13 +166,16 @@ function ReviewDepositModal({
         <p><strong>Network:</strong> {deposit.network}</p>
         <p><strong>Status:</strong> {deposit.status}</p>
         {deposit.note && <p><strong>Note:</strong> {deposit.note}</p>}
-        {deposit.proofFilePath && (
+        
+        {/* Use proofFileUrl instead of proofFilePath */}
+        {deposit.proofFileUrl && (
           <p>
             <strong>Proof:</strong>{' '}
             <a
-              href={deposit.proofFilePath}
+              href={deposit.proofFileUrl}
               target="_blank"
               rel="noopener noreferrer"
+              className="underline hover:opacity-80 transition-opacity"
               style={{ color: 'var(--primary)' }}
             >
               View Document
@@ -184,8 +190,15 @@ function ReviewDepositModal({
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Rejection reason..."
-                className="w-full px-3 py-2 rounded-lg mb-3"
-                style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                className="w-full px-3 py-2 rounded-lg mb-3 focus:outline-none"
+                style={{
+                  backgroundColor: 'var(--card)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border)',
+                  outline: 'none',
+                }}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--focus-ring)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
                 rows={3}
               />
             )}
@@ -193,16 +206,22 @@ function ReviewDepositModal({
               <button
                 onClick={() => onApprove(deposit._id)}
                 disabled={isLoading}
-                className="px-4 py-2 rounded-lg flex-1"
-                style={{ backgroundColor: 'var(--success)', color: 'white' }}
+                className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--success)',
+                  color: 'var(--text-inverse)',
+                }}
               >
                 Approve
               </button>
               {!showRejectInput ? (
                 <button
                   onClick={() => setShowRejectInput(true)}
-                  className="px-4 py-2 rounded-lg flex-1"
-                  style={{ backgroundColor: 'var(--danger)', color: 'white' }}
+                  className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90"
+                  style={{
+                    backgroundColor: 'var(--danger)',
+                    color: 'var(--text-inverse)',
+                  }}
                 >
                   Reject
                 </button>
@@ -210,8 +229,11 @@ function ReviewDepositModal({
                 <button
                   onClick={() => onReject(deposit._id, rejectReason)}
                   disabled={!rejectReason.trim() || isLoading}
-                  className="px-4 py-2 rounded-lg flex-1 disabled:opacity-50"
-                  style={{ backgroundColor: 'var(--danger)', color: 'white' }}
+                  className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    backgroundColor: 'var(--danger)',
+                    color: 'var(--text-inverse)',
+                  }}
                 >
                   Confirm Reject
                 </button>

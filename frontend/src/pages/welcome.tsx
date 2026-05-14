@@ -1,5 +1,5 @@
 // pages/welcome.tsx
-// ── BaneTrading — Post-login animated welcome screen ──
+// ── BigOneTrading — Post-login animated welcome screen ──
 
 import Head from 'next/head';
 import Link from 'next/link';
@@ -15,7 +15,7 @@ import { useResponsive } from '@/hooks/useResponsive';
 import { WelcomeAnimation } from '@/components/landing/WelcomeAnimation';
 import { WelcomeStats } from '@/components/landing/WelcomeStats';
 
-const BRAND = 'BaneTrading';
+const BRAND = 'BigOneTrading';
 const AUTO_REDIRECT_SECONDS = 8;
 
 // ── Quick-action cards ──
@@ -169,7 +169,7 @@ function WelcomePage(): JSX.Element {
     <>
       <Head>
         <title>Welcome · {BRAND}</title>
-        <meta name="description" content="Welcome to BaneTrading — your account is ready." />
+        <meta name="description" content="Welcome to BigOneTrading — your account is ready." />
       </Head>
 
       <div

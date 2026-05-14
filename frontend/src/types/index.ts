@@ -3,7 +3,27 @@
 // For admin module, use the specific type files directly.
 
 // ── Re-export from modular types ──
-export type { User, UserRole, KycStatus, LoginResponse } from './auth';
+export type { 
+  User, 
+  UserRole, 
+  KycStatus, 
+  LoginResponse, 
+  LoginPayload,
+  RegisterPayload,
+  RegisterResponse,
+  VerifyOtpPayload,
+  VerifyOtpResponse,
+  ResendOtpPayload,
+  ForgotPasswordPayload,
+  VerifyResetOtpPayload,
+  VerifyResetOtpResponse,
+  ResetPasswordPayload,
+  RefreshPayload,
+  RefreshResponse,
+  MessageResponse,
+  ProfileResponse,
+  GoogleAuthPayload,
+} from './auth';
 
 // ── Admin Stats (defined here since it's a composite type) ──
 export interface AdminStats {

@@ -1,7 +1,9 @@
 // pages/markets/forex/[symbol]/index.tsx
-// ── FOREX/METALS DETAIL PAGE — Professional layout ──
+// ── FOREX/METALS DETAIL PAGE ──
+// FIX: Hardcoded hex chart colors (lightweight-charts v5 cannot parse CSS vars)
+// FIX: 3 timeframes only: 1h/4h/1d
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { AuthenticatedShell } from '@/components/layout/AuthenticatedShell';
@@ -19,6 +21,26 @@ import type { Timeframe } from '@/types/markets';
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'NebaTrade';
 
+// ⚠️ HARDCODED hex — lightweight-charts v5 cannot parse CSS variables
+const CHART_COLORS = {
+  dark: {
+    bg: 'transparent', text: '#848E9C', grid: 'rgba(255,255,255,0.06)',
+    border: '#2B3139', up: '#0ECB81', down: '#F6465D', lblBg: '#2B3139',
+    volUp: 'rgba(14,203,129,0.25)', volDown: 'rgba(246,70,93,0.25)',
+  },
+  light: {
+    bg: 'transparent', text: '#474D57', grid: 'rgba(0,0,0,0.06)',
+    border: '#E0E3EB', up: '#0ECB81', down: '#F6465D', lblBg: '#E0E3EB',
+    volUp: 'rgba(14,203,129,0.25)', volDown: 'rgba(246,70,93,0.25)',
+  },
+};
+
+function getThemeColors() {
+  if (typeof document === 'undefined') return CHART_COLORS.dark;
+  return document.documentElement.getAttribute('data-theme') === 'light'
+    ? CHART_COLORS.light : CHART_COLORS.dark;
+}
+
 function ForexDetailPage(): JSX.Element {
   const router = useRouter();
   const { isMobile } = useResponsive();
@@ -32,7 +54,6 @@ function ForexDetailPage(): JSX.Element {
   const [timeframe, setTimeframe] = useState<Timeframe>('1h');
   const { candles, isLoading: chartLoading, error: chartError, refetch: chartRefetch } = useOhlc(symbol, timeframe, 300);
 
-  // Wait for router
   if (!router.isReady) {
     return (
       <AuthenticatedShell>
@@ -43,7 +64,6 @@ function ForexDetailPage(): JSX.Element {
     );
   }
 
-  // Invalid symbol
   if (!symbol || !isValid) {
     return (
       <>
@@ -56,18 +76,8 @@ function ForexDetailPage(): JSX.Element {
             <h2 className="text-xl font-bold text-[var(--text-primary)]">Market Not Found</h2>
             <p className="text-sm text-[var(--text-muted)]">&ldquo;{symbol || rawSymbol}&rdquo; is not a supported pair.</p>
             <div className="flex gap-3">
-              <button
-                onClick={() => router.push('/markets/forex')}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity"
-              >
-                Forex & Metals
-              </button>
-              <button
-                onClick={() => router.push('/markets/crypto')}
-                className="px-4 py-2 rounded-lg text-sm font-medium border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)] transition-colors"
-              >
-                Crypto Markets
-              </button>
+              <button onClick={() => router.push('/markets/forex')} className="px-4 py-2 rounded-lg text-sm font-medium bg-[var(--accent)] text-white hover:opacity-90">Forex & Metals</button>
+              <button onClick={() => router.push('/markets/crypto')} className="px-4 py-2 rounded-lg text-sm font-medium border border-[var(--border)] text-[var(--text-secondary)] hover:bg-[var(--hover-bg)]">Crypto Markets</button>
             </div>
           </div>
         </AuthenticatedShell>
@@ -79,10 +89,10 @@ function ForexDetailPage(): JSX.Element {
   const detailRow = row
     ? {
         ...row,
-        display: meta.display,
+        display:  meta.display,
         decimals: meta.decimals,
-        name: meta.name,
-        class: symbol.startsWith('XA') ? 'metals' as const : 'forex' as const,
+        name:     meta.name,
+        class:    symbol.startsWith('XA') ? 'metals' as const : 'forex' as const,
       }
     : null;
 
@@ -93,7 +103,7 @@ function ForexDetailPage(): JSX.Element {
       <Head><title>{title}</title></Head>
       <AuthenticatedShell>
         <div className="flex flex-col gap-4">
-          {/* ── Back Link ── */}
+          {/* Back Link */}
           <button
             onClick={() => router.push('/markets/forex')}
             className="inline-flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors w-fit"
@@ -104,23 +114,15 @@ function ForexDetailPage(): JSX.Element {
             Back to Forex & Metals
           </button>
 
-          {/* ── Loading ── */}
           {isLoading && <DetailSkeleton />}
 
-          {/* ── Error ── */}
           {error && !isLoading && (
             <div className="flex flex-col items-center gap-3 py-16 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)]">
-              <svg className="w-12 h-12 text-[var(--text-muted)]/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
               <p className="text-sm text-[var(--text-muted)]">{error}</p>
-              <button onClick={() => refetch()} className="px-4 py-2 rounded-lg text-sm font-medium bg-[var(--accent)] text-white hover:opacity-90">
-                Retry
-              </button>
+              <button onClick={() => refetch()} className="px-4 py-2 rounded-lg text-sm font-medium bg-[var(--accent)] text-white hover:opacity-90">Retry</button>
             </div>
           )}
 
-          {/* ── Content ── */}
           {detailRow && !isLoading && (
             <>
               <ForexSummaryCard row={detailRow as any} />
@@ -135,11 +137,10 @@ function ForexDetailPage(): JSX.Element {
                 toolbar={<ForexTimeframeSelector active={timeframe} onChange={setTimeframe} />}
               >
                 {candles.length > 0 && (
-                  <ChartInner candles={candles} symbol={symbol} />
+                  <ForexChartInner candles={candles} symbol={symbol} />
                 )}
               </ChartContainer>
 
-              {/* About */}
               {description && (
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 sm:p-6">
                   <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">About {meta.name}</h3>
@@ -147,7 +148,6 @@ function ForexDetailPage(): JSX.Element {
                 </div>
               )}
 
-              {/* Trade CTA */}
               <div className="flex justify-center">
                 <button
                   onClick={() => router.push(`/trade?symbol=${symbol}`)}
@@ -164,40 +164,78 @@ function ForexDetailPage(): JSX.Element {
   );
 }
 
-function ChartInner({ candles, symbol }: { candles: any[]; symbol: string }) {
+// ⚠️ HARDCODED hex — lightweight-charts v5 cannot parse CSS variables
+function ForexChartInner({ candles, symbol }: { candles: any[]; symbol: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef     = useRef<any>(null);
+  const seriesRef    = useRef<any>(null);
+  const mountedRef   = useRef(true);
+  const CHART_H      = 460;
 
   useEffect(() => {
+    mountedRef.current = true;
     const container = containerRef.current;
     if (!container) return;
 
-    import('lightweight-charts').then(({ createChart, ColorType }) => {
-      const chart = createChart(container, {
-        width: container.clientWidth,
-        height: 460,
-        // ⚠️ Hardcoded hex — lightweight-charts v5 cannot parse CSS variables
-        layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#848E9C' },
-        grid: { vertLines: { color: 'rgba(255,255,255,0.06)' }, horzLines: { color: 'rgba(255,255,255,0.06)' } },
-        timeScale: { borderColor: '#2B3139', timeVisible: true },
-        rightPriceScale: { borderColor: '#2B3139' },
+    let chart: any = null;
+    let ro: ResizeObserver | null = null;
+    const c = getThemeColors();
+
+    import('lightweight-charts').then(({ createChart, ColorType, CrosshairMode }) => {
+      if (!mountedRef.current || !container) return;
+
+      chart = createChart(container, {
+        width:  container.clientWidth || 600,
+        height: CHART_H,
+        layout: { background: { type: ColorType.Solid, color: c.bg }, textColor: c.text },
+        grid:   { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: { color: c.border, labelBackgroundColor: c.lblBg },
+          horzLine: { color: c.border, labelBackgroundColor: c.lblBg },
+        },
+        timeScale:       { borderColor: c.border, timeVisible: true, secondsVisible: false },
+        rightPriceScale: { borderColor: c.border },
+        handleScroll: true,
+        handleScale:  true,
       });
 
       const series = chart.addCandlestickSeries({
-        upColor: '#0ECB81', downColor: '#F6465D',
-        borderUpColor: '#0ECB81', borderDownColor: '#F6465D',
-        wickUpColor: '#0ECB81', wickDownColor: '#F6465D',
+        upColor: c.up, downColor: c.down,
+        borderUpColor: c.up, borderDownColor: c.down,
+        wickUpColor: c.up, wickDownColor: c.down,
       });
 
-      series.setData(candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })));
-      chart.timeScale().fitContent();
+      if (candles?.length) {
+        series.setData(candles.map((k) => ({ time: k.time, open: k.open, high: k.high, low: k.low, close: k.close })));
+        chart.timeScale().fitContent();
+      }
 
-      const ro = new ResizeObserver(() => chart.applyOptions({ width: container.clientWidth }));
+      chartRef.current  = chart;
+      seriesRef.current = series;
+
+      ro = new ResizeObserver(() => { if (container && chart) chart.applyOptions({ width: container.clientWidth }); });
       ro.observe(container);
-      return () => { ro.disconnect(); chart.remove(); };
-    });
+    }).catch(e => console.error('[ForexChart] init error:', e));
+
+    return () => {
+      mountedRef.current = false;
+      ro?.disconnect();
+      if (chart) { try { chart.remove(); } catch {} }
+      chartRef.current = null; seriesRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [symbol]);
+
+  useEffect(() => {
+    if (!candles?.length || !seriesRef.current) return;
+    try {
+      seriesRef.current.setData(candles.map((k) => ({ time: k.time, open: k.open, high: k.high, low: k.low, close: k.close })));
+      chartRef.current?.timeScale().fitContent();
+    } catch {}
   }, [candles]);
 
-  return <div ref={containerRef} style={{ width: '100%', height: 460 }} />;
+  return <div ref={containerRef} style={{ width: '100%', height: CHART_H }} />;
 }
 
 function DetailSkeleton() {

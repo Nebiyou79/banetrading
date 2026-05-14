@@ -1,7 +1,7 @@
 // pages/history/index.tsx
 // ── HISTORY PAGE ──
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 
@@ -31,17 +31,38 @@ function HistoryPage(): JSX.Element {
   const [from, setFrom] = useState((router.query.from as string) || '');
   const [to, setTo] = useState((router.query.to as string) || '');
 
+  // FIX: Always fetch 'all' types, then filter client-side
   const { items, isLoading, hasMore, loadMore, isLoadingMore, error, refetch } = useHistory({
-    type: tab,
+    type: 'all', // Changed from tab to 'all'
     status: status || undefined,
     from: from || undefined,
     to: to || undefined,
   });
 
+  // FIX: Filter items client-side based on active tab
+  const filteredItems = useMemo(() => {
+    if (tab === 'all') {
+      return items;
+    }
+    return items.filter(item => item.type === tab);
+  }, [items, tab]);
+
+  // Debug logs
+  console.log('Tab:', tab);
+  console.log('Total items:', items.length);
+  console.log('Filtered items:', filteredItems.length);
+  console.log('Items by type:', {
+    trade: items.filter(i => i.type === 'trade').length,
+    deposit: items.filter(i => i.type === 'deposit').length,
+    withdrawal: items.filter(i => i.type === 'withdrawal').length,
+    conversion: items.filter(i => i.type === 'conversion').length,
+  });
+
   const handleTabChange = useCallback((newTab: HistoryItemType) => {
     setTab(newTab);
-    router.push({ query: { tab: newTab } }, undefined, { shallow: true });
-  }, [router]);
+    // Only update URL, don't re-fetch
+    router.push({ query: { tab: newTab, status, from, to } }, undefined, { shallow: true });
+  }, [router, status, from, to]);
 
   const handleReset = () => {
     setStatus('');
@@ -51,17 +72,22 @@ function HistoryPage(): JSX.Element {
   };
 
   const renderTable = () => {
+    // Use filteredItems instead of items
+    if (filteredItems.length === 0) {
+      return <HistoryEmptyState type={tab} />;
+    }
+
     switch (tab) {
       case 'trade':
-        return <TradesHistoryTable items={items as any} isLoading={isLoading} />;
+        return <TradesHistoryTable items={filteredItems as any} isLoading={isLoading} />;
       case 'deposit':
-        return <DepositsHistoryTable items={items as any} isLoading={isLoading} />;
+        return <DepositsHistoryTable items={filteredItems as any} isLoading={isLoading} />;
       case 'withdrawal':
-        return <WithdrawalsHistoryTable items={items as any} isLoading={isLoading} />;
+        return <WithdrawalsHistoryTable items={filteredItems as any} isLoading={isLoading} />;
       case 'conversion':
-        return <ConversionsHistoryTable items={items as any} isLoading={isLoading} />;
+        return <ConversionsHistoryTable items={filteredItems as any} isLoading={isLoading} />;
       default:
-        return null;
+        return <HistoryEmptyState type="all" />;
     }
   };
 
@@ -97,12 +123,12 @@ function HistoryPage(): JSX.Element {
             </div>
           )}
 
-          {!isLoading && items.length === 0 ? (
+          {!isLoading && filteredItems.length === 0 ? (
             <HistoryEmptyState type={tab} />
           ) : (
             <>
               {renderTable()}
-              {hasMore && (
+              {hasMore && tab === 'all' && (
                 <div className="flex justify-center">
                   <button
                     onClick={loadMore}

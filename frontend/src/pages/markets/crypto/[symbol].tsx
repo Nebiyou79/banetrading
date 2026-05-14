@@ -1,5 +1,8 @@
 // pages/markets/crypto/[symbol]/index.tsx
-// ── CRYPTO COIN DETAIL PAGE — Professional layout ──
+// ── CRYPTO COIN DETAIL PAGE ──
+// FIX: Symbol routing accepts both BTC and BTCUSDT formats
+// FIX: Hardcoded hex chart colors (lightweight-charts v5 cannot parse CSS vars)
+// FIX: 3 timeframes only: 15m/1h/4h
 
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
@@ -22,20 +25,52 @@ import TimeframeSelector from '@/components/crypto/TimeframeSelector';
 
 const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'NebaTrade';
 
+// ⚠️ HARDCODED hex colors — lightweight-charts v5 CANNOT parse CSS variables
+const CHART_COLORS = {
+  dark: {
+    bg: 'transparent', text: '#848E9C', grid: 'rgba(255,255,255,0.06)',
+    border: '#2B3139', up: '#0ECB81', down: '#F6465D', lblBg: '#2B3139',
+    volUp: 'rgba(14,203,129,0.25)', volDown: 'rgba(246,70,93,0.25)',
+  },
+  light: {
+    bg: 'transparent', text: '#474D57', grid: 'rgba(0,0,0,0.06)',
+    border: '#E0E3EB', up: '#0ECB81', down: '#F6465D', lblBg: '#E0E3EB',
+    volUp: 'rgba(14,203,129,0.25)', volDown: 'rgba(246,70,93,0.25)',
+  },
+};
+
+function getThemeColors() {
+  if (typeof document === 'undefined') return CHART_COLORS.dark;
+  return document.documentElement.getAttribute('data-theme') === 'light'
+    ? CHART_COLORS.light : CHART_COLORS.dark;
+}
+
+// Normalize symbol: accepts BTC or BTCUSDT, always return bare symbol (BTC)
+function normalizeSymbol(raw: string): string {
+  if (!raw) return '';
+  const upper = raw.toUpperCase();
+  // If it ends with USDT, strip it for lookup (but keep original for trade link)
+  return upper.endsWith('USDT') ? upper.slice(0, -4) : upper;
+}
+
 function CoinDetailPage(): JSX.Element {
   const router = useRouter();
   const { isMobile } = useResponsive();
 
   const { symbol: rawSymbol } = router.query;
-  const symbol = typeof rawSymbol === 'string' ? rawSymbol.toUpperCase() : '';
+  const rawStr = typeof rawSymbol === 'string' ? rawSymbol : '';
+  const symbol = normalizeSymbol(rawStr); // BTC, ETH, etc.
   const isValid = TIER_1_SYMBOLS.has(symbol);
 
+  // For API calls we need the bare symbol; hooks will append USDT as needed
   const { row, isLoading, error, refetch } = useCoin(isValid ? symbol : '');
   const [timeframe, setTimeframe] = useState<Timeframe>('1h');
-  const { candles, isLoading: chartLoading, error: chartError, refetch: chartRefetch } = useOhlc(symbol, timeframe, 500);
-  const wsPrice = useMarketStore((s) => s.prices[symbol]);
 
-  // Wait for router
+  // Pass symbol with USDT for OHLC (backend expects BTCUSDT format)
+  const ohlcSymbol = isValid ? `${symbol}USDT` : '';
+  const { candles, isLoading: chartLoading, error: chartError, refetch: chartRefetch } = useOhlc(ohlcSymbol, timeframe, 300);
+  const wsPrice = useMarketStore((s) => s.prices[`${symbol}USDT`] ?? s.prices[symbol]);
+
   if (!router.isReady) {
     return (
       <AuthenticatedShell>
@@ -46,7 +81,6 @@ function CoinDetailPage(): JSX.Element {
     );
   }
 
-  // Invalid symbol
   if (!symbol || !isValid) {
     return (
       <>
@@ -57,7 +91,7 @@ function CoinDetailPage(): JSX.Element {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <h2 className="text-xl font-bold text-[var(--text-primary)]">Coin Not Found</h2>
-            <p className="text-sm text-[var(--text-muted)]">&ldquo;{symbol || rawSymbol}&rdquo; is not a supported coin.</p>
+            <p className="text-sm text-[var(--text-muted)]">&ldquo;{rawStr}&rdquo; is not a supported coin.</p>
             <button onClick={() => router.push('/markets/crypto')} className="px-4 py-2 rounded-lg text-sm font-medium bg-[var(--accent)] text-white hover:opacity-90 transition-opacity">
               Back to Crypto Markets
             </button>
@@ -68,7 +102,7 @@ function CoinDetailPage(): JSX.Element {
   }
 
   const description = coinDescriptions[symbol];
-  const title = row ? `${row.name} (${row.symbol}) · ${BRAND}` : `${symbol} · ${BRAND}`;
+  const title = row ? `${row.name} (${symbol}) · ${BRAND}` : `${symbol} · ${BRAND}`;
   const displayPrice = wsPrice ?? row?.price ?? null;
 
   return (
@@ -76,7 +110,7 @@ function CoinDetailPage(): JSX.Element {
       <Head><title>{title}</title></Head>
       <AuthenticatedShell>
         <div className="flex flex-col gap-4">
-          {/* ── Back Link ── */}
+          {/* Back Link */}
           <button
             onClick={() => router.push('/markets/crypto')}
             className="inline-flex items-center gap-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors w-fit"
@@ -87,34 +121,26 @@ function CoinDetailPage(): JSX.Element {
             Back to Crypto Markets
           </button>
 
-          {/* ── Loading ── */}
           {isLoading && <DetailSkeleton />}
 
-          {/* ── Error ── */}
           {error && !isLoading && (
             <div className="flex flex-col items-center gap-3 py-16 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)]">
-              <svg className="w-12 h-12 text-[var(--text-muted)]/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
               <p className="text-sm text-[var(--text-muted)]">{error}</p>
-              <button onClick={() => refetch()} className="px-4 py-2 rounded-lg text-sm font-medium bg-[var(--accent)] text-white hover:opacity-90">
-                Retry
-              </button>
+              <button onClick={() => refetch()} className="px-4 py-2 rounded-lg text-sm font-medium bg-[var(--accent)] text-white hover:opacity-90">Retry</button>
             </div>
           )}
 
-          {/* ── Content ── */}
           {row && !isLoading && (
             <>
               {/* Summary Card */}
               <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 sm:p-6">
                 <div className={`flex ${isMobile ? 'flex-col gap-4' : 'flex-row items-center justify-between'}`}>
                   <div className="flex items-center gap-4">
-                    <CoinIcon iconUrl={(row as any).iconUrl} symbol={row.symbol} size={48} />
+                    <CoinIcon iconUrl={(row as any).iconUrl} symbol={symbol} size={48} />
                     <div>
                       <div className="flex items-center gap-2">
                         <h2 className="text-xl font-bold text-[var(--text-primary)]">{row.name}</h2>
-                        <span className="text-sm text-[var(--text-muted)] tabular">{row.symbol}</span>
+                        <span className="text-sm text-[var(--text-muted)] tabular">{symbol}</span>
                       </div>
                       <div className="flex items-center gap-3 mt-1">
                         <CryptoPriceCell value={displayPrice} className="text-3xl sm:text-4xl font-bold tracking-tight" />
@@ -123,7 +149,7 @@ function CoinDetailPage(): JSX.Element {
                     </div>
                   </div>
                   <button
-                    onClick={() => router.push(`/trade?symbol=${row.symbol}`)}
+                    onClick={() => router.push(`/trade?symbol=${symbol}USDT`)}
                     className={`px-6 py-3 rounded-xl font-semibold text-base bg-[var(--accent)] text-white hover:opacity-90 active:scale-[0.98] transition-all duration-150 ${isMobile ? 'w-full' : 'shrink-0'}`}
                   >
                     Trade Now
@@ -131,7 +157,6 @@ function CoinDetailPage(): JSX.Element {
                 </div>
               </div>
 
-              {/* Stats Row */}
               <CoinStatsRow row={{ ...row, price: displayPrice }} />
 
               {/* Chart */}
@@ -143,11 +168,10 @@ function CoinDetailPage(): JSX.Element {
                 toolbar={<TimeframeSelector active={timeframe} onChange={setTimeframe} />}
               >
                 {candles.length > 0 && (
-                  <CoinChartInner candles={candles} wsPrice={wsPrice} symbol={symbol} />
+                  <CoinChartInner candles={candles} wsPrice={wsPrice ?? null} symbol={symbol} />
                 )}
               </ChartContainer>
 
-              {/* About */}
               {description && (
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 sm:p-6">
                   <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">About {row.name}</h3>
@@ -155,10 +179,9 @@ function CoinDetailPage(): JSX.Element {
                 </div>
               )}
 
-              {/* Trade CTA */}
               <div className="flex justify-center">
                 <button
-                  onClick={() => router.push(`/trade?symbol=${symbol}`)}
+                  onClick={() => router.push(`/trade?symbol=${symbol}USDT`)}
                   className="px-8 py-3 rounded-xl font-semibold bg-[var(--accent)] text-white hover:opacity-90 active:scale-[0.98] transition-all duration-150"
                 >
                   Trade {symbol}
@@ -172,81 +195,108 @@ function CoinDetailPage(): JSX.Element {
   );
 }
 
-// ⚠️ HARDCODED hex colors — lightweight-charts v5 CANNOT parse CSS variables
-const CHART_THEME = {
-  dark:  { bg: 'transparent', text: '#848E9C', grid: 'rgba(255,255,255,0.06)', border: '#2B3139', up: '#0ECB81', down: '#F6465D', lblBg: '#2B3139' },
-  light: { bg: 'transparent', text: '#474D57', grid: 'rgba(0,0,0,0.06)',       border: '#E0E3EB', up: '#0ECB81', down: '#F6465D', lblBg: '#E0E3EB' },
-};
-
-// Inner chart component — hardcoded colors only, NO CSS variables
-function CoinChartInner({ candles, wsPrice, symbol, theme = 'dark' }: { candles: any[]; wsPrice: number | null; symbol: string; theme?: 'dark' | 'light' }) {
+// ⚠️ HARDCODED hex — lightweight-charts v5 cannot parse CSS variables
+function CoinChartInner({
+  candles,
+  wsPrice,
+  symbol,
+}: {
+  candles: any[];
+  wsPrice: number | null;
+  symbol: string;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const seriesRef = useRef<any>(null);
-  const mountedRef = useRef(true);
+  const chartRef     = useRef<any>(null);
+  const seriesRef    = useRef<any>(null);
+  const volRef       = useRef<any>(null);
+  const mountedRef   = useRef(true);
+  const CHART_H      = 460;
 
   useEffect(() => {
     mountedRef.current = true;
     const container = containerRef.current;
     if (!container) return;
-    const c = CHART_THEME[theme] || CHART_THEME.dark;
+
     let chart: any = null;
     let ro: ResizeObserver | null = null;
+    const c = getThemeColors();
 
     import('lightweight-charts').then(({ createChart, ColorType, CrosshairMode }) => {
       if (!mountedRef.current || !container) return;
+
       chart = createChart(container, {
         width:  container.clientWidth || 600,
-        height: 460,
+        height: CHART_H,
         layout: { background: { type: ColorType.Solid, color: c.bg }, textColor: c.text },
         grid:   { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-        crosshair: { mode: CrosshairMode.Normal, vertLine: { color: c.border, labelBackgroundColor: c.lblBg }, horzLine: { color: c.border, labelBackgroundColor: c.lblBg } },
-        timeScale: { borderColor: c.border, timeVisible: true, secondsVisible: false },
-        rightPriceScale: { borderColor: c.border },
-        handleScroll: true,
-        handleScale:  true,
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: { color: c.border, labelBackgroundColor: c.lblBg },
+          horzLine: { color: c.border, labelBackgroundColor: c.lblBg },
+        },
+        timeScale:       { borderColor: c.border, timeVisible: true, secondsVisible: false },
+        rightPriceScale: { borderColor: c.border, scaleMargins: { top: 0.08, bottom: 0.18 } },
       });
+
       const series = chart.addCandlestickSeries({
         upColor: c.up, downColor: c.down,
         borderUpColor: c.up, borderDownColor: c.down,
         wickUpColor: c.up, wickDownColor: c.down,
       });
+
+      const vol = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'vol' });
+      vol.priceScale().applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+
       if (candles?.length) {
         series.setData(candles.map((k) => ({ time: k.time, open: k.open, high: k.high, low: k.low, close: k.close })));
+        vol.setData(candles.map((k) => ({ time: k.time, value: k.volume ?? 0, color: k.close >= k.open ? c.volUp : c.volDown })));
         chart.timeScale().fitContent();
       }
+
       chartRef.current  = chart;
       seriesRef.current = series;
+      volRef.current    = vol;
+
       ro = new ResizeObserver(() => { if (container && chart) chart.applyOptions({ width: container.clientWidth }); });
       ro.observe(container);
-    }).catch(e => console.error('[CoinChartInner] init error:', e));
+    }).catch(e => console.error('[CoinChart] init error:', e));
 
     return () => {
       mountedRef.current = false;
       ro?.disconnect();
       if (chart) { try { chart.remove(); } catch {} }
-      chartRef.current = null; seriesRef.current = null;
+      chartRef.current = null; seriesRef.current = null; volRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [theme]);
+  }, [symbol]);
 
+  // Update candles
   useEffect(() => {
     if (!candles?.length || !seriesRef.current) return;
+    const c = getThemeColors();
     try {
       seriesRef.current.setData(candles.map((k) => ({ time: k.time, open: k.open, high: k.high, low: k.low, close: k.close })));
+      volRef.current?.setData(candles.map((k) => ({ time: k.time, value: k.volume ?? 0, color: k.close >= k.open ? c.volUp : c.volDown })));
       chartRef.current?.timeScale().fitContent();
-    } catch (e) { console.warn('[CoinChartInner] setData:', e); }
+    } catch {}
   }, [candles]);
 
+  // Update last candle with WS price
   useEffect(() => {
     if (!wsPrice || !seriesRef.current || !candles?.length) return;
     const last = candles[candles.length - 1];
     try {
-      seriesRef.current.update({ time: last.time, open: last.open, close: wsPrice, high: Math.max(last.high, wsPrice), low: Math.min(last.low, wsPrice) });
-    } catch { /* stale ref */ }
+      seriesRef.current.update({
+        time:  last.time,
+        open:  last.open,
+        high:  Math.max(last.high, wsPrice),
+        low:   Math.min(last.low, wsPrice),
+        close: wsPrice,
+      });
+    } catch {}
   }, [wsPrice, candles]);
 
-  return <div ref={containerRef} style={{ width: '100%', height: 460 }} />;
+  return <div ref={containerRef} style={{ width: '100%', height: CHART_H }} />;
 }
 
 function DetailSkeleton() {

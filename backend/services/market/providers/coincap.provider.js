@@ -1,6 +1,7 @@
 // services/market/providers/coincap.provider.js
 // ── COINCAP PROVIDER (free, no key, 200 req/min) ──
-// FIXED: All fetch() calls wrapped in try/catch with descriptive errors.
+// BUG 1 FIX: All errors logged as console.warn not console.error.
+// BUG 1 FIX: Shorter per-request timeout to fail fast for aggregator bail-out.
 
 const { BaseProvider } = require('./base.provider');
 
@@ -33,8 +34,9 @@ class CoinCapProvider extends BaseProvider {
       name:      'coincap',
       priority:  2,
       baseUrl:   'https://api.coincap.io/v2',
+      // BUG 1 FIX: Reduced timeout so failures are detected quickly
       rateLimit: { requests: 200, windowMs: 60000 },
-      timeout:   5000,
+      timeout:   4000,
     };
   }
 
@@ -43,6 +45,8 @@ class CoinCapProvider extends BaseProvider {
     try {
       res = await this.timeout(fetch(`${this.config.baseUrl}/assets?limit=100`), this.config.timeout);
     } catch (err) {
+      // BUG 1 FIX: warn not error
+      console.warn(`[CoinCap] fetchMarkets failed: ${err.message}`);
       throw new Error(`CoinCap fetch failed: ${err.message}`);
     }
     if (!res.ok) throw new Error(`CoinCap HTTP ${res.status}`);
@@ -77,6 +81,8 @@ class CoinCapProvider extends BaseProvider {
     try {
       res = await this.timeout(fetch(`${this.config.baseUrl}/assets/${coincapId}`), this.config.timeout);
     } catch (err) {
+      // BUG 1 FIX: warn not error
+      console.warn(`[CoinCap] fetchPrice failed for ${symbol}: ${err.message}`);
       throw new Error(`CoinCap fetch failed for ${symbol}: ${err.message}`);
     }
     if (!res.ok) throw new Error(`CoinCap HTTP ${res.status}`);
@@ -115,6 +121,8 @@ class CoinCapProvider extends BaseProvider {
     try {
       res = await this.timeout(fetch(url), this.config.timeout);
     } catch (err) {
+      // BUG 1 FIX: warn not error
+      console.warn(`[CoinCap] fetchCandles failed for ${symbol}/${interval}: ${err.message}`);
       throw new Error(`CoinCap candles fetch failed for ${symbol}: ${err.message}`);
     }
     if (!res.ok) throw new Error(`CoinCap candles HTTP ${res.status}`);

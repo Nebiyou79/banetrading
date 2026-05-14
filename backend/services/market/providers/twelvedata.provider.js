@@ -1,17 +1,17 @@
 // services/market/providers/twelvedata.provider.js
-// ── TWELVE DATA PROVIDER (forex ONLY — not metals) ──
-// FIXED: Removed metals (XAUUSD/XAGUSD) support — free tier doesn't include them.
-// Added rate limit tracker — max 8 req/min on free tier.
+// ── TWELVE DATA PROVIDER (forex + XAUUSD metals) ──
+// FIX: XAUUSD IS supported on free tier. Only XAGUSD is not.
+// FIX: On first 429, blacklist immediately for 60s (no retries).
 
 const { BaseProvider } = require('./base.provider');
 
-// Metals are NOT supported on TwelveData free tier
-const UNSUPPORTED_SYMBOLS = new Set(['XAUUSD', 'XAGUSD']);
+// Only XAGUSD is unsupported on TwelveData free tier. XAUUSD works fine.
+const UNSUPPORTED_SYMBOLS = new Set(['XAGUSD']);
 
-// ── Simple rate limiter: max 8 requests per 60s ──
-const TD_RATE_LIMIT   = 8;
-const TD_WINDOW_MS    = 60_000;
-const tdTimestamps    = [];
+// Tight rate limit — max 8 req/min on free tier
+const TD_RATE_LIMIT = 8;
+const TD_WINDOW_MS  = 60_000;
+const tdTimestamps  = [];
 
 function tdCanRequest() {
   const now = Date.now();
@@ -25,12 +25,24 @@ function tdRecordRequest() {
   tdTimestamps.push(Date.now());
 }
 
+const PROVIDER_NAME = 'twelvedata';
+let blacklistedUntil = 0;
+
+function isBlacklisted() {
+  return Date.now() < blacklistedUntil;
+}
+
+function blacklistFor60s() {
+  blacklistedUntil = Date.now() + 60_000;
+  console.warn(`[TwelveData] Rate limited — blacklisting for 60s`);
+}
+
 class TwelveDataProvider extends BaseProvider {
-  get name() { return 'twelvedata'; }
+  get name() { return PROVIDER_NAME; }
 
   get config() {
     return {
-      name:      'twelvedata',
+      name:      PROVIDER_NAME,
       priority:  1,
       baseUrl:   'https://api.twelvedata.com',
       rateLimit: { requests: 8, windowMs: 60000 },
@@ -40,10 +52,9 @@ class TwelveDataProvider extends BaseProvider {
 
   get apiKey() { return process.env.TWELVEDATA_API_KEY || ''; }
 
-  /** Returns true if the symbol is supported (forex only, not metals) */
   supportsSymbol(symbol) {
     if (UNSUPPORTED_SYMBOLS.has(symbol.toUpperCase())) return false;
-    if (!this.apiKey) return false; // skip entirely if no API key
+    if (!this.apiKey) return false;
     return true;
   }
 
@@ -51,12 +62,16 @@ class TwelveDataProvider extends BaseProvider {
     if (!this.supportsSymbol(symbol)) {
       throw new Error(`TwelveData: ${symbol} not supported on free tier`);
     }
+    if (isBlacklisted()) {
+      throw new Error(`TwelveData: Blacklisted until rate limit resets`);
+    }
     if (!tdCanRequest()) {
-      throw new Error(`TwelveData: Rate limit reached (${TD_RATE_LIMIT} req/min)`);
+      blacklistFor60s();
+      throw new Error(`TwelveData: Rate limit reached — blacklisted for 60s`);
     }
 
     const tdSymbol = symbol.length === 6 ? `${symbol.slice(0, 3)}/${symbol.slice(3)}` : symbol;
-    const url      = `${this.config.baseUrl}/quote?symbol=${tdSymbol}&apikey=${this.apiKey}`;
+    const url = `${this.config.baseUrl}/quote?symbol=${tdSymbol}&apikey=${this.apiKey}`;
 
     let res;
     try {
@@ -64,10 +79,20 @@ class TwelveDataProvider extends BaseProvider {
     } catch (err) {
       throw new Error(`TwelveData fetch failed: ${err.message}`);
     }
+
     tdRecordRequest();
+
+    if (res.status === 429) {
+      blacklistFor60s();
+      throw new Error(`TwelveData: 429 rate limited — blacklisted for 60s`);
+    }
     if (!res.ok) throw new Error(`TwelveData HTTP ${res.status}`);
+
     const data = await res.json();
-    if (data.status === 'error') throw new Error(`TwelveData: ${data.message}`);
+    if (data.status === 'error') {
+      if (data.code === 429) blacklistFor60s();
+      throw new Error(`TwelveData: ${data.message}`);
+    }
 
     return {
       symbol,
@@ -85,8 +110,12 @@ class TwelveDataProvider extends BaseProvider {
     if (!this.supportsSymbol(symbol)) {
       throw new Error(`TwelveData: ${symbol} not supported on free tier`);
     }
+    if (isBlacklisted()) {
+      throw new Error(`TwelveData: Blacklisted until rate limit resets`);
+    }
     if (!tdCanRequest()) {
-      throw new Error(`TwelveData: Rate limit reached (${TD_RATE_LIMIT} req/min)`);
+      blacklistFor60s();
+      throw new Error(`TwelveData: Rate limit reached — blacklisted for 60s`);
     }
 
     const tdSymbol    = symbol.length === 6 ? `${symbol.slice(0, 3)}/${symbol.slice(3)}` : symbol;
@@ -95,7 +124,7 @@ class TwelveDataProvider extends BaseProvider {
       '1h':'1h','4h':'4h','1d':'1day','1w':'1week',
     };
     const tdInterval = intervalMap[interval] || '1h';
-    const url        = `${this.config.baseUrl}/time_series?symbol=${tdSymbol}&interval=${tdInterval}&outputsize=${limit}&apikey=${this.apiKey}`;
+    const url = `${this.config.baseUrl}/time_series?symbol=${tdSymbol}&interval=${tdInterval}&outputsize=${limit}&apikey=${this.apiKey}`;
 
     let res;
     try {
@@ -103,10 +132,20 @@ class TwelveDataProvider extends BaseProvider {
     } catch (err) {
       throw new Error(`TwelveData candles fetch failed: ${err.message}`);
     }
+
     tdRecordRequest();
+
+    if (res.status === 429) {
+      blacklistFor60s();
+      throw new Error(`TwelveData: 429 rate limited — blacklisted for 60s`);
+    }
     if (!res.ok) throw new Error(`TwelveData HTTP ${res.status}`);
+
     const data = await res.json();
-    if (data.status === 'error') throw new Error(`TwelveData: ${data.message}`);
+    if (data.status === 'error') {
+      if (data.code === 429) blacklistFor60s();
+      throw new Error(`TwelveData: ${data.message}`);
+    }
 
     const values = data.values || [];
     return values.reverse().map(v => ({
@@ -116,13 +155,13 @@ class TwelveDataProvider extends BaseProvider {
       low:    parseFloat(v.low) || 0,
       close:  parseFloat(v.close) || 0,
       volume: 0,
-    }));
+    })).filter(c => c.time > 0 && c.open > 0 && c.high >= c.low);
   }
 
   async fetchMarkets() { return []; }
 
   async healthCheck() {
-    if (!this.apiKey || !tdCanRequest()) return false;
+    if (!this.apiKey || !tdCanRequest() || isBlacklisted()) return false;
     try {
       const res = await this.timeout(
         fetch(`${this.config.baseUrl}/quote?symbol=EUR/USD&apikey=${this.apiKey}`),

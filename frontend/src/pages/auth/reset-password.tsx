@@ -1,5 +1,5 @@
 // pages/auth/reset-password.tsx
-// ── BaneTrading · Reset Password — Rose / Hexagon theme ──
+// ── BigOneTrading · Reset Password — Rose / Hexagon theme ──
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ import { authService } from '../../services/authService';
 import { normalizeError, NormalizedApiError } from '../../services/apiClient';
 import { resetPasswordFormSchema, ResetPasswordFormValues } from '../../lib/validators';
 
-const BRAND = 'BaneTrading';
+const BRAND = 'BigOneTrading';
 
 export default function ResetPasswordPage(): JSX.Element {
   const router = useRouter();
@@ -172,7 +172,7 @@ export default function ResetPasswordPage(): JSX.Element {
     <>
       <Head>
         <title>Reset password · {BRAND}</title>
-        <meta name="description" content="Set a new password for your BaneTrading account" />
+        <meta name="description" content="Set a new password for your BigOneTrading account" />
       </Head>
 
       <AuthLayout

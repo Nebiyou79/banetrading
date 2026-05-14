@@ -10,7 +10,7 @@ import { AddressEditor } from '@/components/admin/AddressEditor';
 import { NetworkFeeEditor } from '@/components/admin/NetworkFeeEditor';
 import { ALL_WITHDRAW_NETWORKS } from '@/types/funds';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade Clone';
 
 function AdminAddressesPage(): JSX.Element {
   return (

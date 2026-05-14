@@ -1,5 +1,5 @@
 // pages/auth/register.tsx
-// ── BaneTrading · Register — Teal / Network theme ──
+// ── BigOneTrading · Register — Teal / Network theme ──
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -23,7 +23,7 @@ import { registerFormSchema, RegisterFormValues } from '../../lib/validators';
 import { COUNTRIES } from '../../lib/countries';
 import type { NormalizedApiError } from '../../services/apiClient';
 
-const BRAND = 'BaneTrading';
+const BRAND = 'BigOneTrading';
 
 type PromoState =
   | { status: 'idle' }
@@ -111,7 +111,7 @@ export default function RegisterPage(): JSX.Element {
     <>
       <Head>
         <title>Create account · {BRAND}</title>
-        <meta name="description" content="Create your BaneTrading account" />
+        <meta name="description" content="Create your BigOneTrading account" />
       </Head>
 
       <AuthLayout

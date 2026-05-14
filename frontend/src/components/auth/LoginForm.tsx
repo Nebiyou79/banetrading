@@ -1,5 +1,5 @@
 // components/auth/LoginForm.tsx
-// ── BaneTrading — Login form ──
+// ── BigOneTrading — Login form ──
 // Email + password + remember + forgot password
 // Zero hardcoded hex. Full CSS-var theming. Both themes polished.
 

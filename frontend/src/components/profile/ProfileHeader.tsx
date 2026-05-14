@@ -7,7 +7,7 @@ import { Pill, PillTone } from '@/components/ui/Pill';
 import type { UserProfile, KycStatus } from '@/types/profile';
 
 export interface ProfileHeaderProps {
-  user: UserProfile;
+  user: UserProfile | null;  // Allow null
 }
 
 const KYC_TONE: Record<KycStatus, PillTone> = {
@@ -25,7 +25,22 @@ const KYC_LABEL: Record<KycStatus, string> = {
 };
 
 export function ProfileHeader({ user }: ProfileHeaderProps): JSX.Element {
-  const label = user.displayName || user.name;
+  // Handle null/undefined user
+  if (!user) {
+    return (
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-[var(--bg-muted)] animate-pulse" />
+          <div className="min-w-0 space-y-2">
+            <div className="h-6 w-48 bg-[var(--bg-muted)] rounded animate-pulse" />
+            <div className="h-4 w-32 bg-[var(--bg-muted)] rounded animate-pulse" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  const label = user.name || user.name || 'User';
 
   return (
     <section className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -42,7 +57,7 @@ export function ProfileHeader({ user }: ProfileHeaderProps): JSX.Element {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Pill tone={KYC_TONE[user.kycStatus]}>{KYC_LABEL[user.kycStatus]}</Pill>
+        {user.kycStatus && <Pill tone={KYC_TONE[user.kycStatus]}>{KYC_LABEL[user.kycStatus]}</Pill>}
         {user.kycTier > 0 && <Pill tone="neutral">Tier {user.kycTier}</Pill>}
         {user.role === 'admin' && <Pill tone="accent">Admin</Pill>}
         {user.isFrozen && <Pill tone="danger">Frozen</Pill>}

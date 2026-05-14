@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { useRecentTransactions } from '@/hooks/useRecentTransactions';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade Clone';
 
 function DashboardPage(): JSX.Element {
   const { user } = useAuth();

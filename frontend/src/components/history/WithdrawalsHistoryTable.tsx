@@ -5,6 +5,7 @@ import React from 'react';
 import { useResponsive } from '@/hooks/useResponsive';
 import type { WithdrawalHistoryItem } from '@/types/history';
 import { StatusPillFromString } from '@/components/ui/StatusPill';
+import { Inbox } from 'lucide-react';
 
 interface WithdrawalsHistoryTableProps {
   items: WithdrawalHistoryItem[];
@@ -49,7 +50,19 @@ export default function WithdrawalsHistoryTable({
     );
   }
 
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-dashed border-[var(--border)] bg-[var(--bg-muted)]">
+          <Inbox className="h-6 w-6 text-[var(--text-muted)]" />
+        </div>
+        <div className="mt-4">
+          <p className="text-sm font-medium text-[var(--text-secondary)]">No withdrawals yet</p>
+          <p className="mt-0.5 text-xs text-[var(--text-muted)]">Your withdrawal requests will appear here</p>
+        </div>
+      </div>
+    );
+  }
 
   if (isMobile) {
     return (
@@ -59,7 +72,6 @@ export default function WithdrawalsHistoryTable({
             key={item.id}
             className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4"
           >
-            {/* ── Top row: Asset + Status ── */}
             <div className="flex justify-between items-start">
               <div>
                 <div className="font-semibold text-sm text-[var(--text-primary)]">
@@ -72,14 +84,12 @@ export default function WithdrawalsHistoryTable({
               />
             </div>
 
-            {/* ── Middle: Amount ── */}
             <div className="mt-2">
               <span className="tabular text-sm font-semibold text-[var(--text-primary)]">
-                {formatAmount(item.amount)}
+                -{formatAmount(item.amount)}
               </span>
             </div>
 
-            {/* ── Bottom: Address + Date ── */}
             <div className="flex justify-between mt-2">
               <span className="text-xs text-[var(--text-muted)] truncate max-w-[60%]">
                 {truncateAddress(item.address)}
@@ -122,7 +132,6 @@ export default function WithdrawalsHistoryTable({
               key={item.id}
               className="border-t border-[var(--border)] hover:bg-[var(--hover-bg)] transition-colors duration-150"
             >
-              {/* ── Asset ── */}
               <td className="py-3 px-4">
                 <div>
                   <div className="text-sm font-medium text-[var(--text-primary)]">
@@ -134,12 +143,10 @@ export default function WithdrawalsHistoryTable({
                 </div>
               </td>
 
-              {/* ── Amount ── */}
               <td className="py-3 px-4 text-sm tabular text-[var(--text-primary)]">
-                {formatAmount(item.amount)}
+                -{formatAmount(item.amount)}
               </td>
 
-              {/* ── Address (truncated) ── */}
               <td className="py-3 px-4">
                 <span
                   className="text-sm tabular text-[var(--text-secondary)] font-mono"
@@ -149,12 +156,10 @@ export default function WithdrawalsHistoryTable({
                 </span>
               </td>
 
-              {/* ── Date ── */}
               <td className="py-3 px-4 text-sm tabular text-[var(--text-muted)]">
                 {formatDate(item.createdAt)}
               </td>
 
-              {/* ── Status ── */}
               <td className="py-3 px-4 text-right">
                 <StatusPillFromString
                   status={item.status}

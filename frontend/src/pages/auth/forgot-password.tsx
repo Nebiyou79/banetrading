@@ -1,5 +1,5 @@
 // pages/auth/forgot-password.tsx
-// ── BaneTrading · Forgot Password — Amber / Grid theme ──
+// ── BigOneTrading · Forgot Password — Amber / Grid theme ──
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -18,7 +18,7 @@ import { authService } from '../../services/authService';
 import { normalizeError, NormalizedApiError } from '../../services/apiClient';
 import { forgotPasswordFormSchema, ForgotPasswordFormValues } from '../../lib/validators';
 
-const BRAND = 'BaneTrading';
+const BRAND = 'BigOneTrading';
 
 export default function ForgotPasswordPage(): JSX.Element {
   const router = useRouter();
@@ -62,7 +62,7 @@ export default function ForgotPasswordPage(): JSX.Element {
     <>
       <Head>
         <title>Forgot password · {BRAND}</title>
-        <meta name="description" content="Reset your BaneTrading account password" />
+        <meta name="description" content="Reset your BigOneTrading account password" />
       </Head>
 
       <AuthLayout

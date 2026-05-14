@@ -29,6 +29,8 @@ async function getHistory(req, res) {
     const from = req.query.from ? new Date(req.query.from) : null;
     const to = req.query.to ? new Date(req.query.to) : null;
 
+    console.log(`[History] Fetching ${type} for user ${userId} with limit=${limit}, offset=${offset}`);
+
     // ── Build base filter ──
     const buildFilter = () => {
       const filter = { userId };
@@ -45,11 +47,13 @@ async function getHistory(req, res) {
       // ── Fetch all 4 collections in parallel ──
       const filter = buildFilter();
       const [trades, deposits, withdrawals, conversions] = await Promise.all([
-        Trade.find(filter).sort({ createdAt: -1 }).lean(),
-        Deposit.find(filter).sort({ createdAt: -1 }).lean(),
-        Withdrawal.find(filter).sort({ createdAt: -1 }).lean(),
-        Conversion.find(filter).sort({ createdAt: -1 }).lean(),
+        Trade.find(filter).sort({ createdAt: -1 }).lean().catch(e => { console.error('Trade fetch error:', e); return []; }),
+        Deposit.find(filter).sort({ createdAt: -1 }).lean().catch(e => { console.error('Deposit fetch error:', e); return []; }),
+        Withdrawal.find(filter).sort({ createdAt: -1 }).lean().catch(e => { console.error('Withdrawal fetch error:', e); return []; }),
+        Conversion.find(filter).sort({ createdAt: -1 }).lean().catch(e => { console.error('Conversion fetch error:', e); return []; }),
       ]);
+
+      console.log(`[History] Found: ${trades.length} trades, ${deposits.length} deposits, ${withdrawals.length} withdrawals, ${conversions.length} conversions`);
 
       // ── Normalize each record ──
       const items = [
@@ -79,6 +83,8 @@ async function getHistory(req, res) {
       config.model.countDocuments(filter),
     ]);
 
+    console.log(`[History] Found ${items.length} ${type} items`);
+
     const normalized = items.map(item => {
       switch (type) {
         case 'trades':      return normalizeTrade(item);
@@ -93,7 +99,7 @@ async function getHistory(req, res) {
     return res.json({ items: normalized, total, hasMore });
   } catch (err) {
     console.error('[history] getHistory error:', err);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: 'Server error: ' + err.message });
   }
 }
 
@@ -102,13 +108,13 @@ function normalizeTrade(t) {
   return {
     id: t._id.toString(),
     type: 'trade',
-    createdAt: t.createdAt,
+    createdAt: t.createdAt || new Date(),
     status: t.status || 'completed',
     pair: t.pair || t.symbol || '',
-    amount: t.amount || 0,
-    plan: t.plan || '',
-    duration: t.duration || 0,
-    result: t.result || t.pnl || 0,
+    amount: t.stake || t.amount || 0,
+    plan: t.planKey || t.plan || '',
+    duration: t.planDurationSec || t.duration || 0,
+    result: t.netResult || t.result || t.pnl || 0,
   };
 }
 
@@ -116,9 +122,9 @@ function normalizeDeposit(d) {
   return {
     id: d._id.toString(),
     type: 'deposit',
-    createdAt: d.createdAt,
-    status: d.status,
-    currency: d.currency || '',
+    createdAt: d.createdAt || new Date(),
+    status: d.status || 'pending',
+    currency: d.currency || 'USDT',
     network: d.network || '',
     amount: d.amount || 0,
   };
@@ -128,12 +134,12 @@ function normalizeWithdrawal(w) {
   return {
     id: w._id.toString(),
     type: 'withdrawal',
-    createdAt: w.createdAt,
-    status: w.status,
-    currency: w.currency || '',
+    createdAt: w.createdAt || new Date(),
+    status: w.status || 'pending',
+    currency: w.currency || 'USDT',
     network: w.network || '',
     amount: w.amount || 0,
-    address: w.toAddress || '',
+    address: w.toAddress || w.address || '',
   };
 }
 
@@ -141,7 +147,7 @@ function normalizeConversion(c) {
   return {
     id: c._id.toString(),
     type: 'conversion',
-    createdAt: c.createdAt,
+    createdAt: c.createdAt || new Date(),
     status: c.status || 'completed',
     fromCurrency: c.fromCurrency || '',
     toCurrency: c.toCurrency || '',

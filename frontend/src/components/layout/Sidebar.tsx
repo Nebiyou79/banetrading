@@ -11,7 +11,7 @@ import { SidebarItem } from './SidebarItem';
 import { SIDEBAR_GROUPS } from './sidebarItems';
 
 const STORAGE_KEY = 'sidebar-collapsed';
-const BRAND = 'BaneTrading';
+const BRAND = 'BigOneTrading';
 
 export interface SidebarProps {
   className?: string;

@@ -1,12 +1,27 @@
 // services/adminService.ts
-// ── Admin API service (extended) ──
+// ── Admin API service with proper file URL handling ──
 
 import { apiClient } from './apiClient';
 import type { AdminStats, User, Deposit, Withdrawal, Trade } from '@/types';
 import type { ConversionConfig } from '@/types/convert';
 import type { SupportTicket, TicketMessage, SupportConfig } from '@/types/support';
 
-// KycSubmission is internal to admin, not exported from kyc.ts
+// Helper function to get full file URL
+function getFullFileUrl(path: string | undefined): string | null {
+  if (!path) return null;
+  // If it's already an absolute URL, return as is
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    return path;
+  }
+  // Get base URL from environment or window location
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 
+                  (typeof window !== 'undefined' ? window.location.origin : 'https://bigonetrading.com');
+  // Ensure path starts with /
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${baseUrl}${normalizedPath}`;
+}
+
+// KycSubmission interface with file URLs
 interface KycSubmission {
   _id: string;
   userId: { _id: string; email: string; name: string; displayName?: string; kycTier: number };
@@ -19,8 +34,11 @@ interface KycSubmission {
     idNumber?: string;
     expiryDate?: string;
     idFrontPath?: string;
+    idFrontUrl?: string;
     idBackPath?: string;
+    idBackUrl?: string;
     selfiePath?: string;
+    selfieUrl?: string;
     rejectionReason?: string;
     submittedAt?: string;
     reviewedAt?: string;
@@ -33,11 +51,17 @@ interface KycSubmission {
     postalCode?: string;
     country?: string;
     documentPath?: string;
+    documentUrl?: string;
     rejectionReason?: string;
     submittedAt?: string;
     reviewedAt?: string;
   };
   updatedAt: string;
+}
+
+// Extended Deposit interface with file URL
+interface ExtendedDeposit extends Deposit {
+  proofFileUrl?: string | null;
 }
 
 const adminService = {
@@ -68,16 +92,23 @@ const adminService = {
     return data;
   },
 
-  // ── Deposits ─────────────────────────────────────────────────────────────
+  // ── Deposits with File URLs ─────────────────────────────────────────────
   async fetchDeposits(params?: {
     status?: string;
     search?: string;
     currency?: string;
     skip?: number;
     limit?: number;
-  }): Promise<{ deposits: Deposit[]; total: number }> {
+  }): Promise<{ deposits: ExtendedDeposit[]; total: number }> {
     const { data } = await apiClient.get<{ deposits: Deposit[]; total: number }>('/admin/deposits', { params });
-    return data;
+    
+    // Add full file URLs to each deposit
+    const depositsWithUrls = (data.deposits || []).map((deposit: Deposit) => ({
+      ...deposit,
+      proofFileUrl: getFullFileUrl(deposit.proofFilePath),
+    }));
+    
+    return { deposits: depositsWithUrls, total: data.total };
   },
 
   async approveDeposit(id: string): Promise<{ message: string; deposit: Deposit; newBalances: any }> {
@@ -112,7 +143,7 @@ const adminService = {
     return data;
   },
 
-  // ── KYC ──────────────────────────────────────────────────────────────────
+  // ── KYC with File URLs ──────────────────────────────────────────────────
   async fetchKycList(params?: {
     search?: string;
     level?: number;
@@ -120,7 +151,31 @@ const adminService = {
     limit?: number;
   }): Promise<{ items: KycSubmission[]; total: number }> {
     const { data } = await apiClient.get<{ items: KycSubmission[]; total: number }>('/kyc/admin/pending', { params });
-    return data;
+    
+    // Add full file URLs to each KYC submission
+    const itemsWithUrls = (data.items || []).map((item: KycSubmission) => {
+      // Process level 2 files
+      if (item.level2) {
+        if (item.level2.idFrontPath) {
+          item.level2.idFrontUrl = getFullFileUrl(item.level2.idFrontPath) || undefined;
+        }
+        if (item.level2.idBackPath) {
+          item.level2.idBackUrl = getFullFileUrl(item.level2.idBackPath) || undefined;
+        }
+        if (item.level2.selfiePath) {
+          item.level2.selfieUrl = getFullFileUrl(item.level2.selfiePath) || undefined;
+        }
+      }
+      
+      // Process level 3 files
+      if (item.level3 && item.level3.documentPath) {
+        item.level3.documentUrl = getFullFileUrl(item.level3.documentPath) || undefined;
+      }
+      
+      return item;
+    });
+    
+    return { items: itemsWithUrls, total: data.total };
   },
 
   async approveKyc(userId: string, level: number): Promise<{ message: string }> {

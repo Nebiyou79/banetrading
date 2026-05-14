@@ -8,7 +8,7 @@ import { Wallet, ArrowRight, Shield } from 'lucide-react';
 import { AuthenticatedShell } from '@/components/layout/AuthenticatedShell';
 import { withAdmin } from '@/components/layout/withAdmin';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade Clone';
 
 interface AdminCard {
   href: string;

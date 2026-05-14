@@ -1,5 +1,5 @@
 // controllers/kycController.js
-// ── KYC controller ──
+// ── KYC controller with proper file URL handling ──
 
 const fs = require('fs');
 const path = require('path');
@@ -28,8 +28,19 @@ function relativePath(absPath) {
   if (!absPath) return undefined;
   const uploadsRoot = path.resolve(process.cwd(), process.env.UPLOAD_DIR || './uploads');
   const rel = path.relative(uploadsRoot, absPath);
-  if (rel.startsWith('..')) return absPath; // outside expected root — store as-is
+  if (rel.startsWith('..')) return absPath;
   return `/uploads/${rel.split(path.sep).join('/')}`;
+}
+
+function getFullFileUrl(req, filePath) {
+  if (!filePath) return null;
+  if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+    return filePath;
+  }
+  const baseUrl = process.env.BACKEND_URL || `https://${req.get('host')}`;
+  const cleanBase = baseUrl.replace(/\/$/, '');
+  const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+  return `${cleanBase}${cleanPath}`;
 }
 
 async function getOrCreateKyc(userId) {
@@ -42,10 +53,24 @@ async function getOrCreateKyc(userId) {
 async function getStatus(req, res) {
   try {
     const doc = await getOrCreateKyc(req.user._id);
+    
+    // Add full URLs to file paths
+    const level2WithUrls = doc.level2 ? {
+      ...doc.level2.toObject(),
+      idFrontUrl: doc.level2.idFrontPath ? getFullFileUrl(req, doc.level2.idFrontPath) : null,
+      idBackUrl: doc.level2.idBackPath ? getFullFileUrl(req, doc.level2.idBackPath) : null,
+      selfieUrl: doc.level2.selfiePath ? getFullFileUrl(req, doc.level2.selfiePath) : null,
+    } : {};
+    
+    const level3WithUrls = doc.level3 ? {
+      ...doc.level3.toObject(),
+      documentUrl: doc.level3.documentPath ? getFullFileUrl(req, doc.level3.documentPath) : null,
+    } : {};
+    
     return res.status(200).json({
       tier:   req.user.kycTier || 1,
-      level2: doc.level2 || {},
-      level3: doc.level3 || {},
+      level2: level2WithUrls,
+      level3: level3WithUrls,
       updatedAt: doc.updatedAt,
     });
   } catch (err) {
@@ -59,7 +84,6 @@ async function submitLevel2(req, res) {
   try {
     const user = req.user;
 
-    // Guard 1 — Level 1 must be reached
     if ((user.kycTier || 0) < 1) {
       unlinkUploaded(req);
       return res.status(403).json({ message: 'Verify your email (Level 1) before submitting Level 2.' });
@@ -68,7 +92,6 @@ async function submitLevel2(req, res) {
     const doc = await getOrCreateKyc(user._id);
     const currentStatus = doc.level2?.status || 'not_submitted';
 
-    // Guard 2 — block submit if pending or already approved
     if (currentStatus === 'pending') {
       unlinkUploaded(req);
       return res.status(409).json({ message: 'Level 2 is already pending review.' });
@@ -78,7 +101,6 @@ async function submitLevel2(req, res) {
       return res.status(409).json({ message: 'Level 2 is already approved.' });
     }
 
-    // Required: idFront file
     const files = req.files || {};
     const idFrontFile = (files.idFront && files.idFront[0]) || null;
     if (!idFrontFile) {
@@ -88,7 +110,6 @@ async function submitLevel2(req, res) {
     const idBackFile = (files.idBack && files.idBack[0]) || null;
     const selfieFile = (files.selfie && files.selfie[0]) || null;
 
-    // Clean up any old files for this level before overwriting
     if (doc.level2?.idFrontPath) safeUnlink(absoluteFromRelative(doc.level2.idFrontPath));
     if (doc.level2?.idBackPath)  safeUnlink(absoluteFromRelative(doc.level2.idBackPath));
     if (doc.level2?.selfiePath)  safeUnlink(absoluteFromRelative(doc.level2.selfiePath));
@@ -106,7 +127,6 @@ async function submitLevel2(req, res) {
       idFrontPath:     relativePath(idFrontFile.path),
       idBackPath:      idBackFile ? relativePath(idBackFile.path) : undefined,
       selfiePath:      selfieFile ? relativePath(selfieFile.path) : undefined,
-      // Reset review fields on (re)submit
       rejectionReason: undefined,
       submittedAt:     new Date(),
       reviewedBy:      undefined,
@@ -125,12 +145,11 @@ async function submitLevel2(req, res) {
   }
 }
 
-// ── POST /api/kyc/level3 ── (multipart, single 'document')
+// ── POST /api/kyc/level3 ──
 async function submitLevel3(req, res) {
   try {
     const user = req.user;
 
-    // Guard 1 — Level 2 must be approved
     if ((user.kycTier || 0) < 2) {
       unlinkUploaded(req);
       return res.status(403).json({ message: 'Complete Level 2 before submitting Level 3.' });
@@ -183,7 +202,7 @@ async function submitLevel3(req, res) {
   }
 }
 
-// ── Admin: list KYC docs that have something pending ──
+// ── Admin: list KYC docs ──
 async function listPending(req, res) {
   try {
     const limit = Math.min(Math.max(Number.parseInt(String(req.query.limit ?? '50'), 10) || 50, 1), 200);
@@ -206,7 +225,7 @@ async function listPending(req, res) {
   }
 }
 
-// ── Admin: approve / reject a level ──
+// ── Admin: approve ──
 async function adminApprove(req, res) {
   try {
     const { userId } = req.params;
@@ -232,7 +251,6 @@ async function adminApprove(req, res) {
     doc[key] = sub;
     await doc.save();
 
-    // Bump user's tier monotonically (never decrease).
     const targetTier = level === 2 ? 2 : 3;
     if ((user.kycTier || 0) < targetTier) {
       user.kycTier = targetTier;
@@ -251,6 +269,7 @@ async function adminApprove(req, res) {
   }
 }
 
+// ── Admin: reject ──
 async function adminReject(req, res) {
   try {
     const { userId } = req.params;
@@ -276,7 +295,6 @@ async function adminReject(req, res) {
     doc[key] = sub;
     await doc.save();
 
-    // No tier change on rejection.
     return res.status(200).json({
       message: `Level ${level} rejected`,
       level,
@@ -292,7 +310,7 @@ async function adminReject(req, res) {
 function absoluteFromRelative(relativeUrl) {
   if (!relativeUrl) return null;
   const trimmed = relativeUrl.replace(/^\/+/, '');
-  return path.resolve(process.cwd(), trimmed);
+  return path.resolve(process.env.UPLOAD_DIR || './uploads', trimmed);
 }
 
 module.exports = {

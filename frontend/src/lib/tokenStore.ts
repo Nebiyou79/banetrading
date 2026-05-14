@@ -17,12 +17,29 @@ export const tokenStore = {
     if (!hasWindow()) return null;
     return window.localStorage.getItem(REFRESH_KEY);
   },
+  getRefreshToken(): string | null {
+    if (!hasWindow()) return null;
+    return window.localStorage.getItem(REFRESH_KEY);
+  },
   set(access: string, refresh: string): void {
     if (!hasWindow()) return;
     window.localStorage.setItem(ACCESS_KEY, access);
     window.localStorage.setItem(REFRESH_KEY, refresh);
   },
+  setAccessToken(token: string): void {
+    if (!hasWindow()) return;
+    window.localStorage.setItem(ACCESS_KEY, token);
+  },
+  setRefreshToken(token: string): void {
+    if (!hasWindow()) return;
+    window.localStorage.setItem(REFRESH_KEY, token);
+  },
   clear(): void {
+    if (!hasWindow()) return;
+    window.localStorage.removeItem(ACCESS_KEY);
+    window.localStorage.removeItem(REFRESH_KEY);
+  },
+  clearAll(): void {
     if (!hasWindow()) return;
     window.localStorage.removeItem(ACCESS_KEY);
     window.localStorage.removeItem(REFRESH_KEY);

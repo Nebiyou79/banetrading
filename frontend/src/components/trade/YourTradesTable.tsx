@@ -42,7 +42,6 @@ export function YourTradesTable({
 
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] overflow-hidden">
-      {/* Header */}
       <div className="px-4 py-3 border-b border-[var(--border)]">
         <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wide">
           Trade History
@@ -57,7 +56,6 @@ export function YourTradesTable({
         </div>
       ) : (
         <>
-          {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -100,6 +98,7 @@ export function YourTradesTable({
                 ))}
                 {historyTrades.map((t) => {
                   const isWon = t.status === 'won';
+                  const netResult = t.netResult ?? 0;
                   return (
                     <tr key={t._id} className="hover:bg-[var(--hover-bg)] transition-colors">
                       <td className="py-3 px-4">
@@ -128,7 +127,7 @@ export function YourTradesTable({
                       <td className={`py-3 px-4 text-right tabular text-sm font-semibold ${
                         isWon ? 'text-[var(--success)]' : 'text-[var(--danger)]'
                       }`}>
-                        {isWon ? '+' : ''}{formatNum(t.netResult ?? 0, t.tradingAsset)}
+                        {isWon ? '+' : ''}{formatNum(netResult, t.tradingAsset)}
                       </td>
                     </tr>
                   );
@@ -137,7 +136,6 @@ export function YourTradesTable({
             </table>
           </div>
 
-          {/* Mobile Cards */}
           <div className="md:hidden divide-y divide-[var(--border)]">
             {activeTrades.map((t) => (
               <div key={t._id} className="p-4 hover:bg-[var(--hover-bg)]">
@@ -151,25 +149,28 @@ export function YourTradesTable({
                 </div>
               </div>
             ))}
-            {historyTrades.map((t) => (
-              <div key={t._id} className="p-4 hover:bg-[var(--hover-bg)]">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-sm">{t.pairDisplay}</span>
-                  <span className={`text-xs font-semibold ${t.status === 'won' ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
-                    {t.status === 'won' ? '+' : ''}{formatNum(t.netResult ?? 0, t.tradingAsset)}
-                  </span>
+            {historyTrades.map((t) => {
+              const isWon = t.status === 'won';
+              const netResult = t.netResult ?? 0;
+              return (
+                <div key={t._id} className="p-4 hover:bg-[var(--hover-bg)]">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-semibold text-sm">{t.pairDisplay}</span>
+                    <span className={`text-xs font-semibold ${isWon ? 'text-[var(--success)]' : 'text-[var(--danger)]'}`}>
+                      {isWon ? '+' : ''}{formatNum(netResult, t.tradingAsset)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs text-[var(--text-muted)]">
+                    <span>{formatNum(t.stake, t.tradingAsset)}</span>
+                    <span>{relativeTime(t.createdAt)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-xs text-[var(--text-muted)]">
-                  <span>{formatNum(t.stake, t.tradingAsset)}</span>
-                  <span>{relativeTime(t.createdAt)}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}
 
-      {/* Load More */}
       {hasMore && (
         <div className="px-4 py-3 border-t border-[var(--border)] flex justify-center">
           <button

@@ -1,5 +1,13 @@
 // pages/admin/login.tsx
 // ── Admin login page ──
+//
+// THEME FIXES applied:
+// • Input focus:ring-2 had no color — replaced with explicit focus-within
+//   border approach using var(--focus-ring) via onFocus/onBlur handlers
+// • Submit button: color='var(--text-inverse)' instead of implicit white
+// • Spinner border: uses var(--primary) which now resolves in both themes
+// • Admin badge bg/color: already used CSS vars — ✅ no change needed
+// • Back link hover: added hover:opacity-80 for light-mode visibility
 
 'use client';
 
@@ -33,15 +41,23 @@ export default function AdminLoginPage() {
     setLoading(true);
 
     try {
+      // login() now returns LoginResponse, not void
       const response = await login({ email, password });
+      
+      // Check if the logged-in user is an admin
       if (response.user?.role !== 'admin') {
         setError('Access denied. Not an admin account.');
+        // Log out non-admin user immediately
         try {
           const { authService } = await import('@/services/authService');
           await authService.logout();
-        } catch {}
+        } catch {
+          // Silently fail - tokens will be cleared anyway
+        }
         return;
       }
+      
+      // Admin confirmed - redirect to dashboard
       router.push('/admin/dashboard');
     } catch (err: any) {
       setError(err.message || 'Invalid credentials');
@@ -50,10 +66,25 @@ export default function AdminLoginPage() {
     }
   };
 
+  /* THEME FIX: focus border handler — replaces Tailwind focus:ring-2 which
+     had no explicit color and would fall back to browser default blue */
+  const inputFocusProps = {
+    onFocus: (e: React.FocusEvent<HTMLInputElement>) => {
+      e.target.style.borderColor = 'var(--focus-ring)';
+    },
+    onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
+      e.target.style.borderColor = 'var(--border)';
+    },
+  };
+
   if (!mounted) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--background)' }}>
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2" style={{ borderColor: 'var(--primary)' }}></div>
+        {/* THEME FIX: border uses var(--primary) — now resolves in both themes */}
+        <div
+          className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2"
+          style={{ borderColor: 'var(--primary)' }}
+        />
       </div>
     );
   }
@@ -68,9 +99,10 @@ export default function AdminLoginPage() {
         style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)' }}
       >
         <div className="text-center mb-8">
-          {/* Admin badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-4 text-xs font-medium"
-            style={{ backgroundColor: 'var(--danger-muted)', color: 'var(--danger)' }}>
+          <div
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-4 text-xs font-medium"
+            style={{ backgroundColor: 'var(--danger-muted)', color: 'var(--danger)' }}
+          >
             <span>🛡️</span>
             Admin Access Only
           </div>
@@ -101,13 +133,15 @@ export default function AdminLoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2"
+              className="w-full px-4 py-2.5 rounded-lg transition-colors"
               style={{
                 backgroundColor: 'var(--card)',
                 color: 'var(--text-primary)',
                 border: '1px solid var(--border)',
+                outline: 'none',
               }}
               placeholder="admin@example.com"
+              {...inputFocusProps}
             />
           </div>
 
@@ -120,22 +154,25 @@ export default function AdminLoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2"
+              className="w-full px-4 py-2.5 rounded-lg transition-colors"
               style={{
                 backgroundColor: 'var(--card)',
                 color: 'var(--text-primary)',
                 border: '1px solid var(--border)',
+                outline: 'none',
               }}
               placeholder="••••••••"
+              {...inputFocusProps}
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
+            className="w-full py-2.5 rounded-lg font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
             style={{
               backgroundColor: 'var(--primary)',
+              /* THEME FIX: was implicit white — var(--text-inverse) is theme-aware */
               color: 'var(--text-inverse)',
             }}
           >
@@ -143,11 +180,10 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        {/* Link back to user login */}
         <div className="mt-6 text-center">
           <Link
             href="/auth/login"
-            className="text-sm transition-colors hover:underline"
+            className="text-sm transition-opacity hover:opacity-70 underline-offset-4 hover:underline"
             style={{ color: 'var(--text-secondary)' }}
           >
             ← Back to user login

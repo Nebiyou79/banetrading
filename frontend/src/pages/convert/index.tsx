@@ -8,7 +8,7 @@ import { withAuth } from '@/components/layout/withAuth';
 import ConvertForm from '@/components/convert/ConvertForm';
 import ConversionHistoryTable from '@/components/convert/ConversionHistoryTable';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade Clone';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade Clone';
 
 function ConvertPage(): JSX.Element {
   return (

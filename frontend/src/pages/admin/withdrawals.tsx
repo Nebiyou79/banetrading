@@ -1,5 +1,12 @@
 // pages/admin/withdrawals.tsx
 // ── Admin withdrawals management page ──
+//
+// THEME FIXES applied:
+// • Approve/Reject/Confirm buttons: color was hardcoded 'white' → var(--text-inverse)
+// • Rejection textarea: focus ring via onFocus/onBlur using var(--focus-ring)
+// • Status filter tabs: active color was implicit white → var(--text-inverse)
+// • Review button: added hover:opacity-80 for visible interactive state in light mode
+// • Proof link: uses var(--primary) which now resolves in both themes ✅
 
 'use client';
 
@@ -34,7 +41,10 @@ function WithdrawalsContent() {
 
   const { data, isLoading } = useAdminData<{ withdrawals: Withdrawal[]; total: number }>(
     [...WITHDRAWALS_KEY, { statusFilter, search }],
-    () => adminService.fetchWithdrawals({ status: statusFilter || undefined, search: search || undefined }),
+    () => adminService.fetchWithdrawals({
+      status: statusFilter || undefined,
+      search: search || undefined,
+    }),
   );
 
   const approveMutation = useAdminMutation(
@@ -59,12 +69,18 @@ function WithdrawalsContent() {
     {
       key: 'userId',
       header: 'User',
-      render: (w: Withdrawal) => <span className="font-medium">{(w as any).userId?.email || w.userId}</span>,
+      render: (w: Withdrawal) => (
+        <span className="font-medium">{(w as any).userId?.email || w.userId}</span>
+      ),
     },
     { key: 'amount', header: 'Amount' },
     { key: 'currency', header: 'Currency' },
     { key: 'network', header: 'Network' },
-    { key: 'toAddress', header: 'To Address', render: (w: Withdrawal) => (w as any).toAddress?.slice(0, 10) + '...' || '-' },
+    {
+      key: 'toAddress',
+      header: 'To Address',
+      render: (w: Withdrawal) => (w as any).toAddress?.slice(0, 10) + '...' || '-',
+    },
     { key: 'status', header: 'Status', render: (w: Withdrawal) => getStatusBadge(w.status) },
     {
       key: 'createdAt',
@@ -77,7 +93,7 @@ function WithdrawalsContent() {
       render: (w: Withdrawal) => (
         <button
           onClick={() => setSelected(w)}
-          className="px-3 py-1 rounded text-sm font-medium"
+          className="px-3 py-1 rounded text-sm font-medium transition-opacity hover:opacity-80"
           style={{ backgroundColor: 'var(--info-muted)', color: 'var(--info)' }}
         >
           Review
@@ -105,9 +121,10 @@ function WithdrawalsContent() {
           <button
             key={tab.key}
             onClick={() => setStatusFilter(tab.key)}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90"
             style={{
               backgroundColor: statusFilter === tab.key ? 'var(--primary)' : 'var(--card)',
+              /* THEME FIX: was implicitly white when active → var(--text-inverse) */
               color: statusFilter === tab.key ? 'var(--text-inverse)' : 'var(--text-secondary)',
               border: '1px solid var(--border)',
             }}
@@ -117,9 +134,12 @@ function WithdrawalsContent() {
         ))}
       </div>
 
-      <DataTable columns={columns} data={data?.withdrawals || []} isLoading={isLoading} />
+      <DataTable
+        columns={columns}
+        data={data?.withdrawals || []}
+        isLoading={isLoading}
+      />
 
-      {/* Review Modal (reuses same pattern as deposits with slight differences) */}
       <WithdrawalReviewModal
         withdrawal={selected}
         onClose={() => setSelected(null)}
@@ -167,7 +187,14 @@ function WithdrawalReviewModal({
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Rejection reason..."
                 className="w-full px-3 py-2 rounded-lg mb-3"
-                style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                style={{
+                  backgroundColor: 'var(--card)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border)',
+                  outline: 'none',
+                }}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--focus-ring)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
                 rows={3}
               />
             )}
@@ -175,16 +202,24 @@ function WithdrawalReviewModal({
               <button
                 onClick={() => onApprove(withdrawal._id)}
                 disabled={isLoading}
-                className="px-4 py-2 rounded-lg flex-1"
-                style={{ backgroundColor: 'var(--success)', color: 'white' }}
+                className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--success)',
+                  /* THEME FIX: was hardcoded 'white' → var(--text-inverse) */
+                  color: 'var(--text-inverse)',
+                }}
               >
                 Approve
               </button>
               {!showRejectInput ? (
                 <button
                   onClick={() => setShowRejectInput(true)}
-                  className="px-4 py-2 rounded-lg flex-1"
-                  style={{ backgroundColor: 'var(--danger)', color: 'white' }}
+                  className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90"
+                  style={{
+                    backgroundColor: 'var(--danger)',
+                    /* THEME FIX: was hardcoded 'white' → var(--text-inverse) */
+                    color: 'var(--text-inverse)',
+                  }}
                 >
                   Reject
                 </button>
@@ -192,8 +227,12 @@ function WithdrawalReviewModal({
                 <button
                   onClick={() => onReject(withdrawal._id, rejectReason)}
                   disabled={!rejectReason.trim() || isLoading}
-                  className="px-4 py-2 rounded-lg flex-1 disabled:opacity-50"
-                  style={{ backgroundColor: 'var(--danger)', color: 'white' }}
+                  className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    backgroundColor: 'var(--danger)',
+                    /* THEME FIX: was hardcoded 'white' → var(--text-inverse) */
+                    color: 'var(--text-inverse)',
+                  }}
                 >
                   Confirm Reject
                 </button>

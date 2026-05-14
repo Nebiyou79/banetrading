@@ -1,5 +1,5 @@
 // pages/balance.tsx
-// ── BaneTrading — Balance / Funds hub (Binance/Bybit standard) ──
+// ── BigOneTrading — Balance / Funds hub (Binance/Bybit standard) ──
 //
 // BALANCE FIX:
 // 1. Stats grid shows per-asset balances (available + locked) instead of
@@ -31,7 +31,7 @@ import { formatAmount }            from '@/lib/format';
 import { COINS }                   from '@/types/funds';
 import type { Coin }               from '@/types/funds';
 
-const BRAND     = 'BaneTrading';
+const BRAND     = 'BigOneTrading';
 const PAGE_SIZE = 20;
 
 // ── Coin brand colours (kept local — not semantic) ──────────────────────────
@@ -289,7 +289,7 @@ function BalancePage(): JSX.Element {
     <>
       <Head>
         <title>Balance · {BRAND}</title>
-        <meta name="description" content="Manage your BaneTrading funds — deposit, withdraw, and track transaction history." />
+        <meta name="description" content="Manage your BigOneTrading funds — deposit, withdraw, and track transaction history." />
       </Head>
 
       <AuthenticatedShell>

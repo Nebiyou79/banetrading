@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useKyc } from '@/hooks/useKyc';
 import { formatDate } from '@/lib/format';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'PrimeBitTrade';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade';
 
 function idTypeLabel(t?: string): string {
   if (t === 'passport')        return 'Passport';

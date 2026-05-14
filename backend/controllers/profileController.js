@@ -1,7 +1,5 @@
 // controllers/profileController.js
-// ── User profile controller ──
-// Handles profile CRUD, password change, avatar upload/delete,
-// portfolio aggregation, and recent-transactions feed.
+// ── User profile controller with proper file URL handling for bigonetrading.com ──
 
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
@@ -22,17 +20,44 @@ function safeUnlink(absPath) {
   });
 }
 
-function absFromAvatarUrl(avatarUrl) {
-  // avatarUrl is stored as `/uploads/avatars/<file>` — resolve against project root
+function getFullAvatarUrl(req, avatarUrl) {
   if (!avatarUrl) return null;
-  const rel = avatarUrl.startsWith('/') ? avatarUrl.slice(1) : avatarUrl;
-  return path.resolve(process.cwd(), rel);
+  // If it's already a full URL, return as is
+  if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+    return avatarUrl;
+  }
+  // Otherwise, prepend the backend URL
+  const baseUrl = process.env.BACKEND_URL || `https://${req.get('host')}`;
+  const cleanBase = baseUrl.replace(/\/$/, '');
+  const cleanPath = avatarUrl.startsWith('/') ? avatarUrl : `/${avatarUrl}`;
+  return `${cleanBase}${cleanPath}`;
+}
+
+function absFromAvatarUrl(avatarUrl) {
+  if (!avatarUrl) return null;
+  // Extract the path part if it's a full URL
+  let pathPart = avatarUrl;
+  if (avatarUrl.startsWith('http://') || avatarUrl.startsWith('https://')) {
+    try {
+      const urlObj = new URL(avatarUrl);
+      pathPart = urlObj.pathname;
+    } catch (e) {
+      pathPart = avatarUrl;
+    }
+  }
+  const rel = pathPart.startsWith('/') ? pathPart.slice(1) : pathPart;
+  return path.resolve(process.env.UPLOAD_DIR || './uploads', rel);
 }
 
 // ── GET /api/user/profile ──
 async function getProfile(req, res) {
   try {
-    return res.status(200).json({ user: req.user.toJSON() });
+    const user = req.user.toJSON();
+    // Convert relative avatar URL to full URL
+    if (user.avatarUrl) {
+      user.avatarUrl = getFullAvatarUrl(req, user.avatarUrl);
+    }
+    return res.status(200).json({ user });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
@@ -54,7 +79,11 @@ async function updateProfile(req, res) {
     if (typeof phone === 'string')       user.phone = phone.trim();
 
     await user.save();
-    return res.status(200).json({ message: 'Profile updated', user: user.toJSON() });
+    const userJson = user.toJSON();
+    if (userJson.avatarUrl) {
+      userJson.avatarUrl = getFullAvatarUrl(req, userJson.avatarUrl);
+    }
+    return res.status(200).json({ message: 'Profile updated', user: userJson });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
@@ -98,14 +127,19 @@ async function uploadAvatar(req, res) {
       safeUnlink(absFromAvatarUrl(user.avatarUrl));
     }
 
-    // Store a URL path served by the static /uploads route
+    // Store relative path
     user.avatarUrl = `/uploads/avatars/${req.file.filename}`;
     await user.save();
 
+    // Return full URL
+    const fullUrl = getFullAvatarUrl(req, user.avatarUrl);
+    const userJson = user.toJSON();
+    userJson.avatarUrl = fullUrl;
+
     return res.status(200).json({
       message: 'Avatar updated',
-      avatarUrl: user.avatarUrl,
-      user: user.toJSON(),
+      avatarUrl: fullUrl,
+      user: userJson,
     });
   } catch (err) {
     console.error(err);
@@ -124,7 +158,8 @@ async function deleteAvatar(req, res) {
       user.avatarUrl = undefined;
       await user.save();
     }
-    return res.status(200).json({ message: 'Avatar removed', user: user.toJSON() });
+    const userJson = user.toJSON();
+    return res.status(200).json({ message: 'Avatar removed', user: userJson });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
@@ -136,26 +171,38 @@ async function getPortfolio(req, res) {
   try {
     const user = req.user;
 
-    // TODO: replace with per-currency balance tracking once Deposit/Withdrawal module is live
-    const usdtAmount = Number(user.balance || 0);
-    const totalBalanceUsd = usdtAmount; // assumes 1 USDT ≈ 1 USD
+    // Calculate total balance from all currencies
+    let totalBalanceUsd = 0;
+    const balances = [];
 
-    const balances = [
-      {
-        currency: 'USDT',
-        amount: usdtAmount,
-        usdValue: usdtAmount,
-        pct: 100,
-      },
-    ];
+    // Get all currencies from user balances
+    for (const [currency, amount] of Object.entries(user.balances || {})) {
+      const numAmount = Number(amount);
+      if (numAmount > 0) {
+        // For now, assume 1 USDT/BTC/ETH = 1 USD for simplicity
+        // TODO: Integrate with market service for real-time prices
+        const usdValue = currency === 'USDT' ? numAmount : numAmount * 1; // Placeholder
+        totalBalanceUsd += usdValue;
+        balances.push({
+          currency,
+          amount: numAmount,
+          usdValue,
+          pct: 0, // Will calculate after total is known
+        });
+      }
+    }
 
-    // Placeholder 24h change until live price service is wired in
-    const change24h = { absolute: 0, percent: 0 };
+    // Calculate percentages
+    if (totalBalanceUsd > 0) {
+      balances.forEach(b => {
+        b.pct = (b.usdValue / totalBalanceUsd) * 100;
+      });
+    }
 
     return res.status(200).json({
       totalBalanceUsd,
       balances,
-      change24h,
+      change24h: { absolute: 0, percent: 0 },
       kyc: { status: user.kycStatus || 'none', tier: user.kycTier || 0 },
       account: {
         isFrozen: !!user.isFrozen,
@@ -189,6 +236,7 @@ async function getRecentTransactions(req, res) {
         currency: d.currency,
         status: d.status,
         createdAt: d.createdAt,
+        network: d.network,
       })),
       ...withdrawals.map((w) => ({
         id: String(w._id),
@@ -197,6 +245,8 @@ async function getRecentTransactions(req, res) {
         currency: w.currency,
         status: w.status,
         createdAt: w.createdAt,
+        network: w.network,
+        toAddress: w.toAddress,
       })),
       ...trades.map((t) => ({
         id: String(t._id),
@@ -205,6 +255,7 @@ async function getRecentTransactions(req, res) {
         currency: t.currency,
         status: t.status,
         createdAt: t.createdAt,
+        pair: t.pair,
       })),
     ];
 

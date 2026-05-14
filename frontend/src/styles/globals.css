@@ -55,10 +55,21 @@
   --accent-active:        #4F46E5;
   --accent-muted:         rgba(99, 102, 241, 0.14);
 
+  /* ── Primary aliases (used by admin pages, mirrors accent) ───────────────── */
+  --primary:              #6366F1;
+  --primary-hover:        #818CF8;
+  --primary-active:       #4F46E5;
+  --primary-muted:        rgba(99, 102, 241, 0.14);
+  --secondary:            #818CF8;
+  --secondary-hover:      #A5B4FC;
+  --secondary-active:     #6366F1;
+  --secondary-muted:      rgba(129, 140, 248, 0.12);
+
   /* ── Semantic states ─────────────────────────────────────────────────────── */
   --success:              #10D98A;
   --success-muted:        rgba(16, 217, 138, 0.12);
   --success-fg:           #34D399;
+  --success-foreground:   #34D399;
 
   --danger:               #F43F5E;
   --danger-muted:         rgba(244, 63, 94, 0.12);
@@ -67,10 +78,16 @@
   --warning:              #FACC15;
   --warning-muted:        rgba(250, 204, 21, 0.12);
   --warning-fg:           #FDE047;
+  --warning-foreground:   #FDE047;
 
   --info:                 #60A5FA;
   --info-muted:           rgba(96, 165, 250, 0.12);
   --info-fg:              #93C5FD;
+  --info-foreground:      #93C5FD;
+
+  --error:                #F43F5E;
+  --error-muted:          rgba(244, 63, 94, 0.12);
+  --error-foreground:     #FB7185;
 
   /* ── Interactive ─────────────────────────────────────────────────────────── */
   --hover-bg:             rgba(255, 255, 255, 0.05);
@@ -141,10 +158,21 @@
   --accent-active:        #5B21B6;
   --accent-muted:         rgba(124, 58, 237, 0.10);
 
+  /* ── Primary aliases (used by admin pages, mirrors accent) ───────────────── */
+  --primary:              #7C3AED;
+  --primary-hover:        #6D28D9;
+  --primary-active:       #5B21B6;
+  --primary-muted:        rgba(124, 58, 237, 0.10);
+  --secondary:            #8B5CF6;
+  --secondary-hover:      #7C3AED;
+  --secondary-active:     #6D28D9;
+  --secondary-muted:      rgba(139, 92, 246, 0.10);
+
   /* ── Semantic states ─────────────────────────────────────────────────────── */
   --success:              #16A34A;
   --success-muted:        rgba(22, 163, 74, 0.10);
   --success-fg:           #15803D;
+  --success-foreground:   #15803D;
 
   --danger:               #9F1239;
   --danger-muted:         rgba(159, 18, 57, 0.10);
@@ -153,10 +181,16 @@
   --warning:              #EAB308;
   --warning-muted:        rgba(234, 179, 8, 0.10);
   --warning-fg:           #A16207;
+  --warning-foreground:   #A16207;
 
   --info:                 #2563EB;
   --info-muted:           rgba(37, 99, 235, 0.10);
   --info-fg:              #1D4ED8;
+  --info-foreground:      #1D4ED8;
+
+  --error:                #9F1239;
+  --error-muted:          rgba(159, 18, 57, 0.10);
+  --error-foreground:     #BE123C;
 
   /* ── Interactive ─────────────────────────────────────────────────────────── */
   --hover-bg:             rgba(124, 58, 237, 0.06);
@@ -211,10 +245,17 @@
     --accent:               #7C3AED;
     --accent-hover:         #6D28D9;
     --accent-muted:         rgba(124, 58, 237, 0.10);
+    --primary:              #7C3AED;
+    --primary-hover:        #6D28D9;
+    --primary-muted:        rgba(124, 58, 237, 0.10);
     --success:              #16A34A;
+    --success-muted:        rgba(22, 163, 74, 0.10);
     --danger:               #9F1239;
+    --danger-muted:         rgba(159, 18, 57, 0.10);
     --warning:              #EAB308;
+    --warning-muted:        rgba(234, 179, 8, 0.10);
     --info:                 #2563EB;
+    --info-muted:           rgba(37, 99, 235, 0.10);
     --hover-bg:             rgba(124, 58, 237, 0.06);
     --focus-ring:           #7C3AED;
     --sidebar-bg:           #F9F5FD;
@@ -278,6 +319,24 @@ button {
   font-family: inherit;
 }
 
+/*
+ * Native <select> reset — removes OS chrome that ignores CSS background-color
+ * in some browsers, especially on Windows. The admin pages set background via
+ * inline style; appearance: none lets that color actually render.
+ */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236E7EA8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2.25rem !important;
+}
+
+[data-theme="light"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%235B3A8C' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+}
+
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus {
@@ -291,6 +350,19 @@ input:-webkit-autofill:focus {
 ::-webkit-scrollbar-track    { background: transparent; }
 ::-webkit-scrollbar-thumb    { background: var(--border); border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Focus ring utility (all interactive elements) ────────────────────────── */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ─── Admin button on-primary text helper ─────────────────────────────────── */
+/*
+ * Buttons with backgroundColor='var(--primary)' use color='var(--text-inverse)'.
+ * --text-inverse is #090C14 in dark and #FFFFFF in light — correct contrast
+ * in both themes without hardcoding 'white'.
+ */
 
 /* ═══════════════════════════════════════════════════════════════════════════ */
 /* ANIMATIONS                                                                  */

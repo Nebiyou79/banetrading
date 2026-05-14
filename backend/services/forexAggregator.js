@@ -13,7 +13,7 @@ const STALE_OK_MS = 30 * 60 * 1000;  // 30 min stale OK
 const SYNTHETIC_PRICES = {
   EURUSD: 1.0850, GBPUSD: 1.2700, USDJPY: 149.50,
   USDCHF: 0.9000, AUDUSD: 0.6500,
-  XAUUSD: 3300.00, XAGUSD: 30.00,
+  XAUUSD: 4680.00, XAGUSD: 30.00,
 };
 
 // ── Provider implementations ──
@@ -155,6 +155,27 @@ async function getForexAndMetals() {
       const rows = await p.fn();
       if (rows && rows.length >= 3) {  // Need at least 3 pairs to be useful
         const merged = mergeWithMetadata(rows);
+        // Always fill metals from synthetic if provider missed them
+        for (const row of merged) {
+          if ((row.symbol === 'XAUUSD' || row.symbol === 'XAGUSD') && (row.price === null || row.price === undefined)) {
+            row.price = SYNTHETIC_PRICES[row.symbol];
+            row.source = 'synthetic';
+          }
+        }
+        // Always fill metals from synthetic if provider missed them
+        for (const row of merged) {
+          if ((row.symbol === 'XAUUSD' || row.symbol === 'XAGUSD') && (row.price === null || row.price === undefined)) {
+            row.price = SYNTHETIC_PRICES[row.symbol];
+            row.source = 'synthetic';
+          }
+        }
+        // Always fill metals from synthetic if provider missed them
+        for (const row of merged) {
+          if ((row.symbol === 'XAUUSD' || row.symbol === 'XAGUSD') && (row.price === null || row.price === undefined)) {
+            row.price = SYNTHETIC_PRICES[row.symbol];
+            row.source = 'synthetic';
+          }
+        }
         cache.set(FX_LIST_KEY, merged, p.name);
         return { rows: merged, source: p.name, stale: false };
       }

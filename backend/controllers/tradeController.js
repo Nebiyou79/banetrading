@@ -1,5 +1,9 @@
 // controllers/tradeController.js
-// ── TRADING CONTROLLER — uses new market.service ──
+// ── TRADING CONTROLLER ──
+// BUG 3 FIX: At trade placement, only debit the RISKED amount (stake * multiplier)
+//            from the user's balance. The un-risked portion stays in their account.
+//            On WIN, credit back stake + profit - fee.
+//            On LOSS, resolver credits back the un-risked portion (already in balance).
 
 const Trade = require('../models/Trade');
 const TradingConfig = require('../models/TradingConfig');
@@ -11,7 +15,6 @@ const tradeResolver = require('../services/tradeResolver');
 
 const TRADING_ASSETS = ['USDT'];
 
-// ── Service loaders ──
 let _ms = null, _fx = null;
 function getMarketService() {
   if (!_ms) { try { _ms = require('../services/market/market.service'); } catch { _ms = null; } }
@@ -43,7 +46,6 @@ async function getOrCreateConfig() {
 async function fetchPairPrice(pair, pairClass) {
   const ms = getMarketService();
 
-  // Try new market service first (handles all classes)
   if (ms) {
     try {
       const result = await ms.getPrice(pair);
@@ -53,7 +55,6 @@ async function fetchPairPrice(pair, pairClass) {
     }
   }
 
-  // Forex/metals fallback
   if (pairClass === 'forex' || pairClass === 'metals') {
     const fx = getForexAggregator();
     if (fx) {
@@ -157,12 +158,18 @@ exports.placeTrade = async (req, res) => {
     }
 
     if (stakeNum < plan.minUsd) {
-      return res.status(400).json({ message: `Below minimum: ${plan.minUsd} USDT required for ${plan.key} plan`, minInAsset: plan.minUsd });
+      return res.status(400).json({
+        message: `Below minimum: ${plan.minUsd} USDT required for ${plan.key} plan`,
+        minInAsset: plan.minUsd,
+      });
     }
 
     const available = user.balances?.USDT || 0;
+
     if (available < stakeNum) {
-      return res.status(400).json({ message: `Insufficient USDT balance. Available: ${available.toFixed(2)} USDT` });
+      return res.status(400).json({
+        message: `Insufficient USDT balance. Available: ${available.toFixed(2)} USDT`,
+      });
     }
 
     const entryPrice = await fetchPairPrice(pair, pairMeta.class);
@@ -170,17 +177,32 @@ exports.placeTrade = async (req, res) => {
       return res.status(503).json({ message: 'Entry price unavailable — please retry.' });
     }
 
-    user.balances.USDT = available - stakeNum;
+    // BUG 3 FIX: Only debit the RISKED amount (stake * multiplier) at placement.
+    const riskAmount = stakeNum * plan.multiplier;
+
+    user.balances.USDT = available - riskAmount;
     user.markModified('balances');
     await user.save();
 
     const now = new Date();
     const expiresAt = new Date(now.getTime() + plan.durationSec * 1000);
+
     const trade = await Trade.create({
-      userId: user._id, pair, pairClass: pairMeta.class, pairDisplay: pairMeta.display,
-      direction, tradingAsset: 'USDT', stake: stakeNum,
-      planKey: plan.key, planMultiplier: plan.multiplier, planDurationSec: plan.durationSec,
-      feeBps: config.feeBps, entryPrice, expiresAt, resolveAt: expiresAt, status: 'pending',
+      userId:          user._id,
+      pair,
+      pairClass:       pairMeta.class,
+      pairDisplay:     pairMeta.display,
+      direction,
+      tradingAsset:    'USDT',
+      stake:           stakeNum,
+      planKey:         plan.key,
+      planMultiplier:  plan.multiplier,
+      planDurationSec: plan.durationSec,
+      feeBps:          config.feeBps,
+      entryPrice,
+      expiresAt,
+      resolveAt:       expiresAt,
+      status:          'pending',
     });
 
     tradeResolver.scheduleResolution(trade);

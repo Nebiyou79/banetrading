@@ -1,5 +1,5 @@
 // pages/admin/kyc.tsx
-// ── Admin KYC management page ──
+// ── Admin KYC management page with proper file URL handling ──
 
 'use client';
 
@@ -20,8 +20,37 @@ const KYC_KEY = ['admin', 'kyc'];
 interface KycSubmission {
   _id: string;
   userId: { _id: string; email: string; name: string; displayName?: string; kycTier: number };
-  level2: any;
-  level3: any;
+  level2: {
+    status: string;
+    fullName?: string;
+    dateOfBirth?: string;
+    country?: string;
+    idType?: string;
+    idNumber?: string;
+    expiryDate?: string;
+    idFrontPath?: string;
+    idFrontUrl?: string;
+    idBackPath?: string;
+    idBackUrl?: string;
+    selfiePath?: string;
+    selfieUrl?: string;
+    rejectionReason?: string;
+    submittedAt?: string;
+    reviewedAt?: string;
+  };
+  level3: {
+    status: string;
+    fullName?: string;
+    addressLine?: string;
+    city?: string;
+    postalCode?: string;
+    country?: string;
+    documentPath?: string;
+    documentUrl?: string;
+    rejectionReason?: string;
+    submittedAt?: string;
+    reviewedAt?: string;
+  };
   updatedAt: string;
 }
 
@@ -67,7 +96,9 @@ function KycContent() {
       header: 'Status',
       render: (k: KycSubmission) => {
         const status = activeLevel === 2 ? k.level2?.status : k.level3?.status;
-        return <Badge variant={status === 'pending' ? 'warning' : 'neutral'}>{status || 'unknown'}</Badge>;
+        return <Badge variant={status === 'pending' ? 'warning' : status === 'approved' ? 'success' : 'danger'}>
+          {status || 'unknown'}
+        </Badge>;
       },
     },
     {
@@ -81,7 +112,7 @@ function KycContent() {
       render: (k: KycSubmission) => (
         <button
           onClick={() => setSelectedKyc(k)}
-          className="px-3 py-1 rounded text-sm font-medium"
+          className="px-3 py-1 rounded text-sm font-medium transition-opacity hover:opacity-80"
           style={{ backgroundColor: 'var(--info-muted)', color: 'var(--info)' }}
         >
           Review
@@ -116,7 +147,6 @@ function KycContent() {
         onChange={(key) => setActiveLevel(parseInt(key))}
       />
 
-      {/* KYC Review Modal */}
       <KycReviewModal
         submission={selectedKyc}
         level={activeLevel}
@@ -167,14 +197,53 @@ function KycReviewModal({
             {data?.idType && <p><strong>ID Type:</strong> {data.idType}</p>}
             {data?.idNumber && <p><strong>ID Number:</strong> {data.idNumber}</p>}
             {data?.expiryDate && <p><strong>Expiry:</strong> {new Date(data.expiryDate).toLocaleDateString()}</p>}
-            {data?.idFrontPath && (
-              <p><strong>ID Front:</strong> <a href={data.idFrontPath} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>View</a></p>
+            
+            {/* Use idFrontUrl instead of idFrontPath */}
+            {data?.idFrontUrl && (
+              <p>
+                <strong>ID Front:</strong>{' '}
+                <a
+                  href={data.idFrontUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:opacity-80 transition-opacity"
+                  style={{ color: 'var(--primary)' }}
+                >
+                  View Document
+                </a>
+              </p>
             )}
-            {data?.idBackPath && (
-              <p><strong>ID Back:</strong> <a href={data.idBackPath} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>View</a></p>
+            
+            {/* Use idBackUrl instead of idBackPath */}
+            {data?.idBackUrl && (
+              <p>
+                <strong>ID Back:</strong>{' '}
+                <a
+                  href={data.idBackUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:opacity-80 transition-opacity"
+                  style={{ color: 'var(--primary)' }}
+                >
+                  View Document
+                </a>
+              </p>
             )}
-            {data?.selfiePath && (
-              <p><strong>Selfie:</strong> <a href={data.selfiePath} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>View</a></p>
+            
+            {/* Use selfieUrl instead of selfiePath */}
+            {data?.selfieUrl && (
+              <p>
+                <strong>Selfie:</strong>{' '}
+                <a
+                  href={data.selfieUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:opacity-80 transition-opacity"
+                  style={{ color: 'var(--primary)' }}
+                >
+                  View Image
+                </a>
+              </p>
             )}
           </>
         )}
@@ -184,8 +253,21 @@ function KycReviewModal({
             {data?.addressLine && <p><strong>Address:</strong> {data.addressLine}</p>}
             {data?.city && <p><strong>City:</strong> {data.city}</p>}
             {data?.postalCode && <p><strong>Postal Code:</strong> {data.postalCode}</p>}
-            {data?.documentPath && (
-              <p><strong>Document:</strong> <a href={data.documentPath} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>View</a></p>
+            
+            {/* Use documentUrl instead of documentPath */}
+            {data?.documentUrl && (
+              <p>
+                <strong>Document:</strong>{' '}
+                <a
+                  href={data.documentUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline hover:opacity-80 transition-opacity"
+                  style={{ color: 'var(--primary)' }}
+                >
+                  View Document
+                </a>
+              </p>
             )}
           </>
         )}
@@ -198,7 +280,14 @@ function KycReviewModal({
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="Rejection reason..."
                 className="w-full px-3 py-2 rounded-lg mb-3"
-                style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+                style={{
+                  backgroundColor: 'var(--card)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border)',
+                  outline: 'none',
+                }}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--focus-ring)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--border)')}
                 rows={3}
               />
             )}
@@ -206,16 +295,22 @@ function KycReviewModal({
               <button
                 onClick={() => onApprove(submission.userId._id)}
                 disabled={isLoading}
-                className="px-4 py-2 rounded-lg flex-1"
-                style={{ backgroundColor: 'var(--success)', color: 'white' }}
+                className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--success)',
+                  color: 'var(--text-inverse)',
+                }}
               >
                 Approve
               </button>
               {!showRejectInput ? (
                 <button
                   onClick={() => setShowRejectInput(true)}
-                  className="px-4 py-2 rounded-lg flex-1"
-                  style={{ backgroundColor: 'var(--danger)', color: 'white' }}
+                  className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90"
+                  style={{
+                    backgroundColor: 'var(--danger)',
+                    color: 'var(--text-inverse)',
+                  }}
                 >
                   Reject
                 </button>
@@ -223,8 +318,11 @@ function KycReviewModal({
                 <button
                   onClick={() => onReject(submission.userId._id, rejectReason)}
                   disabled={!rejectReason.trim() || isLoading}
-                  className="px-4 py-2 rounded-lg flex-1 disabled:opacity-50"
-                  style={{ backgroundColor: 'var(--danger)', color: 'white' }}
+                  className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+                  style={{
+                    backgroundColor: 'var(--danger)',
+                    color: 'var(--text-inverse)',
+                  }}
                 >
                   Confirm Reject
                 </button>

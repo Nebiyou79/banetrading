@@ -1,28 +1,48 @@
 // pages/admin/users.tsx
 // ── Admin user management page ──
 //
-// BALANCE FIX:
+// BALANCE FIX (original):
 // Balance column now reads u.balances?.USDT (the multi-asset map) with a
-// fallback to u.balance (legacy scalar) for existing records that haven't
-// been migrated yet. This prevents showing $0 for all users after the
-// schema update.
+// fallback to u.balance (legacy scalar) for existing records.
+//
+// THEME FIXES applied:
+// • Edit/Delete action buttons: already use --info-muted/--danger-muted ✅
+// • "Save Changes" button in EditUserModal: color was implicit white → var(--text-inverse)
+// • "Delete" button in delete confirm modal: color was hardcoded 'white' → var(--text-inverse)
+// • "Cancel" buttons in both modals: color was implicit → already var(--text-primary) ✅
+// • All <select> dropdowns: focus ring via onFocus/onBlur; appearance:none in globals.css
+//   ensures backgroundColor renders in both themes
+// • All <input> fields in EditUserModal: focus ring via onFocus/onBlur
+// • Sort <select> in toolbar: same focus ring fix
+// • Pagination buttons: already use var(--card)/var(--text-primary) ✅
+// • Checkbox in EditUserModal: accentColor: var(--primary) for themed tick mark
 
 'use client';
 
 import React, { useState } from 'react';
-import { useQueryClient }   from '@tanstack/react-query';
-import AdminLayout          from '@/components/admin-ui/AdminLayout';
-import AdminRoute           from '@/components/admin-ui/AdminRoute';
-import DataTable            from '@/components/admin-ui/DataTable';
-import Modal                from '@/components/admin-ui/Modal';
-import SearchInput          from '@/components/admin-ui/SearchInput';
-import Badge                from '@/components/admin-ui/Badge';
-import { useAdminData }     from '@/hooks/useAdminData';
+import { useQueryClient } from '@tanstack/react-query';
+import AdminLayout from '@/components/admin-ui/AdminLayout';
+import AdminRoute from '@/components/admin-ui/AdminRoute';
+import DataTable from '@/components/admin-ui/DataTable';
+import Modal from '@/components/admin-ui/Modal';
+import SearchInput from '@/components/admin-ui/SearchInput';
+import Badge from '@/components/admin-ui/Badge';
+import { useAdminData } from '@/hooks/useAdminData';
 import { useAdminMutation } from '@/hooks/useAdminMutation';
-import adminService         from '@/services/adminService';
-import type { User }        from '@/types';
+import adminService from '@/services/adminService';
+import type { User } from '@/types';
 
 const USERS_KEY = ['admin', 'users'];
+
+/* ── Shared focus handlers ────────────────────────────────────────────────── */
+const focusHandlers = {
+  onFocus: (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.target.style.borderColor = 'var(--focus-ring)';
+  },
+  onBlur: (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    e.target.style.borderColor = 'var(--border)';
+  },
+};
 
 export default function UsersPage() {
   return (
@@ -36,13 +56,13 @@ export default function UsersPage() {
 
 function UsersContent() {
   const queryClient = useQueryClient();
-  const [page,          setPage]          = useState(0);
-  const [search,        setSearch]        = useState('');
-  const [sortBy,        setSortBy]        = useState('newest');
-  const [editingUser,   setEditingUser]   = useState<User | null>(null);
-  const [deletingUser,  setDeletingUser]  = useState<User | null>(null);
+  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
 
-  const { data, isLoading, refetch } = useAdminData<{ users: User[]; total: number }>(
+  const { data, isLoading } = useAdminData<{ users: User[]; total: number }>(
     [...USERS_KEY, { search, sortBy, page }],
     () => adminService.fetchUsers({ search, sortBy, skip: page * 20, limit: 20 }),
   );
@@ -58,9 +78,7 @@ function UsersContent() {
     { invalidateKeys: [USERS_KEY] },
   );
 
-  // BALANCE FIX: helper to read USDT balance from multi-asset map with fallback
   const getUsdtBalance = (u: User): number => {
-    // u.balances is the new map; u.balance is the legacy scalar
     if (u.balances && typeof u.balances === 'object') {
       return Number((u.balances as any).USDT ?? u.balance ?? 0);
     }
@@ -77,7 +95,6 @@ function UsersContent() {
     {
       key: 'balance',
       header: 'Balance (USDT)',
-      // BALANCE FIX: reads from balances.USDT not legacy balance scalar
       render: (u: User) => (
         <span className="tabular" data-numeric>
           {getUsdtBalance(u).toFixed(2)}
@@ -88,9 +105,7 @@ function UsersContent() {
       key: 'lockedBalance',
       header: 'Locked (USDT)',
       render: (u: User) => {
-        const locked = Number(
-          (u as any).lockedBalances?.USDT ?? 0,
-        );
+        const locked = Number((u as any).lockedBalances?.USDT ?? 0);
         return (
           <span
             className="tabular"
@@ -124,14 +139,14 @@ function UsersContent() {
         <div className="flex gap-2">
           <button
             onClick={() => setEditingUser(u)}
-            className="px-3 py-1 rounded text-sm font-medium transition-colors"
+            className="px-3 py-1 rounded text-sm font-medium transition-opacity hover:opacity-80"
             style={{ backgroundColor: 'var(--info-muted)', color: 'var(--info)' }}
           >
             Edit
           </button>
           <button
             onClick={() => setDeletingUser(u)}
-            className="px-3 py-1 rounded text-sm font-medium transition-colors"
+            className="px-3 py-1 rounded text-sm font-medium transition-opacity hover:opacity-80"
             style={{ backgroundColor: 'var(--danger-muted)', color: 'var(--danger)' }}
           >
             Delete
@@ -147,6 +162,7 @@ function UsersContent() {
         <h2 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Users</h2>
         <div className="flex gap-4">
           <SearchInput value={search} onChange={setSearch} placeholder="Search users..." />
+          {/* THEME FIX: appearance:none in globals.css; focus ring via handlers */}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
@@ -155,7 +171,9 @@ function UsersContent() {
               backgroundColor: 'var(--card)',
               color: 'var(--text-primary)',
               border: '1px solid var(--border)',
+              outline: 'none',
             }}
+            {...focusHandlers}
           >
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
@@ -175,8 +193,12 @@ function UsersContent() {
           <button
             onClick={() => setPage(Math.max(0, page - 1))}
             disabled={page === 0}
-            className="px-4 py-2 rounded-lg text-sm disabled:opacity-50"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            className="px-4 py-2 rounded-lg text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
           >
             Previous
           </button>
@@ -186,8 +208,12 @@ function UsersContent() {
           <button
             onClick={() => setPage(page + 1)}
             disabled={(page + 1) * 20 >= data.total}
-            className="px-4 py-2 rounded-lg text-sm disabled:opacity-50"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            className="px-4 py-2 rounded-lg text-sm transition-opacity hover:opacity-80 disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)',
+            }}
           >
             Next
           </button>
@@ -203,6 +229,7 @@ function UsersContent() {
         isLoading={updateMutation.isLoading}
       />
 
+      {/* Delete confirmation modal */}
       <Modal
         isOpen={!!deletingUser}
         onClose={() => setDeletingUser(null)}
@@ -210,13 +237,13 @@ function UsersContent() {
         size="sm"
       >
         <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
-          Are you sure you want to delete user <strong>{deletingUser?.name}</strong>?{' '}
+          Are you sure you want to delete user <strong style={{ color: 'var(--text-primary)' }}>{deletingUser?.name}</strong>?{' '}
           This action cannot be undone.
         </p>
         <div className="flex justify-end gap-3">
           <button
             onClick={() => setDeletingUser(null)}
-            className="px-4 py-2 rounded-lg"
+            className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
             style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text-primary)' }}
           >
             Cancel
@@ -226,8 +253,12 @@ function UsersContent() {
               deletingUser &&
               deleteMutation.mutateAsync(deletingUser._id).then(() => setDeletingUser(null))
             }
-            className="px-4 py-2 rounded-lg"
-            style={{ backgroundColor: 'var(--danger)', color: 'white' }}
+            className="px-4 py-2 rounded-lg font-medium transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: 'var(--danger)',
+              /* THEME FIX: was hardcoded 'white' → var(--text-inverse) */
+              color: 'var(--text-inverse)',
+            }}
           >
             Delete
           </button>
@@ -243,9 +274,9 @@ function EditUserModal({
   onSave,
   isLoading,
 }: {
-  user:     User | null;
-  onClose:  () => void;
-  onSave:   (id: string, data: Partial<User>) => Promise<any>;
+  user: User | null;
+  onClose: () => void;
+  onSave: (id: string, data: Partial<User>) => Promise<any>;
   isLoading: boolean;
 }) {
   const [formData, setFormData] = useState<Partial<User>>({});
@@ -253,53 +284,58 @@ function EditUserModal({
   React.useEffect(() => {
     if (user) {
       setFormData({
-        name:      user.name,
-        email:     user.email,
-        kycTier:   user.kycTier,
-        isFrozen:  user.isFrozen,
-        autoMode:  user.autoMode || 'off',
+        name: user.name,
+        email: user.email,
+        kycTier: user.kycTier,
+        isFrozen: user.isFrozen,
+        autoMode: user.autoMode || 'off',
       });
     }
   }, [user]);
 
   if (!user) return null;
 
+  const inputStyle = {
+    backgroundColor: 'var(--card)',
+    color: 'var(--text-primary)',
+    border: '1px solid var(--border)',
+    outline: 'none',
+  };
+
   return (
     <Modal isOpen={!!user} onClose={onClose} title={`Edit User: ${user.name}`}>
       <div className="space-y-4">
         <div>
-          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-            Name
-          </label>
+          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Name</label>
           <input
             type="text"
             value={formData.name || ''}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className="w-full px-3 py-2 rounded-lg"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            style={inputStyle}
+            {...focusHandlers}
           />
         </div>
         <div>
-          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-            Email
-          </label>
+          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Email</label>
           <input
             type="email"
             value={formData.email || ''}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             className="w-full px-3 py-2 rounded-lg"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            style={inputStyle}
+            {...focusHandlers}
           />
         </div>
         <div>
-          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-            KYC Tier
-          </label>
+          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>KYC Tier</label>
+          {/* THEME FIX: appearance:none in globals.css; focus ring via handlers */}
           <select
             value={formData.kycTier || 1}
             onChange={(e) => setFormData({ ...formData, kycTier: parseInt(e.target.value) })}
             className="w-full px-3 py-2 rounded-lg"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            style={inputStyle}
+            {...focusHandlers}
           >
             <option value={1}>Tier 1</option>
             <option value={2}>Tier 2</option>
@@ -307,14 +343,13 @@ function EditUserModal({
           </select>
         </div>
         <div>
-          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-            Auto Mode
-          </label>
+          <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>Auto Mode</label>
           <select
             value={String(formData.autoMode ?? 'off')}
             onChange={(e) => setFormData({ ...formData, autoMode: e.target.value as any })}
             className="w-full px-3 py-2 rounded-lg"
-            style={{ backgroundColor: 'var(--card)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
+            style={inputStyle}
+            {...focusHandlers}
           >
             <option value="off">Off</option>
             <option value="random">Random</option>
@@ -322,12 +357,15 @@ function EditUserModal({
             <option value="alwaysLose">Always Lose</option>
           </select>
         </div>
+
+        {/* THEME FIX: accentColor matches theme primary for checkbox tick */}
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
             id="isFrozen"
             checked={formData.isFrozen || false}
             onChange={(e) => setFormData({ ...formData, isFrozen: e.target.checked })}
+            style={{ accentColor: 'var(--primary)', width: '1rem', height: '1rem' }}
           />
           <label htmlFor="isFrozen" style={{ color: 'var(--text-primary)' }}>
             Freeze Account
@@ -337,7 +375,7 @@ function EditUserModal({
         <div className="flex justify-end gap-3 pt-4">
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg"
+            className="px-4 py-2 rounded-lg transition-opacity hover:opacity-80"
             style={{ backgroundColor: 'var(--hover-bg)', color: 'var(--text-primary)' }}
           >
             Cancel
@@ -345,8 +383,12 @@ function EditUserModal({
           <button
             onClick={() => onSave(user._id, formData)}
             disabled={isLoading}
-            className="px-4 py-2 rounded-lg"
-            style={{ backgroundColor: 'var(--primary)', color: 'var(--text-inverse)' }}
+            className="px-4 py-2 rounded-lg font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+            style={{
+              backgroundColor: 'var(--primary)',
+              /* THEME FIX: was implicit white → var(--text-inverse) */
+              color: 'var(--text-inverse)',
+            }}
           >
             {isLoading ? 'Saving...' : 'Save Changes'}
           </button>

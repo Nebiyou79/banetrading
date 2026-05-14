@@ -1,5 +1,5 @@
 // services/marketsService.ts
-// ── MARKETS API SERVICE (EXTENDED WITH NEW MARKET ENDPOINTS) ──
+// ── MARKETS API SERVICE ──
 
 import { apiClient } from './apiClient';
 import type {
@@ -16,7 +16,7 @@ import type {
 } from '@/types/markets';
 
 export const marketsService = {
-  // ── Crypto (existing) ── with /market/markets fallback
+  // ── Crypto markets list ──
   async getMarketsList(): Promise<MarketsListResponse> {
     // Try new unified endpoint first
     try {
@@ -28,7 +28,7 @@ export const marketsService = {
           stale:  false,
         } as MarketsListResponse;
       }
-    } catch { /* fall through to legacy */ }
+    } catch { /* fall through */ }
     // Fallback to legacy /markets/list
     const { data } = await apiClient.get<MarketsListResponse>('/markets/list');
     return data;
@@ -60,11 +60,11 @@ export const marketsService = {
     return data;
   },
 
-  // ── OHLC candles (crypto + FX/metals) ──
+  // ── OHLC candles (legacy endpoint) ──
   async getOhlc(
     symbol: string,
     interval: Timeframe = '1h',
-    limit: number = 500,
+    limit: number = 300,
   ): Promise<OhlcResponse> {
     const { data } = await apiClient.get<OhlcResponse>(
       `/markets/${encodeURIComponent(symbol)}/ohlc`,
@@ -73,12 +73,30 @@ export const marketsService = {
     return data;
   },
 
-  // ── NEW: Market data via internal aggregation API ──
+  // ── NEW: Chart candles via /api/chart (TradingView-compatible, synthetic fallback) ──
+  async getChartCandles(
+    symbol: string,
+    interval: string = '1h',
+    assetClass: AssetClass = 'crypto',
+    limit: number = 300,
+  ): Promise<NormalizedCandle[]> {
+    const { data } = await apiClient.get<ApiResponse<NormalizedCandle[]>>(
+      '/chart',
+      {
+        params: {
+          symbol,
+          interval,
+          limit,
+        },
+      },
+    );
 
-  /**
-   * Get ticker from the new market aggregation system.
-   * Goes through Redis cache — no 429s.
-   */
+    if (!data.success) throw new Error(data.error || 'Failed to fetch candles');
+    if (!data.data || data.data.length === 0) throw new Error('No candle data');
+    return data.data;
+  },
+
+  // ── Ticker from market aggregation system ──
   async getTicker(
     symbol: string,
     assetClass: AssetClass = 'crypto',
@@ -98,36 +116,7 @@ export const marketsService = {
     return data.data;
   },
 
-  /**
-   * Get OHLC candles from the new chart API.
-   * TradingView-compatible format.
-   */
-  async getChartCandles(
-    symbol: string,
-    interval: string = '1h',
-    assetClass: AssetClass = 'crypto',
-    limit: number = 300,
-  ): Promise<NormalizedCandle[]> {
-    const { data } = await apiClient.get<ApiResponse<NormalizedCandle[]>>(
-      '/chart',
-      {
-        params: {
-          symbol,
-          interval,
-          class: assetClass,
-          limit,
-        },
-      },
-    );
-
-    if (!data.success) throw new Error(data.error || 'Failed to fetch candles');
-    return data.data;
-  },
-
-  /**
-   * Get merged market list from the new aggregation system.
-   * Binance prices + CoinGecko metadata/images.
-   */
+  // ── Aggregated market list from new system ──
   async getAggregatedMarkets(): Promise<NormalizedMarket[]> {
     const { data } = await apiClient.get<ApiResponse<NormalizedMarket[]>>('/market/markets');
 
@@ -135,9 +124,7 @@ export const marketsService = {
     return data.data;
   },
 
-  /**
-   * Search assets across all classes.
-   */
+  // ── Search assets ──
   async searchAssets(query: string): Promise<NormalizedMarket[]> {
     const { data } = await apiClient.get<ApiResponse<NormalizedMarket[]>>('/market/search', {
       params: { q: query },
@@ -147,9 +134,7 @@ export const marketsService = {
     return data.data;
   },
 
-  /**
-   * Get provider health status.
-   */
+  // ── Provider health ──
   async getMarketHealth(): Promise<any[]> {
     const { data } = await apiClient.get<ApiResponse<any[]>>('/market/health');
 
