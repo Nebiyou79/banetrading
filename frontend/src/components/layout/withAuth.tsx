@@ -40,6 +40,6 @@ export function withAuth<P extends object>(Component: ComponentType<P>): Compone
     }
     return <Component {...props} />;
   }
-  Guarded.name = `withAuth(${Component.name || Component.name || 'Component'})`;
+  Guarded.displayName = `withAuth(${Component.displayName || Component.name || 'Component'})`;
   return Guarded;
 }
