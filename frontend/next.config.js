@@ -1,32 +1,39 @@
 // next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   reactStrictMode: true,
-  
-  // ── Proxy ALL /api/* requests to backend ──
+
   async rewrites() {
+    const backendUrl =
+      process.env.NODE_ENV === "production"
+        ? "http://backend:5001"
+        : "http://localhost:5001";
+
     return [
-      // Proxy all API requests to backend
       {
-        source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/api/:path*`,
+        source: "/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
       },
-      // Proxy upload files
       {
-        source: '/uploads/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'}/uploads/:path*`,
+        source: "/uploads/:path*",
+        destination: `${backendUrl}/uploads/:path*`,
       },
     ];
   },
-  
-  // Allow images from backend
+
   images: {
     remotePatterns: [
       {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '5000',
-        pathname: '/uploads/**',
+        protocol: "https",
+        hostname: "bigonetrading.com",
+        pathname: "/uploads/**",
+      },
+      {
+        protocol: "http",
+        hostname: "localhost",
+        port: "5001",
+        pathname: "/uploads/**",
       },
     ],
   },

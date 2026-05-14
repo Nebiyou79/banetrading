@@ -1,60 +1,23 @@
-# /opt/trading/docker-compose.yml
 version: '3.8'
 
 services:
-  # MongoDB Database
-  mongo:
-    image: mongo:7
-    container_name: trading_mongo
-    restart: unless-stopped
-    command: mongod --quiet --logpath /dev/null
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-ChangeMe123!}
-      MONGO_INITDB_DATABASE: trading_production
-    volumes:
-      - mongo_data:/data/db
-      - ./mongo-init:/docker-entrypoint-initdb.d:ro
-    networks:
-      - trading_network
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    ports:
-      - "127.0.0.1:27017:27017"  # Only expose locally
 
-  # Backend API
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: trading_backend
+    container_name: bigone_backend
     restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-      - PORT=5000
-      - HOST=0.0.0.0
     env_file:
       - ./backend/.env.production
     volumes:
       - backend_uploads:/app/uploads
     ports:
-      - "127.0.0.1:5000:5000"
-    depends_on:
-      mongo:
-        condition: service_healthy
+      - "127.0.0.1:5001:5001"
     networks:
-      - trading_network
+      - bigone_network
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health',(r)=>{process.exit(r.statusCode===200?0:1)})"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5001/health',(r)=>{process.exit(r.statusCode===200?0:1)})"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -64,15 +27,13 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    stop_grace_period: 30s
 
-  # Frontend (Next.js)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - NEXT_PUBLIC_API_URL=https://bigonetrading.com/api
+        - NEXT_PUBLIC_API_URL=https://bigonetrading.com
         - NEXT_PUBLIC_WS_URL=wss://bigonetrading.com/ws/market
         - NEXT_PUBLIC_APP_URL=https://bigonetrading.com
         - NEXT_PUBLIC_APP_NAME=BigOneTrading
@@ -91,15 +52,15 @@ services:
         - NEXT_PUBLIC_CHART_LIBRARY=lightweight
         - NEXT_PUBLIC_MAX_FILE_SIZE=5242880
         - NEXT_PUBLIC_ALLOWED_FILE_TYPES=image/jpeg,image/png,image/jpg,application/pdf
-    container_name: trading_frontend
+    container_name: bigone_frontend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3000"
     depends_on:
       backend:
         condition: service_healthy
     networks:
-      - trading_network
+      - bigone_network
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000',(r)=>{process.exit(r.statusCode===200?0:1)})"]
       interval: 30s
@@ -112,17 +73,10 @@ services:
         max-size: "10m"
         max-file: "3"
 
-# Volumes for persistent data
 volumes:
-  mongo_data:
-    driver: local
   backend_uploads:
     driver: local
 
-# Network for inter-service communication
 networks:
-  trading_network:
+  bigone_network:
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
