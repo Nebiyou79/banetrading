@@ -74,7 +74,6 @@ export type ResetPasswordFormValues = z.infer<typeof resetPasswordFormSchema>;
 // ── Profile schemas ──
 export const personalInfoFormSchema = z.object({
   name:        z.string().trim().min(1, 'Name is required').max(80, 'Name is too long'),
-  displayName: z.string().trim().min(2, 'Display name must be at least 2 characters').max(30, 'Display name must be at most 30 characters'),
   country:     z.string().trim().min(2, 'Please select a country').max(80),
   phone:       z.union([
     z.literal(''),

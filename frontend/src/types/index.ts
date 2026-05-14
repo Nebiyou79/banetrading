@@ -60,7 +60,7 @@ export interface KycStatusData {
 // ── Funds (legacy shapes - prefer types/funds.ts for new code) ────────────
 export interface Deposit {
   _id: string;
-  userId: string | { _id: string; email: string; name: string; displayName?: string };
+  userId: string | { _id: string; email: string; name: string; name?: string };
   amount: number;
   currency: 'USDT' | 'BTC' | 'ETH';
   network?: string;
@@ -77,7 +77,7 @@ export interface Deposit {
 
 export interface Withdrawal {
   _id: string;
-  userId: string | { _id: string; email: string; name: string; displayName?: string };
+  userId: string | { _id: string; email: string; name: string; name?: string };
   amount: number;
   currency: 'USDT' | 'BTC' | 'ETH';
   network?: string;

@@ -10,7 +10,7 @@ import { Spinner } from '@/components/ui/Spinner';
 export function withAuth<P extends object>(Component: ComponentType<P>): ComponentType<P> {
   function Guarded(props: P): JSX.Element | null {
     const router = useRouter();
-    const { user, isLoading, isAuthenticated } = useAuth();
+    const { user, loading, isAuthenticated } = useAuth();
 
     const hasToken = typeof window !== 'undefined' && !!tokenStore.getAccess();
 
@@ -40,6 +40,6 @@ export function withAuth<P extends object>(Component: ComponentType<P>): Compone
     }
     return <Component {...props} />;
   }
-  Guarded.displayName = `withAuth(${Component.displayName || Component.name || 'Component'})`;
+  Guarded.name = `withAuth(${Component.name || Component.name || 'Component'})`;
   return Guarded;
 }

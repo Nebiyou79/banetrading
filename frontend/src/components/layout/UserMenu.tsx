@@ -48,7 +48,7 @@ export function UserMenu(): JSX.Element | null {
 
   if (!user) return null;
 
-  const label = user.displayName || user.name;
+  const label = user.name || user.name;
   const tier = user.kycTier ?? 1;
 
   return (

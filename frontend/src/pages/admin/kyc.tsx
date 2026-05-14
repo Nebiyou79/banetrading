@@ -1,5 +1,11 @@
 // pages/admin/kyc.tsx
-// ── Admin KYC management page with proper file URL handling ──
+// ── Admin KYC management page ──
+//
+// THEME FIXES applied:
+// • Approve/Reject buttons: replaced color="white" → color="var(--text-inverse)"
+// • External document links: added hover style, use var(--primary) (now resolves)
+// • Rejection textarea: focus border uses var(--focus-ring)
+// • Review button: added hover:opacity-80 for visible interactive feedback
 
 'use client';
 
@@ -19,38 +25,9 @@ const KYC_KEY = ['admin', 'kyc'];
 
 interface KycSubmission {
   _id: string;
-  userId: { _id: string; email: string; name: string; displayName?: string; kycTier: number };
-  level2: {
-    status: string;
-    fullName?: string;
-    dateOfBirth?: string;
-    country?: string;
-    idType?: string;
-    idNumber?: string;
-    expiryDate?: string;
-    idFrontPath?: string;
-    idFrontUrl?: string;
-    idBackPath?: string;
-    idBackUrl?: string;
-    selfiePath?: string;
-    selfieUrl?: string;
-    rejectionReason?: string;
-    submittedAt?: string;
-    reviewedAt?: string;
-  };
-  level3: {
-    status: string;
-    fullName?: string;
-    addressLine?: string;
-    city?: string;
-    postalCode?: string;
-    country?: string;
-    documentPath?: string;
-    documentUrl?: string;
-    rejectionReason?: string;
-    submittedAt?: string;
-    reviewedAt?: string;
-  };
+  userId: { _id: string; email: string; name: string; name?: string; kycTier: number };
+  level2: any;
+  level3: any;
   updatedAt: string;
 }
 
@@ -96,9 +73,7 @@ function KycContent() {
       header: 'Status',
       render: (k: KycSubmission) => {
         const status = activeLevel === 2 ? k.level2?.status : k.level3?.status;
-        return <Badge variant={status === 'pending' ? 'warning' : status === 'approved' ? 'success' : 'danger'}>
-          {status || 'unknown'}
-        </Badge>;
+        return <Badge variant={status === 'pending' ? 'warning' : 'neutral'}>{status || 'unknown'}</Badge>;
       },
     },
     {
@@ -197,51 +172,45 @@ function KycReviewModal({
             {data?.idType && <p><strong>ID Type:</strong> {data.idType}</p>}
             {data?.idNumber && <p><strong>ID Number:</strong> {data.idNumber}</p>}
             {data?.expiryDate && <p><strong>Expiry:</strong> {new Date(data.expiryDate).toLocaleDateString()}</p>}
-            
-            {/* Use idFrontUrl instead of idFrontPath */}
-            {data?.idFrontUrl && (
+            {data?.idFrontPath && (
               <p>
                 <strong>ID Front:</strong>{' '}
                 <a
-                  href={data.idFrontUrl}
+                  href={data.idFrontPath}
                   target="_blank"
                   rel="noreferrer"
                   className="underline hover:opacity-80 transition-opacity"
                   style={{ color: 'var(--primary)' }}
                 >
-                  View Document
+                  View
                 </a>
               </p>
             )}
-            
-            {/* Use idBackUrl instead of idBackPath */}
-            {data?.idBackUrl && (
+            {data?.idBackPath && (
               <p>
                 <strong>ID Back:</strong>{' '}
                 <a
-                  href={data.idBackUrl}
+                  href={data.idBackPath}
                   target="_blank"
                   rel="noreferrer"
                   className="underline hover:opacity-80 transition-opacity"
                   style={{ color: 'var(--primary)' }}
                 >
-                  View Document
+                  View
                 </a>
               </p>
             )}
-            
-            {/* Use selfieUrl instead of selfiePath */}
-            {data?.selfieUrl && (
+            {data?.selfiePath && (
               <p>
                 <strong>Selfie:</strong>{' '}
                 <a
-                  href={data.selfieUrl}
+                  href={data.selfiePath}
                   target="_blank"
                   rel="noreferrer"
                   className="underline hover:opacity-80 transition-opacity"
                   style={{ color: 'var(--primary)' }}
                 >
-                  View Image
+                  View
                 </a>
               </p>
             )}
@@ -253,19 +222,17 @@ function KycReviewModal({
             {data?.addressLine && <p><strong>Address:</strong> {data.addressLine}</p>}
             {data?.city && <p><strong>City:</strong> {data.city}</p>}
             {data?.postalCode && <p><strong>Postal Code:</strong> {data.postalCode}</p>}
-            
-            {/* Use documentUrl instead of documentPath */}
-            {data?.documentUrl && (
+            {data?.documentPath && (
               <p>
                 <strong>Document:</strong>{' '}
                 <a
-                  href={data.documentUrl}
+                  href={data.documentPath}
                   target="_blank"
                   rel="noreferrer"
                   className="underline hover:opacity-80 transition-opacity"
                   style={{ color: 'var(--primary)' }}
                 >
-                  View Document
+                  View
                 </a>
               </p>
             )}
@@ -298,6 +265,7 @@ function KycReviewModal({
                 className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
                 style={{
                   backgroundColor: 'var(--success)',
+                  /* THEME FIX: was hardcoded 'white' */
                   color: 'var(--text-inverse)',
                 }}
               >
@@ -309,6 +277,7 @@ function KycReviewModal({
                   className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90"
                   style={{
                     backgroundColor: 'var(--danger)',
+                    /* THEME FIX: was hardcoded 'white' */
                     color: 'var(--text-inverse)',
                   }}
                 >
@@ -321,6 +290,7 @@ function KycReviewModal({
                   className="px-4 py-2 rounded-lg flex-1 font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
                   style={{
                     backgroundColor: 'var(--danger)',
+                    /* THEME FIX: was hardcoded 'white' */
                     color: 'var(--text-inverse)',
                   }}
                 >

@@ -140,7 +140,7 @@ function WelcomePage(): JSX.Element {
   const [countdown, setCountdown] = useState(AUTO_REDIRECT_SECONDS);
   const [stage, setStage] = useState<'intro' | 'visible'>('intro');
 
-  const displayName = profile?.displayName || profile?.name || 'Trader';
+  const name = profile?.name || profile?.name || 'Trader';
 
   // Show WelcomeAnimation for 1.5s then reveal main welcome content
   useEffect(() => {
@@ -231,7 +231,7 @@ function WelcomePage(): JSX.Element {
 
                 <h1 className="text-3xl font-extrabold tracking-tight text-[var(--text-primary)] sm:text-4xl">
                   Welcome to {BRAND},{' '}
-                  <span style={{ color: 'var(--accent)' }}>{displayName}.</span>
+                  <span style={{ color: 'var(--accent)' }}>{name}.</span>
                 </h1>
 
                 <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[var(--text-secondary)]">

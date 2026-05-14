@@ -32,7 +32,7 @@ export function MobileDrawer({ open, onClose }: MobileDrawerProps): JSX.Element 
     };
   }, [open, onClose]);
 
-  const label = user ? (user.displayName || user.name) : 'Guest';
+  const label = user ? (user.name || user.name) : 'Guest';
   let globalIndex = 0;
 
   return (

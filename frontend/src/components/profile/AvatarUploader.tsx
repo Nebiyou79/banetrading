@@ -20,7 +20,7 @@ export function AvatarUploader(): JSX.Element {
 
   if (!profile) return <></>;
 
-  const label = profile.displayName || profile.name;
+  const label = profile.name || profile.name;
 
   const onSelect = async (e: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = e.target.files?.[0];

@@ -35,7 +35,7 @@ export function withAdmin<P extends object>(Component: ComponentType<P>): Compon
     if (user.role !== 'admin') return <ForbiddenScreen />;
     return <Component {...props} />;
   }
-  AdminGuarded.displayName = `withAdmin(${Component.displayName || Component.name || 'Component'})`;
+  AdminGuarded.name = `withAdmin(${Component.name || Component.name || 'Component'})`;
   // Compose with withAuth so the page is also auth-gated.
   return withAuth(AdminGuarded);
 }

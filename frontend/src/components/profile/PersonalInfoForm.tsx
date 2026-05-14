@@ -22,7 +22,6 @@ export function PersonalInfoForm(): JSX.Element | null {
 
   const defaults: PersonalInfoFormValues = useMemo(() => ({
     name:        profile?.name ?? '',
-    displayName: profile?.displayName ?? profile?.name ?? '',
     country:     profile?.country ?? '',
   }), [profile]);
 
@@ -46,14 +45,12 @@ export function PersonalInfoForm(): JSX.Element | null {
     try {
       await updateProfile({
         name:        values.name.trim(),
-        displayName: values.displayName.trim(),
         country:     values.country,
         phone:       values.phone || undefined,
       });
       toast.success('Profile updated');
       reset({
         name:        values.name,
-        displayName: values.displayName,
         country:     values.country,
         phone:       values.phone || '',
       });
@@ -68,14 +65,14 @@ export function PersonalInfoForm(): JSX.Element | null {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FormField label="Display name" htmlFor="displayName" error={errors.displayName?.message}>
+        <FormField label="Display name" htmlFor="name" error={errors.name?.message}>
           <Input
-            id="displayName"
+            id="name"
             type="text"
             placeholder="How others see you"
             leading={<AtSign className="h-4 w-4" />}
-            error={errors.displayName?.message}
-            {...register('displayName')}
+            error={errors.name?.message}
+            {...register('name')}
           />
         </FormField>
 

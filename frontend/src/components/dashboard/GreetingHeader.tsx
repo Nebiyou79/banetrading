@@ -8,7 +8,7 @@ import { getGreeting } from '@/lib/format';
 export function GreetingHeader(): JSX.Element {
   const { user } = useAuth();
   const greeting = getGreeting();
-  const label = (user?.displayName || user?.name || 'trader').split(' ')[0];
+  const label = (user?.name || user?.name || 'trader').split(' ')[0];
 
   const today = new Date();
   const dateStr = today.toLocaleDateString('en-US', {

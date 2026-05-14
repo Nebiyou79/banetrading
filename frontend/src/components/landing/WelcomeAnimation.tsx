@@ -63,7 +63,7 @@ export function WelcomeAnimation(): JSX.Element {
   const { user } = useAuth();
   const [exiting, setExiting] = useState(false);
 
-  const firstName = (user?.displayName || user?.name || 'trader').split(' ')[0];
+  const firstName = (user?.name || user?.name || 'trader').split(' ')[0];
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
