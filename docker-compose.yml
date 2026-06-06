@@ -47,7 +47,7 @@ services:
       dockerfile: Dockerfile
       args:
         # ── These NEXT_PUBLIC_* vars are baked into the Next.js build ──
-        - NEXT_PUBLIC_API_URL=https://capitalcointrade.com/api
+        - NEXT_PUBLIC_API_URL=https://capitalcointrade.com
         - NEXT_PUBLIC_WS_URL=wss://capitalcointrade.com/ws/market
         - NEXT_PUBLIC_APP_URL=https://capitalcointrade.com
         - NEXT_PUBLIC_APP_NAME=CapitalCoinTrade
