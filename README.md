@@ -1,1 +1,1 @@
-# BigOneTrading
+# capitalcointrade

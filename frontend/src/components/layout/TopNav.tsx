@@ -11,7 +11,7 @@ import { cn } from '@/lib/cn';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { UserMenu } from './UserMenu';
 
-const BRAND = 'BigOneTrading';
+const BRAND = 'Capital Coin Trade';
 
 export interface TopNavProps {
   onOpenMobileMenu: () => void;

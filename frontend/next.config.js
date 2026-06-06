@@ -14,8 +14,8 @@ const nextConfig = {
   async rewrites() {
     const backendUrl =
       process.env.NODE_ENV === "production"
-        ? "http://backend:5001"
-        : "http://localhost:5001";
+        ? "http://backend:5000"
+        : "http://localhost:5000";
 
     return [
       {
@@ -33,13 +33,13 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "bigonetrading.com",
+        hostname: "capitalcointrade.com",
         pathname: "/uploads/**",
       },
       {
         protocol: "http",
         hostname: "localhost",
-        port: "5001",
+        port: "5000",
         pathname: "/uploads/**",
       },
     ],

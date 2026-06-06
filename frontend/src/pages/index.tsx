@@ -1,5 +1,5 @@
 // pages/index.tsx
-// ── BigOneTrading — Marketing landing page (Binance/Bybit standard) ──
+// ── Capital Coin Trade — Marketing landing page (Binance/Bybit standard) ──
 
 import Link from 'next/link';
 import Head from 'next/head';
@@ -14,7 +14,7 @@ import { ThemeToggle } from '../components/theme/ThemeToggle';
 import { useCountUp } from '../hooks/useCountUp';
 import { useResponsive } from '../hooks/useResponsive';
 
-const BRAND = 'BigOneTrading';
+const BRAND = 'Capital Coin Trade';
 
 // ── Static ticker data ──
 const TICKER_DATA = [
@@ -234,7 +234,7 @@ function FeaturesGrid(): JSX.Element {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
-            Why BigOneTrading
+            Why Capital Coin Trade
           </p>
           <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-[var(--text-primary)] sm:text-3xl lg:text-4xl">
             Built for serious traders
@@ -360,7 +360,7 @@ function FinalCTA(): JSX.Element {
           Ready to trade with an edge?
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-sm text-[var(--text-secondary)] leading-relaxed">
-          Join 480,000+ traders on BigOneTrading. Create your free account in under a minute — no credit card required.
+          Join 480,000+ traders on Capital Coin Trade. Create your free account in under a minute — no credit card required.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link

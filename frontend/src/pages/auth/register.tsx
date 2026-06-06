@@ -1,5 +1,5 @@
 // pages/auth/register.tsx
-// ── BigOneTrading · Register — Teal / Network theme with Google Sign-Up ──
+// ── Capital Coin Trade · Register — Teal / Network theme with Google Sign-Up ──
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -24,7 +24,7 @@ import { registerFormSchema, RegisterFormValues } from '../../lib/validators';
 import { COUNTRIES } from '../../lib/countries';
 import type { NormalizedApiError } from '../../services/apiClient';
 
-const BRAND = 'BigOneTrading';
+const BRAND = 'Capital Coin Trade';
 
 type PromoState =
   | { status: 'idle' }
@@ -121,7 +121,7 @@ useEffect(() => {
     <>
       <Head>
         <title>Create account · {BRAND}</title>
-        <meta name="description" content="Create your BigOneTrading account" />
+        <meta name="description" content="Create your Capital Coin Trade account" />
       </Head>
 
       <AuthLayout

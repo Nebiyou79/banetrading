@@ -10,8 +10,7 @@ import axios, {
 import { tokenStore } from '../lib/tokenStore';
 import type { RefreshResponse } from '../types/auth';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';
-
+const BASE_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000') + '/api';
 export const apiClient: AxiosInstance = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },

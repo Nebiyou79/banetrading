@@ -1,5 +1,5 @@
 // pages/profile.tsx
-// ── BigOneTrading — Profile page with tabs (Binance/Bybit standard) ──
+// ── Capital Coin Trade — Profile page with tabs (Binance/Bybit standard) ──
 
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
@@ -19,7 +19,7 @@ import { KycStatusCard } from '@/components/profile/KycStatusCard';
 import { useProfile } from '@/hooks/useProfile';
 import { useResponsive } from '@/hooks/useResponsive';
 
-const BRAND = 'BigOneTrading';
+const BRAND = 'Capital Coin Trade';
 
 // ── Tab config ──
 interface TabDef {
@@ -304,7 +304,7 @@ function ProfilePage(): JSX.Element {
     <>
       <Head>
         <title>Profile · {BRAND}</title>
-        <meta name="description" content="Manage your BigOneTrading profile, security, and KYC verification." />
+        <meta name="description" content="Manage your Capital Coin Trade profile, security, and KYC verification." />
       </Head>
 
       <AuthenticatedShell>

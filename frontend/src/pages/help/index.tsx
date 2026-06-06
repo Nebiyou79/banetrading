@@ -11,7 +11,7 @@ import { useSupportConfig } from '@/hooks/useSupportConfig';
 import NewTicketModal from '@/components/support/NewTicketModal';
 import WhatsAppButton from '@/components/support/WhatsAppButton';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade Clone';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'Capital Coin TradeTrade Clone';
 
 function HelpPage(): JSX.Element {
   const router = useRouter();

@@ -1,5 +1,5 @@
 // components/auth/AuthHeader.tsx
-// ── BigOneTrading — Auth header with per-page accent theming ──
+// ── Capital Coin Trade — Auth header with per-page accent theming ──
 
 import Link from 'next/link';
 import Image from 'next/image';
@@ -7,7 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import type { PageTheme } from './AuthLayout';
 
-const BRAND = 'BigOneTrading';
+const BRAND = 'Capital Coin Trade';
 
 export interface AuthHeaderProps {
   showBackLink?: boolean;
@@ -38,7 +38,7 @@ export function AuthHeader({
         >
           <Image
             src="/assets/logo.jpg"
-            alt="BigOneTrading"
+            alt="Capital Coin Trade"
             fill
             sizes="32px"
             className="object-cover"

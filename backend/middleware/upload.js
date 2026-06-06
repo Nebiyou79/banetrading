@@ -1,14 +1,14 @@
 // middleware/upload.js
-// ── Multer configs for production with bigonetrading.com ──
+// ── Multer configs for production with capitalcointrade.com ──
 
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
 // Use absolute paths for Docker containers
-const UPLOAD_DIR = process.env.UPLOAD_DIR || '/app/uploads';
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '..', 'uploads');
 const AVATAR_DIR = path.join(UPLOAD_DIR, 'avatars');
-const KYC_DIR = path.join(UPLOAD_DIR, 'kyc');
+const KYC_DIR    = path.join(UPLOAD_DIR, 'kyc');
 
 // Ensure directories exist
 [UPLOAD_DIR, AVATAR_DIR, KYC_DIR].forEach(dir => {

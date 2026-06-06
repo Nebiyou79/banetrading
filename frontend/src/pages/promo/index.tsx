@@ -1,5 +1,5 @@
 // pages/promo.tsx
-// ── BigOneTrading — Promo / Referral Hub ──
+// ── Capital Coin Trade — Promo / Referral Hub ──
 //
 // PROMO FEATURES:
 // 1. Hero section with promo code display, copy, and share functionality
@@ -74,7 +74,7 @@ function PromoHeroSkeleton(): JSX.Element {
   );
 }
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTrading';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'Capital Coin Trade';
 
 // ── Quick action button ──
 interface QuickBtnProps {

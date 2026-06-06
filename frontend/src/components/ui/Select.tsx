@@ -1,152 +1,345 @@
 // components/ui/Select.tsx
+// Portal-based searchable select — fixes dropdown invisibility caused by
+// ancestor overflow:hidden (common in AuthLayout card containers).
 
 import {
-  KeyboardEvent,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
   useState,
+  useRef,
+  useEffect,
+  useCallback,
+  KeyboardEvent,
+  ChangeEvent,
 } from 'react';
-import { ChevronDown, Check, Search } from 'lucide-react';
-import { cn } from '../../lib/cn';
+import { createPortal } from 'react-dom';
+import { ChevronDown, Search, Check } from 'lucide-react';
 
 export interface SelectOption {
   value: string;
   label: string;
 }
 
-export interface SelectProps {
-  label?: string;
+interface SelectProps {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   options: SelectOption[];
   placeholder?: string;
   error?: string;
-  helper?: string;
-  disabled?: boolean;
   searchable?: boolean;
-  id?: string;
+  disabled?: boolean;
   className?: string;
 }
 
+// ─── Dropdown rendered via portal so it escapes overflow:hidden parents ───────
+interface DropdownPortalProps {
+  options: SelectOption[];
+  selected: string;
+  query: string;
+  onQueryChange: (q: string) => void;
+  onSelect: (value: string) => void;
+  anchorRect: DOMRect | null;
+  searchable: boolean;
+}
+
+function DropdownPortal({
+  options,
+  selected,
+  query,
+  onQueryChange,
+  onSelect,
+  anchorRect,
+  searchable,
+}: DropdownPortalProps) {
+  const searchRef = useRef<HTMLInputElement>(null);
+  const MAX_HEIGHT = 264;
+
+  // Focus search input on mount
+  useEffect(() => {
+    if (searchable) searchRef.current?.focus();
+  }, [searchable]);
+
+  if (!anchorRect) return null;
+
+  // Decide whether to open upward or downward
+  const spaceBelow = window.innerHeight - anchorRect.bottom;
+  const openUpward = spaceBelow < MAX_HEIGHT && anchorRect.top > MAX_HEIGHT;
+
+  const style: React.CSSProperties = {
+    position: 'fixed',
+    left: anchorRect.left,
+    width: anchorRect.width,
+    zIndex: 9999,
+    background: 'var(--background, #0f1117)',
+    border: '1px solid var(--border, rgba(255,255,255,0.12))',
+    borderRadius: '0.5rem',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+    maxHeight: MAX_HEIGHT,
+    ...(openUpward
+      ? { bottom: window.innerHeight - anchorRect.top + 4 }
+      : { top: anchorRect.bottom + 4 }),
+  };
+
+  const filtered = query
+    ? options.filter((o) =>
+        o.label.toLowerCase().includes(query.toLowerCase())
+      )
+    : options;
+
+  return createPortal(
+    <div style={style} role="listbox">
+      {searchable && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            padding: '8px 12px',
+            borderBottom: '1px solid var(--border, rgba(255,255,255,0.08))',
+          }}
+        >
+          <Search
+            style={{ width: 14, height: 14, color: 'var(--text-muted)', flexShrink: 0 }}
+          />
+          <input
+            ref={searchRef}
+            type="text"
+            value={query}
+            onChange={(e: ChangeEvent<HTMLInputElement>) =>
+              onQueryChange(e.target.value)
+            }
+            placeholder="Search…"
+            style={{
+              border: 'none',
+              outline: 'none',
+              background: 'transparent',
+              fontSize: 13,
+              width: '100%',
+              color: 'var(--text-primary, #e2e8f0)',
+            }}
+          />
+        </div>
+      )}
+
+      <ul
+        role="listbox"
+        style={{ overflowY: 'auto', margin: 0, padding: '4px 0', listStyle: 'none' }}
+      >
+        {filtered.length === 0 ? (
+          <li
+            style={{
+              padding: '10px 14px',
+              fontSize: 13,
+              color: 'var(--text-muted)',
+              textAlign: 'center',
+            }}
+          >
+            No results found
+          </li>
+        ) : (
+          filtered.map((opt) => {
+            const isSelected = opt.value === selected;
+            return (
+              <li
+                key={opt.value}
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => onSelect(opt.value)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '9px 14px',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  color: isSelected
+                    ? 'var(--page-accent, #2dd4bf)'
+                    : 'var(--text-primary, #e2e8f0)',
+                  background: isSelected
+                    ? 'var(--page-accent-muted, rgba(45,212,191,0.08))'
+                    : 'transparent',
+                  fontWeight: isSelected ? 500 : 400,
+                  transition: 'background 0.1s',
+                }}
+                onMouseEnter={(e) => {
+                  if (!isSelected)
+                    (e.currentTarget as HTMLElement).style.background =
+                      'rgba(255,255,255,0.05)';
+                }}
+                onMouseLeave={(e) => {
+                  if (!isSelected)
+                    (e.currentTarget as HTMLElement).style.background =
+                      'transparent';
+                }}
+              >
+                <span>{opt.label}</span>
+                {isSelected && (
+                  <Check style={{ width: 14, height: 14, flexShrink: 0 }} />
+                )}
+              </li>
+            );
+          })
+        )}
+      </ul>
+    </div>,
+    document.body
+  );
+}
+
+// ─── Main Select component ────────────────────────────────────────────────────
 export function Select({
-  label,
+  id,
   value,
   onChange,
   options,
   placeholder = 'Select…',
   error,
-  helper,
-  disabled,
-  searchable = true,
-  id,
+  searchable = false,
+  disabled = false,
   className,
 }: SelectProps) {
-  const autoId = useId();
-  const fieldId = id || autoId;
-
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [highlight, setHighlight] = useState(0);
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const searchRef = useRef<HTMLInputElement | null>(null);
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? '';
 
-  const selected = options.find((o) => o.value === value);
+  const openDropdown = useCallback(() => {
+    if (disabled) return;
+    const rect = triggerRef.current?.getBoundingClientRect() ?? null;
+    setAnchorRect(rect);
+    setQuery('');
+    setOpen(true);
+  }, [disabled]);
 
-  const filtered = useMemo(() => {
-    if (!query) return options;
-    return options.filter((o) =>
-      o.label.toLowerCase().includes(query.toLowerCase())
-    );
-  }, [query, options]);
+  const closeDropdown = useCallback(() => {
+    setOpen(false);
+    setQuery('');
+  }, []);
 
+  const handleSelect = useCallback(
+    (val: string) => {
+      onChange(val);
+      closeDropdown();
+      triggerRef.current?.focus();
+    },
+    [onChange, closeDropdown]
+  );
+
+  // Close on outside click / scroll
   useEffect(() => {
     if (!open) return;
 
-    const close = (e: MouseEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        setOpen(false);
+    const onPointerDown = (e: MouseEvent) => {
+      if (
+        triggerRef.current?.contains(e.target as Node) === false &&
+        !(e.target as HTMLElement).closest('[role="listbox"]')
+      ) {
+        closeDropdown();
       }
     };
 
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [open]);
+    const onScroll = () => {
+      if (triggerRef.current) {
+        setAnchorRect(triggerRef.current.getBoundingClientRect());
+      }
+    };
 
-  const pick = (opt: SelectOption) => {
-    onChange(opt.value);
-    setOpen(false);
-    setQuery('');
+    document.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onScroll);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, [open, closeDropdown]);
+
+  // Keyboard: Escape closes, Enter/Space opens
+  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Escape') closeDropdown();
+    if ((e.key === 'Enter' || e.key === ' ') && !open) {
+      e.preventDefault();
+      openDropdown();
+    }
   };
 
   return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
-      {label && (
-        <label className="text-[11px] uppercase tracking-wide text-[var(--text-secondary)]">
-          {label}
-        </label>
-      )}
-
-      <div ref={containerRef} className="relative">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className={cn(
-            'h-11 w-full flex items-center justify-between px-3 rounded-input border',
-            'bg-[var(--card)] text-sm',
+    <>
+      <div
+        ref={triggerRef}
+        id={id}
+        role="combobox"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-disabled={disabled}
+        tabIndex={disabled ? -1 : 0}
+        onClick={() => (open ? closeDropdown() : openDropdown())}
+        onKeyDown={handleKeyDown}
+        className={className}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          height: 40,
+          padding: '0 12px',
+          border: `1px solid ${
             error
-              ? 'border-[var(--danger)]'
-              : 'border-[var(--border)] hover:border-[var(--text-muted)]'
-          )}
+              ? 'var(--danger, #ef4444)'
+              : open
+              ? 'var(--page-accent, #2dd4bf)'
+              : 'var(--border, rgba(255,255,255,0.12))'
+          }`,
+          borderRadius: '0.5rem',
+          background: 'var(--input-bg, rgba(255,255,255,0.04))',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.5 : 1,
+          boxShadow: open ? '0 0 0 2px var(--page-accent-muted, rgba(45,212,191,0.18))' : 'none',
+          transition: 'border-color 0.15s, box-shadow 0.15s',
+          userSelect: 'none',
+          outline: 'none',
+        }}
+      >
+        <span
+          style={{
+            flex: 1,
+            fontSize: 14,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            color: selectedLabel
+              ? 'var(--text-primary, #e2e8f0)'
+              : 'var(--text-muted, #64748b)',
+          }}
         >
-          <span className="truncate">
-            {selected ? selected.label : placeholder}
-          </span>
-          <ChevronDown className="h-4 w-4 text-[var(--text-muted)]" />
-        </button>
-
-        {open && (
-          <div className="absolute z-50 mt-1 w-full rounded-card border border-[var(--border)] bg-[var(--card)] shadow-card">
-            {searchable && (
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--border)]">
-                <Search className="h-4 w-4 text-[var(--text-muted)]" />
-                <input
-                  ref={searchRef}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="w-full bg-transparent text-sm outline-none"
-                />
-              </div>
-            )}
-
-            <ul className="max-h-60 overflow-auto">
-              {filtered.map((opt, i) => (
-                <li
-                  key={opt.value}
-                  onClick={() => pick(opt)}
-                  className={cn(
-                    'px-3 py-2 text-sm cursor-pointer flex justify-between',
-                    i === highlight && 'bg-[var(--card-elevated)]'
-                  )}
-                >
-                  {opt.label}
-                  {value === opt.value && (
-                    <Check className="h-4 w-4 text-[var(--accent)]" />
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          {selectedLabel || placeholder}
+        </span>
+        <ChevronDown
+          style={{
+            width: 16,
+            height: 16,
+            flexShrink: 0,
+            color: 'var(--text-muted)',
+            transform: open ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.2s',
+          }}
+        />
       </div>
 
-      {error ? (
-        <p className="text-xs text-[var(--danger)]">{error}</p>
-      ) : helper ? (
-        <p className="text-xs text-[var(--text-muted)]">{helper}</p>
-      ) : null}
-    </div>
+      {open && (
+        <DropdownPortal
+          options={options}
+          selected={value}
+          query={query}
+          onQueryChange={setQuery}
+          onSelect={handleSelect}
+          anchorRect={anchorRect}
+          searchable={searchable}
+        />
+      )}
+    </>
   );
 }

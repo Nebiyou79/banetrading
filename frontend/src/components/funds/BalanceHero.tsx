@@ -1,11 +1,10 @@
 // components/funds/BalanceHero.tsx
 // ── Big balance display + Deposit / Withdraw CTAs — Binance/Bybit standard ──
 //
-// BALANCE FIX:
-// 1. Reads balances + lockedBalances from useBalance (multi-asset).
-// 2. Renders a per-asset breakdown grid below the total — showing each
-//    currency's available amount and locked amount (if any).
-// 3. Total USDT-equivalent figure is still shown as the headline number.
+// TOTAL BALANCE FIX:
+// The headline figure now shows the true USD-equivalent total across ALL
+// held assets (USDT + BTC×price + ETH×price + …), not just the raw USDT balance.
+// Per-asset breakdown cards still show native amounts (e.g. "5.00 BTC").
 
 import { useState }    from 'react';
 import {
@@ -18,12 +17,13 @@ import { cn }       from '@/lib/cn';
 import {
   formatUsd, formatSignedUsd, formatSignedPercent, formatAmount,
 } from '@/lib/format';
-import { useCountUp }    from '@/hooks/useCountUp';
-import { useBalance }    from '@/hooks/useBalance';
-import { usePortfolio }  from '@/hooks/usePortfolio';
-import { useResponsive } from '@/hooks/useResponsive';
-import { COINS }         from '@/types/funds';
-import type { Coin }     from '@/types/funds';
+import { useCountUp }      from '@/hooks/useCountUp';
+import { useBalance }      from '@/hooks/useBalance';
+import { useTotalBalance } from '@/hooks/useTotalBalance';
+import { usePortfolio }    from '@/hooks/usePortfolio';
+import { useResponsive }   from '@/hooks/useResponsive';
+import { COINS }           from '@/types/funds';
+import type { Coin }       from '@/types/funds';
 
 export interface BalanceHeroProps {
   onDeposit:  () => void;
@@ -31,18 +31,21 @@ export interface BalanceHeroProps {
 }
 
 export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.Element {
-  // BALANCE FIX: destructure full multi-asset maps
-  const { balance, balances, lockedBalances, isFrozen, isLoading } = useBalance();
+  const { balances, lockedBalances, isFrozen, isLoading } = useBalance();
+
+  // TOTAL BALANCE FIX: use price-aware total instead of raw USDT balance
+  const { totalUsd, lockedTotalUsd, priceOf, isPriceLoading } = useTotalBalance();
+
   const { portfolio }  = usePortfolio();
   const { isMobile }   = useResponsive();
   const [hidden, setHidden] = useState(false);
 
-  const total    = balance ?? 0;
-  const animated = useCountUp(total, { duration: 350, decimals: 2 });
-  const change   = portfolio?.change24h ?? { absolute: 0, percent: 0 };
-  const positive = change.percent >= 0;
+  const isLoadingAny = isLoading || isPriceLoading;
+  const animated     = useCountUp(totalUsd, { duration: 350, decimals: 2 });
+  const change       = portfolio?.change24h ?? { absolute: 0, percent: 0 };
+  const positive     = change.percent >= 0;
 
-  // Only show coins that have a non-zero balance or a non-zero locked amount
+  // Show coins with any balance or locked amount
   const activeCoins = COINS.filter(
     (c) => (balances[c] ?? 0) > 0 || (lockedBalances[c] ?? 0) > 0,
   );
@@ -99,7 +102,7 @@ export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.El
           </div>
 
           {/* Total balance amount */}
-          {isLoading ? (
+          {isLoadingAny ? (
             <div className="flex flex-col gap-2">
               <Skeleton className="h-12 w-64 animate-pulse rounded-lg bg-[var(--bg-muted)]" />
               <Skeleton className="h-4  w-40 animate-pulse rounded-md  bg-[var(--bg-muted)]" />
@@ -114,9 +117,10 @@ export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.El
                   )}
                   aria-label={hidden ? 'Balance hidden' : undefined}
                 >
+                  {/* TOTAL BALANCE FIX: animated uses totalUsd (all coins converted) */}
                   {hidden ? '••••••••' : formatUsd(animated)}
                 </span>
-                <span className="mb-0.5 text-sm font-medium text-[var(--text-muted)]">USDT</span>
+                <span className="mb-0.5 text-sm font-medium text-[var(--text-muted)]">USD</span>
               </div>
 
               {/* 24h change row */}
@@ -141,24 +145,35 @@ export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.El
                 <span className="text-[11px] text-[var(--text-muted)]">24h</span>
               </div>
 
-              {/* ── BALANCE FIX: Per-asset breakdown ── */}
+              {/* ── Per-asset breakdown ── */}
               {activeCoins.length > 0 && (
                 <div className="mt-1 flex flex-wrap gap-2">
                   {activeCoins.map((c) => {
-                    const available = balances[c] ?? 0;
-                    const locked    = lockedBalances[c] ?? 0;
+                    const available    = balances[c] ?? 0;
+                    const locked       = lockedBalances[c] ?? 0;
+                    const usdValue     = available * (c === 'USDT' ? 1 : priceOf(c));
+                    const showUsdValue = c !== 'USDT' && usdValue > 0;
+
                     return (
                       <div
                         key={c}
                         className="flex flex-col gap-0.5 rounded-xl border border-[var(--border)]
-                                   bg-[var(--bg-muted)] px-3 py-2 min-w-[84px]"
+                                   bg-[var(--bg-muted)] px-3 py-2 min-w-[96px]"
                       >
                         <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-muted)]">
                           {c}
                         </span>
+                        {/* Native amount */}
                         <span className={cn('tabular text-sm font-bold text-[var(--text-primary)]', hidden && 'blur-sm select-none')}>
                           {hidden ? '••••' : formatAmount(available, c)}
                         </span>
+                        {/* USD equivalent for non-USDT coins */}
+                        {showUsdValue && !hidden && (
+                          <span className="tabular text-[10px] text-[var(--text-muted)]">
+                            ≈ {formatUsd(usdValue)}
+                          </span>
+                        )}
+                        {/* Locked amount */}
                         {locked > 0 && (
                           <div className="flex items-center gap-0.5">
                             <Lock className="h-2.5 w-2.5 shrink-0" style={{ color: 'var(--warning)' }} />
@@ -197,7 +212,7 @@ export function BalanceHero({ onDeposit, onWithdraw }: BalanceHeroProps): JSX.El
             size="lg"
             leadingIcon={<ArrowUpFromLine className="h-4 w-4" />}
             onClick={onWithdraw}
-            disabled={isFrozen || total <= 0}
+            disabled={isFrozen || totalUsd <= 0}
             className={cn(isMobile && 'w-full')}
           >
             Withdraw

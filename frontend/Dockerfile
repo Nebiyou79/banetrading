@@ -1,22 +1,22 @@
 # frontend/Dockerfile
 FROM node:20-alpine AS base
 
-# Install dependencies only when needed
+# ─── Stage 1: Install ALL dependencies (including devDeps for build) ───────────
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy package files
 COPY package.json package-lock.json* ./
-RUN npm ci --only=production && npm cache clean --force
+# Install ALL deps here (devDeps needed for Next.js build: typescript, eslint, etc.)
+RUN npm ci && npm cache clean --force
 
-# Rebuild the source code only when needed
+# ─── Stage 2: Build the Next.js application ────────────────────────────────────
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Environment variables must be present at build time
+# Build-time public env vars (NEXT_PUBLIC_* must be baked in at build time)
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_WS_URL
 ARG NEXT_PUBLIC_APP_URL
@@ -24,6 +24,8 @@ ARG NEXT_PUBLIC_APP_NAME
 ARG NEXT_PUBLIC_BRAND_NAME
 ARG NEXT_PUBLIC_ENABLE_FOREX
 ARG NEXT_PUBLIC_ENABLE_CRYPTO
+ARG NEXT_PUBLIC_ENABLE_STOCKS
+ARG NEXT_PUBLIC_ENABLE_COMMODITIES
 ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID
 ARG NEXT_PUBLIC_SUPPORT_EMAIL
 ARG NEXT_PUBLIC_SUPPORT_PHONE
@@ -37,7 +39,6 @@ ARG NEXT_PUBLIC_CHART_LIBRARY
 ARG NEXT_PUBLIC_MAX_FILE_SIZE
 ARG NEXT_PUBLIC_ALLOWED_FILE_TYPES
 
-# Set environment variables for build
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
@@ -45,6 +46,8 @@ ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 ENV NEXT_PUBLIC_BRAND_NAME=$NEXT_PUBLIC_BRAND_NAME
 ENV NEXT_PUBLIC_ENABLE_FOREX=$NEXT_PUBLIC_ENABLE_FOREX
 ENV NEXT_PUBLIC_ENABLE_CRYPTO=$NEXT_PUBLIC_ENABLE_CRYPTO
+ENV NEXT_PUBLIC_ENABLE_STOCKS=$NEXT_PUBLIC_ENABLE_STOCKS
+ENV NEXT_PUBLIC_ENABLE_COMMODITIES=$NEXT_PUBLIC_ENABLE_COMMODITIES
 ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID
 ENV NEXT_PUBLIC_SUPPORT_EMAIL=$NEXT_PUBLIC_SUPPORT_EMAIL
 ENV NEXT_PUBLIC_SUPPORT_PHONE=$NEXT_PUBLIC_SUPPORT_PHONE
@@ -58,41 +61,34 @@ ENV NEXT_PUBLIC_CHART_LIBRARY=$NEXT_PUBLIC_CHART_LIBRARY
 ENV NEXT_PUBLIC_MAX_FILE_SIZE=$NEXT_PUBLIC_MAX_FILE_SIZE
 ENV NEXT_PUBLIC_ALLOWED_FILE_TYPES=$NEXT_PUBLIC_ALLOWED_FILE_TYPES
 
-# Build Next.js application
+ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
-# Production image, copy all the files and run next
+# ─── Stage 3: Production runner (lean image, no devDeps) ───────────────────────
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-# Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Create non-root user for security
+RUN addgroup --system --gid 1001 nodejs \
+ && adduser --system --uid 1001 nextjs
 
-# Copy necessary files
+# Copy built output
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Set correct permissions
-RUN chown -R nextjs:nodejs /app
-
-# Switch to non-root user
 USER nextjs
 
-# Expose port
 EXPOSE 3000
 
-# Set environment variables for runtime
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+# Healthcheck — verify the app responds with HTTP 200
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/api/health',(r)=>{process.exit(r.statusCode<400?0:1)}).on('error',()=>process.exit(1))"
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000',(r)=>{process.exit(r.statusCode===200?0:1)})"
-
-# Start the application
 CMD ["node", "server.js"]

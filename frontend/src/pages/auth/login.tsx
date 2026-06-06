@@ -1,5 +1,5 @@
 // pages/auth/login.tsx
-// ── BigOneTrading · Login — Indigo / Candlestick theme with Google Sign-In ──
+// ── Capital Coin Trade · Login — Indigo / Candlestick theme with Google Sign-In ──
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -19,7 +19,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { loginFormSchema, LoginFormValues } from '@/lib/validators';
 import type { NormalizedApiError } from '@/services/apiClient';
 
-const BRAND = 'BigOneTrading';
+const BRAND = 'Capital Coin Trade';
 
 export default function LoginPage(): JSX.Element {
   const router = useRouter();
@@ -65,7 +65,7 @@ export default function LoginPage(): JSX.Element {
     <>
       <Head>
         <title>Log in · {BRAND}</title>
-        <meta name="description" content="Log in to your BigOneTrading account" />
+        <meta name="description" content="Log in to your Capital Coin Trade account" />
       </Head>
 
       <AuthLayout
@@ -181,7 +181,7 @@ export default function LoginPage(): JSX.Element {
                 boxShadow: '0 0 20px var(--page-accent-muted)',
               }}
             >
-              Log in to BigOneTrading
+              Log in to Capital Coin Trade
             </Button>
           </div>
 

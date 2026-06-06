@@ -1,5 +1,5 @@
 // pages/auth/forgot-password.tsx
-// ── BigOneTrading · Forgot Password — Amber / Grid theme ──
+// ── Capital Coin Trade · Forgot Password — Amber / Grid theme ──
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -18,7 +18,7 @@ import { authService } from '../../services/authService';
 import { normalizeError, NormalizedApiError } from '../../services/apiClient';
 import { forgotPasswordFormSchema, ForgotPasswordFormValues } from '../../lib/validators';
 
-const BRAND = 'BigOneTrading';
+const BRAND = 'Capital Coin Trade';
 
 export default function ForgotPasswordPage(): JSX.Element {
   const router = useRouter();
@@ -62,7 +62,7 @@ export default function ForgotPasswordPage(): JSX.Element {
     <>
       <Head>
         <title>Forgot password · {BRAND}</title>
-        <meta name="description" content="Reset your BigOneTrading account password" />
+        <meta name="description" content="Reset your Capital Coin Trade account password" />
       </Head>
 
       <AuthLayout

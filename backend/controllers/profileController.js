@@ -1,5 +1,5 @@
 // controllers/profileController.js
-// ── User profile controller with proper file URL handling for bigonetrading.com ──
+// ── User profile controller with proper file URL handling for capitalcointrade.com ──
 
 const bcrypt = require('bcryptjs');
 const fs = require('fs');

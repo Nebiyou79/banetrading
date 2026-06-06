@@ -1,46 +1,50 @@
 # backend/Dockerfile
-FROM node:20-alpine AS builder
+
+# ─── Stage 1: Install dependencies ────────────────────────────────────────────
+FROM node:20-alpine AS deps
 
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-COPY yarn.lock* ./
+RUN apk add --no-cache libc6-compat
 
-# Install dependencies
+# Copy only package files first (better layer caching)
+COPY package*.json ./
+
+# Install production deps only (backend has no build step)
 RUN npm ci --only=production && npm cache clean --force
 
-# Production stage
+# ─── Stage 2: Production runner ────────────────────────────────────────────────
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
+# dumb-init: proper PID 1 / signal handling (SIGTERM → graceful shutdown)
 RUN apk add --no-cache dumb-init
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001
+    adduser  -S nodejs -u 1001 -G nodejs
 
-# Copy built dependencies
-COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+# Copy production node_modules from deps stage
+COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 
-# Copy application code
+# Copy application source
 COPY --chown=nodejs:nodejs . .
 
-# Create upload directories with proper permissions
-RUN mkdir -p /app/uploads /app/uploads/avatars /app/uploads/kyc && \
+# Create upload directories with correct ownership BEFORE switching user
+RUN mkdir -p /app/uploads/avatars /app/uploads/kyc && \
     chown -R nodejs:nodejs /app/uploads
 
-# Switch to non-root user
 USER nodejs
 
-# Expose port
-EXPOSE 5001
+EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-CMD node -e "require('http').get('http://localhost:5001/health',(r)=>{process.exit(r.statusCode===200?0:1)})"
-# Start with dumb-init for proper signal handling
+ENV NODE_ENV=production
+ENV PORT=5000
+
+# Healthcheck — hits the /health endpoint added in index.js
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:5000/health',(r)=>{process.exit(r.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
+
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "index.js"]

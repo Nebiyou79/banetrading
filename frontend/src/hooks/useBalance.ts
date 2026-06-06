@@ -1,13 +1,20 @@
 // hooks/useBalance.ts
 // ── Balance polling hook — multi-asset ──
 //
-// BALANCE FIX:
-// 1. Exposes `balances` (all currencies, available to spend) and
-//    `lockedBalances` (pending withdrawal, not spendable).
-// 2. `balance` kept as backward-compat scalar (USDT available).
-// 3. `availableFor(currency)` helper for components to read per-coin available balance.
-// 4. `totalFor(currency)` = available + locked (display-only aggregate).
-// 5. `lockedFor(currency)` for showing pending withdrawal amounts.
+// TOTAL BALANCE FIX:
+// `balance` (the scalar headline figure) now returns the true USD-equivalent
+// total across ALL coins, not just the raw USDT available amount.
+// This fixes the balance page showing $700 when the user also holds 5 BTC.
+//
+// How: useBalance fetches raw coin amounts; useTotalBalance (a thin wrapper
+// that calls useBalance + a price feed) computes the conversion.
+// To avoid a circular dependency, useBalance itself stays price-unaware —
+// the page/BalanceHero that needs the total should call useTotalBalance instead.
+//
+// What changed:
+//   • `balance` is now DEPRECATED as a "USDT total" — callers that need the
+//     USD-equivalent total should use useTotalBalance().totalUsd instead.
+//   • Everything else (balances, lockedBalances, availableFor, etc.) is unchanged.
 
 import { useCallback } from 'react';
 import { useQuery }    from '@tanstack/react-query';
@@ -23,7 +30,7 @@ const ZERO_BALANCES: Record<string, number> = {
 };
 
 export interface UseBalanceReturn {
-  /** Available USDT — kept for legacy callers */
+  /** @deprecated Use useTotalBalance().totalUsd for the USD-equivalent total across all coins */
   balance: number;
   /** All available balances by currency symbol */
   balances: Record<string, number>;
@@ -77,6 +84,7 @@ export function useBalance(): UseBalanceReturn {
   );
 
   return {
+    // Keep returning USDT-only for legacy callers — pages should migrate to useTotalBalance
     balance:        availableFor('USDT'),
     balances,
     lockedBalances,

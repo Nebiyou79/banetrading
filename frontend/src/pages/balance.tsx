@@ -1,12 +1,10 @@
 // pages/balance.tsx
-// ── BigOneTrading — Balance / Funds hub (Binance/Bybit standard) ──
+// ── Capital Coin Trade — Balance / Funds hub (Binance/Bybit standard) ──
 //
-// BALANCE FIX:
-// 1. Stats grid shows per-asset balances (available + locked) instead of
-//    misleading transaction counts.
-// 2. Reads balances and lockedBalances from useBalance (multi-asset).
-// 3. "Total balance" card shows sum of all available balances in USDT-equivalent.
-// 4. Individual asset cards show available amount with a "locked" sub-line when > 0.
+// TOTAL BALANCE FIX:
+// TotalCard now shows the true USD-equivalent total (USDT + BTC×price + ETH×price)
+// instead of the raw USDT-only balance.
+// Each AssetCard also shows a "≈ $X.XX" USD sub-line for non-USDT coins.
 
 import { useEffect, useMemo, useState } from 'react';
 import Head         from 'next/head';
@@ -26,12 +24,13 @@ import { WithdrawModal }           from '@/components/funds/WithdrawModal';
 import { useDeposit }              from '@/hooks/useDeposit';
 import { useWithdraw }             from '@/hooks/useWithdraw';
 import { useBalance }              from '@/hooks/useBalance';
+import { useTotalBalance }         from '@/hooks/useTotalBalance';
 import { useResponsive }           from '@/hooks/useResponsive';
-import { formatAmount }            from '@/lib/format';
+import { formatAmount, formatUsd } from '@/lib/format';
 import { COINS }                   from '@/types/funds';
 import type { Coin }               from '@/types/funds';
 
-const BRAND     = 'BigOneTrading';
+const BRAND     = 'Capital Coin Trade';
 const PAGE_SIZE = 20;
 
 // ── Coin brand colours (kept local — not semantic) ──────────────────────────
@@ -46,11 +45,12 @@ interface AssetCardProps {
   coin:       Coin;
   available:  number;
   locked:     number;
+  usdValue:   number;   // USD-equivalent of available amount
   hidden:     boolean;
   skeleton?:  boolean;
 }
 
-function AssetCard({ coin, available, locked, hidden, skeleton }: AssetCardProps): JSX.Element {
+function AssetCard({ coin, available, locked, usdValue, hidden, skeleton }: AssetCardProps): JSX.Element {
   const accent = COIN_ACCENT[coin];
   if (skeleton) {
     return (
@@ -79,7 +79,7 @@ function AssetCard({ coin, available, locked, hidden, skeleton }: AssetCardProps
         {coin}
       </div>
 
-      {/* Available amount */}
+      {/* Available amount (native) */}
       <div>
         <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--text-muted)]">
           Available
@@ -87,6 +87,12 @@ function AssetCard({ coin, available, locked, hidden, skeleton }: AssetCardProps
         <p className={`tabular mt-0.5 text-xl font-extrabold text-[var(--text-primary)] ${hidden ? 'blur-sm select-none' : ''}`}>
           {hidden ? '••••••' : formatAmount(available, coin)}
         </p>
+        {/* USD equivalent sub-line for non-USDT coins */}
+        {coin !== 'USDT' && usdValue > 0 && !hidden && (
+          <p className="tabular mt-0.5 text-[11px] text-[var(--text-muted)]">
+            ≈ {formatUsd(usdValue)}
+          </p>
+        )}
       </div>
 
       {/* Locked sub-line — only shown when > 0 */}
@@ -104,12 +110,12 @@ function AssetCard({ coin, available, locked, hidden, skeleton }: AssetCardProps
 
 // ── Total balance summary card ───────────────────────────────────────────────
 function TotalCard({
-  balance, lockedTotal, hidden, skeleton,
+  totalUsd, lockedTotalUsd, hidden, skeleton,
 }: {
-  balance: number;
-  lockedTotal: number;
-  hidden: boolean;
-  skeleton?: boolean;
+  totalUsd:       number;
+  lockedTotalUsd: number;
+  hidden:         boolean;
+  skeleton?:      boolean;
 }): JSX.Element {
   if (skeleton) {
     return (
@@ -139,16 +145,17 @@ function TotalCard({
         <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--text-muted)]">
           Total available
         </p>
+        {/* TOTAL BALANCE FIX: now shows sum of all assets in USD */}
         <p className={`tabular mt-0.5 text-xl font-extrabold text-[var(--text-primary)] ${hidden ? 'blur-sm select-none' : ''}`}>
-          {hidden ? '••••••' : `$${balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          {hidden ? '••••••' : formatUsd(totalUsd)}
         </p>
-        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">USDT equivalent</p>
+        <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">USD equivalent</p>
       </div>
-      {lockedTotal > 0 && (
+      {lockedTotalUsd > 0 && (
         <div className="flex items-center gap-1.5 rounded-lg px-2 py-1" style={{ background: 'var(--warning-muted)' }}>
           <Lock className="h-3 w-3 shrink-0" style={{ color: 'var(--warning)' }} />
           <span className={`tabular text-[11px] font-medium ${hidden ? 'blur-sm select-none' : ''}`} style={{ color: 'var(--warning)' }}>
-            {hidden ? '••••' : `$${lockedTotal.toFixed(2)}`} pending withdrawal
+            {hidden ? '••••' : formatUsd(lockedTotalUsd)} pending withdrawal
           </span>
         </div>
       )}
@@ -227,16 +234,17 @@ export function TxStatusPill({ status }: { status: TxStatus }): JSX.Element {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 function BalancePage(): JSX.Element {
-  const router     = useRouter();
+  const router       = useRouter();
   const { isMobile } = useResponsive();
 
-  // BALANCE FIX: read full multi-asset balances
   const {
-    balance,
     balances,
     lockedBalances,
     isLoading: isBalLoading,
   } = useBalance();
+
+  // TOTAL BALANCE FIX: price-aware totals
+  const { totalUsd, lockedTotalUsd, priceOf, isPriceLoading } = useTotalBalance();
 
   const [depositOpen,  setDepositOpen]  = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
@@ -280,16 +288,14 @@ function BalancePage(): JSX.Element {
     setTimeout(() => setLoadingMore(false), 400);
   };
 
-  // BALANCE FIX: compute total locked in USDT-equivalent (simplified: only USDT locked tracked as USD)
-  const lockedTotal = lockedBalances['USDT'] ?? 0;
-
   const totalTx = totalDeposits + totalWithdrawals;
+  const skeletonCards = isBalLoading || isPriceLoading;
 
   return (
     <>
       <Head>
         <title>Balance · {BRAND}</title>
-        <meta name="description" content="Manage your BigOneTrading funds — deposit, withdraw, and track transaction history." />
+        <meta name="description" content="Manage your Capital Coin Trade funds — deposit, withdraw, and track transaction history." />
       </Head>
 
       <AuthenticatedShell>
@@ -331,25 +337,31 @@ function BalancePage(): JSX.Element {
             </div>
           </div>
 
-          {/* ── BALANCE FIX: Asset balance grid ── */}
-          {/* Total card + one card per coin */}
+          {/* ── Asset balance grid ── */}
+          {/* TOTAL BALANCE FIX: TotalCard gets totalUsd + lockedTotalUsd */}
+          {/* AssetCards get their native amount + USD-equivalent sub-line */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <TotalCard
-              balance={balance}
-              lockedTotal={lockedTotal}
+              totalUsd={totalUsd}
+              lockedTotalUsd={lockedTotalUsd}
               hidden={hideBalance}
-              skeleton={isBalLoading}
+              skeleton={skeletonCards}
             />
-            {COINS.map((c) => (
-              <AssetCard
-                key={c}
-                coin={c}
-                available={balances[c] ?? 0}
-                locked={lockedBalances[c] ?? 0}
-                hidden={hideBalance}
-                skeleton={isBalLoading}
-              />
-            ))}
+            {COINS.map((c) => {
+              const available = balances[c] ?? 0;
+              const usdValue  = c === 'USDT' ? available : available * priceOf(c);
+              return (
+                <AssetCard
+                  key={c}
+                  coin={c}
+                  available={available}
+                  locked={lockedBalances[c] ?? 0}
+                  usdValue={usdValue}
+                  hidden={hideBalance}
+                  skeleton={skeletonCards}
+                />
+              );
+            })}
           </div>
 
           {/* ── Balance hero ── */}

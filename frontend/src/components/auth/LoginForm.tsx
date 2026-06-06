@@ -1,5 +1,5 @@
 // components/auth/LoginForm.tsx
-// ── BigOneTrading — Login form ──
+// ── Capital Coin Trade — Login form ──
 // Email + password + remember + forgot password
 // Zero hardcoded hex. Full CSS-var theming. Both themes polished.
 

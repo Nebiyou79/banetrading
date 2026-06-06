@@ -20,7 +20,7 @@ export default function ShareSheetModal({ open, onClose, code }: ShareSheetModal
   if (!open || !code) return null;
 
   const shareUrl = `${BASE_URL}/register?code=${code}`;
-  const message = `Sign up with my code ${code} on BigOneTrading and we both earn bonuses! 🚀`;
+  const message = `Sign up with my code ${code} on Capital Coin Trade and we both earn bonuses! 🚀`;
 
   const handleCopyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);

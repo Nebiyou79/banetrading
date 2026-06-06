@@ -1,5 +1,5 @@
 // components/auth/AuthLayout.tsx
-// ── BigOneTrading — Split-screen auth layout with per-page accent themes ──
+// ── Capital Coin Trade — Split-screen auth layout with per-page accent themes ──
 
 import { ReactNode, useLayoutEffect, useState } from 'react';
 import Image from 'next/image';
@@ -7,7 +7,7 @@ import { useTheme } from 'next-themes';
 import { useResponsive } from '@/hooks/useResponsive';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
-const BRAND = 'BigOneTrading';
+const BRAND = 'Capital Coin Trade';
 
 export type PageTheme = 'indigo' | 'teal' | 'violet' | 'amber' | 'rose';
 
@@ -344,7 +344,7 @@ export function AuthLayout({
               >
                 <Image
                   src="/assets/logo.jpg"
-                  alt="BigOneTrading logo"
+                  alt="Capital Coin Trade logo"
                   fill
                   sizes="112px"
                   className="object-cover"
@@ -479,7 +479,7 @@ export function AuthLayout({
               >
                 <Image
                   src="/assets/logo.jpg"
-                  alt="BigOneTrading"
+                  alt="Capital Coin Trade"
                   fill
                   sizes="64px"
                   className="object-cover"

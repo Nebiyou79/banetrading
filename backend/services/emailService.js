@@ -3,9 +3,9 @@
 
 const nodemailer = require('nodemailer');
 
-const BRAND = process.env.BRAND_NAME || 'BigOneTradingTrade Clone';
+const BRAND = process.env.BRAND_NAME || 'capitalcointradeTrade Clone';
 const FROM_NAME = process.env.SMTP_FROM_NAME || BRAND;
-const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || 'no-reply@BigOneTradingtrade.local';
+const FROM_EMAIL = process.env.SMTP_FROM_EMAIL || 'no-reply@capitalcointradetrade.local';
 
 let _transporter = null;
 

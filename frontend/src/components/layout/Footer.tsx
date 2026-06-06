@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'BigOneTradingTrade';
+const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'Capital Coin TradeTrade';
 
 const LINKS = [
   { label: 'Terms',   href: '/terms'   },

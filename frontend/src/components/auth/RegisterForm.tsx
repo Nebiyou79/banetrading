@@ -1,5 +1,5 @@
 // components/auth/RegisterForm.tsx
-// ── BigOneTrading — Registration form ──
+// ── Capital Coin Trade — Registration form ──
 // Name + email + password (with strength meter) + country + promo code
 // Zero hardcoded hex. Full CSS-var theming. Both themes polished.
 
@@ -514,7 +514,7 @@ export function RegisterForm({
           )}
         </div>
         <span className="text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-          I agree to BigOneTrading`s{' '}
+          I agree to Capital Coin Trade`s{' '}
           <Link
             href="/terms"
             className="font-medium"

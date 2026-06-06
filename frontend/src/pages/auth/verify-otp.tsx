@@ -1,5 +1,5 @@
 // pages/auth/verify-otp.tsx
-// ── BigOneTrading · OTP Verification — Violet / Waves theme ──
+// ── Capital Coin Trade · OTP Verification — Violet / Waves theme ──
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
@@ -16,7 +16,7 @@ import { normalizeError, NormalizedApiError } from '../../services/apiClient';
 import { useCountdown } from '../../hooks/useCountdown';
 import type { OtpPurpose } from '../../types/auth';
 
-const BRAND = 'BigOneTrading';
+const BRAND = 'Capital Coin Trade';
 const OTP_TTL_SECONDS = 10 * 60;
 const RESEND_COOLDOWN = 60;
 
@@ -125,7 +125,7 @@ export default function VerifyOtpPage(): JSX.Element {
     <>
       <Head>
         <title>{title} · {BRAND}</title>
-        <meta name="description" content="Verify your BigOneTrading account" />
+        <meta name="description" content="Verify your Capital Coin Trade account" />
       </Head>
 
       <AuthLayout

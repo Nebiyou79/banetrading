@@ -15,7 +15,7 @@ function getFullFileUrl(path: string | undefined): string | null {
   }
   // Get base URL from environment or window location
   const baseUrl = process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 
-                  (typeof window !== 'undefined' ? window.location.origin : 'https://bigonetrading.com');
+                  (typeof window !== 'undefined' ? window.location.origin : 'https://Capital Coin Trade.com');
   // Ensure path starts with /
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   return `${baseUrl}${normalizedPath}`;

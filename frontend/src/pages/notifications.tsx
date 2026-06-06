@@ -1,5 +1,5 @@
 // pages/notifications.tsx
-// ── BigOneTrading — Notifications page (Binance/Bybit standard) ──
+// ── Capital Coin Trade — Notifications page (Binance/Bybit standard) ──
 
 import Head from 'next/head';
 import { useState } from 'react';
@@ -13,7 +13,7 @@ import { withAuth }           from '@/components/layout/withAuth';
 import { formatRelativeTime } from '@/lib/format';
 import { useResponsive }      from '@/hooks/useResponsive';
 
-const BRAND = 'BigOneTrading';
+const BRAND = 'Capital Coin Trade';
 
 // ── Notification type ──
 type NotifCategory = 'all' | 'security' | 'transactions' | 'system';
@@ -246,7 +246,7 @@ function NotificationsPage(): JSX.Element {
     <>
       <Head>
         <title>Notifications · {BRAND}</title>
-        <meta name="description" content="Your BigOneTrading account notifications — security, transactions, and platform updates." />
+        <meta name="description" content="Your Capital Coin Trade account notifications — security, transactions, and platform updates." />
       </Head>
 
       <AuthenticatedShell>

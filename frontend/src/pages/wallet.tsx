@@ -1,4 +1,4 @@
 // pages/wallet.tsx
-// ── BigOneTrading — Wallet alias → /balance ──
+// ── Capital Coin Trade — Wallet alias → /balance ──
 
 export { default } from './balance';

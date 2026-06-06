@@ -1,7 +1,7 @@
 {
-  "name": "BigOneTrading-backend",
+  "name": "capitalcointrade-backend",
   "version": "1.0.0",
-  "description": "Authentication module backend for BigOneTradingTrade-style crypto platform clone",
+  "description": "Authentication module backend for capitalcointradeTrade-style crypto platform clone",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
