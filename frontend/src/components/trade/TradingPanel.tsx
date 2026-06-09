@@ -1,15 +1,15 @@
 // components/trade/TradingPanel.tsx
-// ── TRADING PANEL ──
+// ── TRADING PANEL (CANONICAL — DELETE TradePanel.tsx) ──
+// Uses calcPnl for consistent P&L preview in the amount input area.
+
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/services/apiClient';
+import { calcPnl } from '@/lib/tradePnl';
 import type { Currency } from '@/types/convert';
 import type {
-  PairClass,
-  PlanKey,
-  TradeDirection,
-  TradingConfigResponse,
-  TradingPair,
+  PairClass, PlanKey, TradeDirection,
+  TradingConfigResponse, TradingPair,
 } from '@/types/trade';
 import { usePlaceTrade } from '@/hooks/usePlaceTrade';
 import { TradingAssetSelector } from './TradingAssetSelector';
@@ -19,84 +19,66 @@ import { BuySellButtons } from './BuySellButtons';
 import { ConfirmTradeModal } from './ConfirmTradeModal';
 
 interface TradingPanelProps {
-  pair: TradingPair | null;
+  pair:      TradingPair | null;
   pairClass: PairClass;
-  config: TradingConfigResponse | null;
+  config:    TradingConfigResponse | null;
   livePrice: number | null;
-  balances: Record<Currency, number>;
+  balances:  Record<Currency, number>;
 }
 
-interface MarketRow {
-  symbol: string;
-  price: number;
-  change24h?: number;
-}
+interface MarketRow { symbol: string; price: number; }
 
-export function TradingPanel({
-  pair,
-  config,
-  livePrice,
-  balances,
-}: TradingPanelProps) {
-  const [tradingAsset, setTradingAsset] = useState<Currency>('USDT');
-  const [selectedPlanKey, setSelectedPlanKey] = useState<PlanKey | null>(null);
-  const [stakeStr, setStakeStr] = useState('');
+export function TradingPanel({ pair, config, livePrice, balances }: TradingPanelProps) {
+  const [tradingAsset,     setTradingAsset]     = useState<Currency>('USDT');
+  const [selectedPlanKey,  setSelectedPlanKey]  = useState<PlanKey | null>(null);
+  const [stakeStr,         setStakeStr]         = useState('');
   const [pendingDirection, setPendingDirection] = useState<TradeDirection | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmOpen,      setConfirmOpen]      = useState(false);
 
   const { mutate: placeTrade, isPending: isPlacing, error: placeError } = usePlaceTrade();
 
-  // Fetch asset USD price for min conversion
   const assetUsdPriceQuery = useQuery<number | null>({
     queryKey: ['markets', 'assetPrice', tradingAsset],
     queryFn: async () => {
       if (tradingAsset === 'USDT') return 1;
       const { data } = await apiClient.get('/markets/list');
-      const row = (data.rows as MarketRow[])?.find(
-        (r) => r.symbol === tradingAsset
-      );
+      const row = (data.rows as MarketRow[])?.find(r => r.symbol === tradingAsset);
       return row?.price ?? null;
     },
     staleTime: 15_000,
   });
   const assetUsdPrice = assetUsdPriceQuery.data ?? null;
 
-  // Computed
-  const selectedPlan = config?.plans.find((p) => p.key === selectedPlanKey) ?? null;
-  const minInAsset =
-    selectedPlan && assetUsdPrice && assetUsdPrice > 0
-      ? selectedPlan.minUsd / assetUsdPrice
-      : null;
+  const selectedPlan = config?.plans.find(p => p.key === selectedPlanKey) ?? null;
+  const minInAsset   = selectedPlan && assetUsdPrice && assetUsdPrice > 0
+    ? selectedPlan.minUsd / assetUsdPrice : null;
 
-  const stakeNum = Number(stakeStr);
+  const stakeNum  = Number(stakeStr);
   const available = balances[tradingAsset] ?? 0;
+  const feeBps    = config?.feeBps ?? 200;
+
   const isValid = useMemo(() => {
-    if (!pair) return false;
-    if (!selectedPlan) return false;
+    if (!pair || !selectedPlan) return false;
     if (!Number.isFinite(stakeNum) || stakeNum <= 0) return false;
     if (stakeNum > available) return false;
     if (minInAsset !== null && stakeNum < minInAsset) return false;
     return true;
   }, [pair, selectedPlan, stakeNum, available, minInAsset]);
 
-  const handleDirection = useCallback(
-    (dir: TradeDirection) => {
-      setPendingDirection(dir);
-      setConfirmOpen(true);
-    },
-    []
-  );
+  // Live P&L preview shown below the amount input
+  const pnlPreview = selectedPlan && stakeNum > 0
+    ? calcPnl(stakeNum, selectedPlan.multiplier, feeBps)
+    : null;
+
+  const handleDirection = useCallback((dir: TradeDirection) => {
+    setPendingDirection(dir);
+    setConfirmOpen(true);
+  }, []);
 
   const handleConfirm = useCallback(() => {
     if (!pair || !pendingDirection || !selectedPlanKey) return;
     placeTrade(
-      {
-        pair: pair.symbol,
-        direction: pendingDirection,
-        planKey: selectedPlanKey,
-        tradingAsset,
-        stake: stakeNum,
-      },
+      { pair: pair.symbol, direction: pendingDirection, planKey: selectedPlanKey, tradingAsset, stake: stakeNum },
       {
         onSuccess: () => {
           setConfirmOpen(false);
@@ -105,14 +87,7 @@ export function TradingPanel({
         },
       }
     );
-  }, [
-    pair,
-    pendingDirection,
-    selectedPlanKey,
-    tradingAsset,
-    stakeNum,
-    placeTrade,
-  ]);
+  }, [pair, pendingDirection, selectedPlanKey, tradingAsset, stakeNum, placeTrade]);
 
   const handleClose = useCallback(() => {
     setConfirmOpen(false);
@@ -122,18 +97,10 @@ export function TradingPanel({
   return (
     <>
       <div className="flex flex-col gap-5 rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 sm:p-5">
-        {/* Trading Asset */}
-        <div>
-          <TradingAssetSelector
-            value={tradingAsset}
-            onChange={setTradingAsset}
-            balances={balances}
-          />
-        </div>
+        <TradingAssetSelector value={tradingAsset} onChange={setTradingAsset} balances={balances} />
 
         <hr className="border-[var(--border-subtle)]" />
 
-        {/* Plan */}
         <PlanSelector
           plans={config?.plans ?? []}
           selectedKey={selectedPlanKey}
@@ -144,7 +111,6 @@ export function TradingPanel({
 
         <hr className="border-[var(--border-subtle)]" />
 
-        {/* Amount */}
         <AmountInput
           value={stakeStr}
           onChange={setStakeStr}
@@ -153,9 +119,32 @@ export function TradingPanel({
           minInAsset={minInAsset}
         />
 
+        {/* Live P&L preview */}
+        {pnlPreview && (
+          <div className="grid grid-cols-2 gap-2 -mt-2">
+            <div className="rounded-lg bg-[var(--success-muted)] px-3 py-2 text-center">
+              <p className="text-[10px] text-[var(--text-muted)] mb-0.5">If Won</p>
+              <p className="tabular text-sm font-bold text-[var(--success)]">
+                +{pnlPreview.netGain.toFixed(2)} {tradingAsset}
+              </p>
+              <p className="text-[10px] text-[var(--text-muted)]">
+                {pnlPreview.winCredited.toFixed(2)} back
+              </p>
+            </div>
+            <div className="rounded-lg bg-[var(--danger-muted)] px-3 py-2 text-center">
+              <p className="text-[10px] text-[var(--text-muted)] mb-0.5">If Lost</p>
+              <p className="tabular text-sm font-bold text-[var(--danger)]">
+                -{pnlPreview.totalLoss.toFixed(2)} {tradingAsset}
+              </p>
+              <p className="text-[10px] text-[var(--text-muted)]">
+                {pnlPreview.lossCredited.toFixed(2)} back
+              </p>
+            </div>
+          </div>
+        )}
+
         <hr className="border-[var(--border-subtle)]" />
 
-        {/* Buttons */}
         <BuySellButtons
           baseCoin={pair?.base ?? '—'}
           disabled={!isValid}
@@ -174,7 +163,7 @@ export function TradingPanel({
         tradingAsset={tradingAsset}
         stake={stakeNum}
         entryPrice={livePrice}
-        feeBps={config?.feeBps ?? 200}
+        feeBps={feeBps}
         isLoading={isPlacing}
         error={placeError ? (placeError instanceof Error ? placeError.message : 'Trade failed') : null}
         onConfirm={handleConfirm}

@@ -1,20 +1,14 @@
 // hooks/useBalance.ts
 // ── Balance polling hook — multi-asset ──
 //
+// FIX: refetchInterval reduced from 15_000 → 5_000 so balance updates within
+//      5 seconds of a trade settling (resolver uses $inc on DB, not websocket push).
+//      staleTime reduced from 8_000 → 4_000 to match.
+//
 // TOTAL BALANCE FIX:
 // `balance` (the scalar headline figure) now returns the true USD-equivalent
 // total across ALL coins, not just the raw USDT available amount.
-// This fixes the balance page showing $700 when the user also holds 5 BTC.
-//
-// How: useBalance fetches raw coin amounts; useTotalBalance (a thin wrapper
-// that calls useBalance + a price feed) computes the conversion.
-// To avoid a circular dependency, useBalance itself stays price-unaware —
-// the page/BalanceHero that needs the total should call useTotalBalance instead.
-//
-// What changed:
-//   • `balance` is now DEPRECATED as a "USDT total" — callers that need the
-//     USD-equivalent total should use useTotalBalance().totalUsd instead.
-//   • Everything else (balances, lockedBalances, availableFor, etc.) is unchanged.
+// Pages that need the USD-equivalent total should call useTotalBalance() instead.
 
 import { useCallback } from 'react';
 import { useQuery }    from '@tanstack/react-query';
@@ -32,15 +26,10 @@ const ZERO_BALANCES: Record<string, number> = {
 export interface UseBalanceReturn {
   /** @deprecated Use useTotalBalance().totalUsd for the USD-equivalent total across all coins */
   balance: number;
-  /** All available balances by currency symbol */
   balances: Record<string, number>;
-  /** Amounts locked in pending withdrawals, by currency symbol */
   lockedBalances: Record<string, number>;
-  /** Available (spendable) amount for a specific currency */
   availableFor: (currency: string) => number;
-  /** Total (available + locked) for a specific currency */
   totalFor: (currency: string) => number;
-  /** Locked (pending withdrawal) for a specific currency */
   lockedFor: (currency: string) => number;
   isFrozen: boolean;
   data: BalanceResponse | null;
@@ -56,8 +45,10 @@ export function useBalance(): UseBalanceReturn {
     queryKey: BALANCE_QUERY_KEY,
     queryFn:  () => depositService.getBalance(),
     enabled:  hasToken,
-    refetchInterval: 15_000,
-    staleTime:        8_000,
+    // FIX: was 15_000 — too slow to reflect trade settlements.
+    // Resolver credits balance within ~1s; 5s poll catches it quickly.
+    refetchInterval: 5_000,
+    staleTime:       4_000,
   });
 
   const refetch = useCallback(async () => {
@@ -84,7 +75,6 @@ export function useBalance(): UseBalanceReturn {
   );
 
   return {
-    // Keep returning USDT-only for legacy callers — pages should migrate to useTotalBalance
     balance:        availableFor('USDT'),
     balances,
     lockedBalances,

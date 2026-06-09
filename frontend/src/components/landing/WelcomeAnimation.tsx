@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { WelcomeStats } from './WelcomeStats';
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'Capital Coin Trade';
+const BRAND =  'Capital Coin Trade';
 const TOTAL_MS = 1200;
 
 /**

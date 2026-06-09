@@ -73,6 +73,15 @@ function UsersContent() {
     { invalidateKeys: [USERS_KEY] },
   );
 
+  const balanceMutation = useAdminMutation(
+    (payload: { id: string; currency: string; resolvedAmount: number }) =>
+      adminService.updateUserBalance(payload.id, {
+        currency: payload.currency,
+        resolvedAmount: payload.resolvedAmount,
+      }),
+    { invalidateKeys: [USERS_KEY] },
+  );
+
   const deleteMutation = useAdminMutation(
     (id: string) => adminService.deleteUser(id),
     { invalidateKeys: [USERS_KEY] },
@@ -226,7 +235,11 @@ function UsersContent() {
         onSave={(id, data) =>
           updateMutation.mutateAsync({ id, data }).then(() => setEditingUser(null))
         }
+        onUpdateBalance={(id, currency, resolvedAmount) =>
+          balanceMutation.mutateAsync({ id, currency, resolvedAmount })
+        }
         isLoading={updateMutation.isLoading}
+        isBalanceLoading={balanceMutation.isLoading}
       />
 
       {/* Delete confirmation modal */}
@@ -272,14 +285,22 @@ function EditUserModal({
   user,
   onClose,
   onSave,
+  onUpdateBalance,
   isLoading,
+  isBalanceLoading,
 }: {
   user: User | null;
   onClose: () => void;
   onSave: (id: string, data: Partial<User>) => Promise<any>;
+  onUpdateBalance: (id: string, currency: string, resolvedAmount: number) => Promise<any>;
   isLoading: boolean;
+  isBalanceLoading: boolean;
 }) {
   const [formData, setFormData] = useState<Partial<User>>({});
+  const [balanceAmount, setBalanceAmount] = useState('');
+  const [balanceCurrency, setBalanceCurrency] = useState('USDT');
+  const [balanceMode, setBalanceMode] = useState<'set' | 'add' | 'subtract'>('set');
+  const [balanceSuccess, setBalanceSuccess] = useState(false);
 
   React.useEffect(() => {
     if (user) {
@@ -290,6 +311,9 @@ function EditUserModal({
         isFrozen: user.isFrozen,
         autoMode: user.autoMode || 'off',
       });
+      setBalanceAmount('');
+      setBalanceMode('set');
+      setBalanceSuccess(false);
     }
   }, [user]);
 
@@ -370,6 +394,85 @@ function EditUserModal({
           <label htmlFor="isFrozen" style={{ color: 'var(--text-primary)' }}>
             Freeze Account
           </label>
+        </div>
+
+        {/* ── Balance Update ──────────────────────────────────────────── */}
+        <div
+          style={{
+            borderTop: '1px solid var(--border)',
+            paddingTop: '1rem',
+            marginTop: '0.5rem',
+          }}
+        >
+          <p className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>
+            Update Balance
+          </p>
+          <div className="flex gap-2 mb-2">
+            {/* Currency */}
+            <select
+              value={balanceCurrency}
+              onChange={(e) => setBalanceCurrency(e.target.value)}
+              className="px-3 py-2 rounded-lg text-sm"
+              style={{ ...inputStyle, width: '6rem', flexShrink: 0 }}
+              {...focusHandlers}
+            >
+              <option value="USDT">USDT</option>
+              <option value="BTC">BTC</option>
+              <option value="ETH">ETH</option>
+            </select>
+            {/* Mode */}
+            <select
+              value={balanceMode}
+              onChange={(e) => setBalanceMode(e.target.value as 'set' | 'add' | 'subtract')}
+              className="px-3 py-2 rounded-lg text-sm"
+              style={{ ...inputStyle, width: '7.5rem', flexShrink: 0 }}
+              {...focusHandlers}
+            >
+              <option value="set">Set to</option>
+              <option value="add">Add</option>
+              <option value="subtract">Subtract</option>
+            </select>
+            {/* Amount */}
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="0.00"
+              value={balanceAmount}
+              onChange={(e) => { setBalanceAmount(e.target.value); setBalanceSuccess(false); }}
+              className="flex-1 px-3 py-2 rounded-lg text-sm"
+              style={inputStyle}
+              {...focusHandlers}
+            />
+            {/* Apply */}
+            <button
+              onClick={async () => {
+                const amount = parseFloat(balanceAmount);
+                if (isNaN(amount) || amount < 0) return;
+                // Resolve the final "set" value from the selected mode + current balance
+                const currentBal = Number(
+                  (user.balances as any)?.[balanceCurrency] ?? 0
+                );
+                let resolved: number;
+                if (balanceMode === 'set')      resolved = amount;
+                else if (balanceMode === 'add') resolved = Math.max(0, currentBal + amount);
+                else                            resolved = Math.max(0, currentBal - amount);
+                await onUpdateBalance(user._id, balanceCurrency, resolved);
+                setBalanceSuccess(true);
+                setBalanceAmount('');
+              }}
+              disabled={isBalanceLoading || !balanceAmount}
+              className="px-4 py-2 rounded-lg text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ backgroundColor: 'var(--primary)', color: 'var(--text-inverse)', flexShrink: 0 }}
+            >
+              {isBalanceLoading ? '...' : 'Apply'}
+            </button>
+          </div>
+          {balanceSuccess && (
+            <p className="text-xs" style={{ color: 'var(--success)' }}>
+              ✓ Balance updated successfully
+            </p>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 pt-4">

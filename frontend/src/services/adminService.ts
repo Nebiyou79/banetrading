@@ -92,6 +92,22 @@ const adminService = {
     return data;
   },
 
+  async updateUserBalance(
+    id: string,
+    payload: { currency: string; resolvedAmount: number },
+  ): Promise<{ message: string; user: User }> {
+    // The existing PATCH /admin/users/:id endpoint reads flat dot-notation keys
+    // e.g. { "balances.USDT": 500 } to update a specific currency balance.
+    const body: Record<string, number> = {
+      [`balances.${payload.currency}`]: payload.resolvedAmount,
+    };
+    const { data } = await apiClient.patch<{ message: string; user: User }>(
+      `/admin/users/${id}`,
+      body,
+    );
+    return data;
+  },
+
   // ── Deposits with File URLs ─────────────────────────────────────────────
   async fetchDeposits(params?: {
     status?: string;

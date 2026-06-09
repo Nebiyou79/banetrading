@@ -17,7 +17,7 @@ export function Footer(): JSX.Element {
     <footer className="border-t border-border bg-base mt-auto">
       <div className="mx-auto flex max-w-[1920px] flex-col items-center justify-between gap-3 px-4 py-6 sm:flex-row sm:px-6">
         <div className="text-xs text-text-muted">
-          © {new Date().getFullYear()} {BRAND}. Demo project.
+          © {new Date().getFullYear()} {BRAND}.
         </div>
         <nav aria-label="Footer">
           <ul className="flex items-center gap-4">

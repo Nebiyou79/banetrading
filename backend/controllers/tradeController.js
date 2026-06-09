@@ -1,15 +1,19 @@
 // controllers/tradeController.js
 // ── TRADING CONTROLLER ──
-// BUG 3 FIX: At trade placement, only debit the RISKED amount (stake * multiplier)
-//            from the user's balance. The un-risked portion stays in their account.
-//            On WIN, credit back stake + profit - fee.
-//            On LOSS, resolver credits back the un-risked portion (already in balance).
+//
+// BALANCE MODEL (fixed):
+//   PLACEMENT:  deduct full stake from balance
+//   WIN:        credit = stake + (risk - fee)   where risk = stake × multiplier, fee = risk × feeRate
+//   LOSS:       credit = stake - (risk + fee)   (partial refund — user loses risk+fee only)
+//
+// This model matches the frontend display and makes the resolver math unambiguous:
+//   resolver always does: balance += creditAmount  (no partial-deduction confusion)
 
-const Trade = require('../models/Trade');
+const Trade         = require('../models/Trade');
 const TradingConfig = require('../models/TradingConfig');
-const User = require('../models/User');
-const { TIER_1, BY_BINANCE } = require('../config/coins');
-const { FOREX_PAIRS, FX_BY_SYMBOL } = require('../config/forex');
+const User          = require('../models/User');
+const { TIER_1, BY_BINANCE }          = require('../config/coins');
+const { FOREX_PAIRS, FX_BY_SYMBOL }   = require('../config/forex');
 const { METAL_PAIRS, METAL_BY_SYMBOL } = require('../config/metals');
 const tradeResolver = require('../services/tradeResolver');
 
@@ -45,7 +49,6 @@ async function getOrCreateConfig() {
 
 async function fetchPairPrice(pair, pairClass) {
   const ms = getMarketService();
-
   if (ms) {
     try {
       const result = await ms.getPrice(pair);
@@ -54,7 +57,6 @@ async function fetchPairPrice(pair, pairClass) {
       console.warn(`[tradeController] market.service.getPrice failed for ${pair}: ${e.message}`);
     }
   }
-
   if (pairClass === 'forex' || pairClass === 'metals') {
     const fx = getForexAggregator();
     if (fx) {
@@ -65,23 +67,13 @@ async function fetchPairPrice(pair, pairClass) {
       } catch {}
     }
   }
-
   return null;
 }
 
 function resolvePair(pair) {
-  if (BY_BINANCE[pair]) {
-    const meta = BY_BINANCE[pair];
-    return { class: 'crypto', symbol: pair, display: `${meta.symbol}/USDT`, base: meta.symbol };
-  }
-  if (FX_BY_SYMBOL[pair]) {
-    const meta = FX_BY_SYMBOL[pair];
-    return { class: 'forex', symbol: pair, display: meta.display, base: meta.base };
-  }
-  if (METAL_BY_SYMBOL[pair]) {
-    const meta = METAL_BY_SYMBOL[pair];
-    return { class: 'metals', symbol: pair, display: meta.display, base: meta.base };
-  }
+  if (BY_BINANCE[pair])      return { class: 'crypto',  symbol: pair, display: `${BY_BINANCE[pair].symbol}/USDT`,      base: BY_BINANCE[pair].symbol };
+  if (FX_BY_SYMBOL[pair])    return { class: 'forex',   symbol: pair, display: FX_BY_SYMBOL[pair].display,   base: FX_BY_SYMBOL[pair].base };
+  if (METAL_BY_SYMBOL[pair]) return { class: 'metals',  symbol: pair, display: METAL_BY_SYMBOL[pair].display, base: METAL_BY_SYMBOL[pair].base };
   return null;
 }
 
@@ -90,9 +82,9 @@ exports.getConfig = async (_req, res) => {
   try {
     const config = await getOrCreateConfig();
     return res.json({
-      plans: config.plans.filter(p => p.active),
-      feeBps: config.feeBps,
-      enabledPairs: config.enabledPairs,
+      plans:         config.plans.filter(p => p.active),
+      feeBps:        config.feeBps,
+      enabledPairs:  config.enabledPairs,
       tradingAssets: TRADING_ASSETS,
     });
   } catch (err) {
@@ -104,7 +96,7 @@ exports.getConfig = async (_req, res) => {
 // ── GET /api/trade/pairs ──
 exports.getPairs = async (_req, res) => {
   try {
-    const config = await getOrCreateConfig();
+    const config  = await getOrCreateConfig();
     const enabled = (config.enabledPairs || []).map(s => s.toUpperCase());
     const isEnabled = sym => enabled.length === 0 || enabled.includes(sym.toUpperCase());
 
@@ -143,13 +135,17 @@ exports.placeTrade = async (req, res) => {
       });
     }
 
-    if (direction !== 'buy' && direction !== 'sell') return res.status(400).json({ message: 'Invalid direction' });
+    if (direction !== 'buy' && direction !== 'sell') {
+      return res.status(400).json({ message: 'Invalid direction' });
+    }
 
     const stakeNum = Number(stake);
-    if (!Number.isFinite(stakeNum) || stakeNum <= 0) return res.status(400).json({ message: 'Invalid stake amount' });
+    if (!Number.isFinite(stakeNum) || stakeNum <= 0) {
+      return res.status(400).json({ message: 'Invalid stake amount' });
+    }
 
     const config = await getOrCreateConfig();
-    const plan = config.plans.find(p => p.key === planKey && p.active);
+    const plan   = config.plans.find(p => p.key === planKey && p.active);
     if (!plan) return res.status(400).json({ message: 'Selected plan is unavailable' });
 
     const enabled = (config.enabledPairs || []).map(s => s.toUpperCase());
@@ -165,7 +161,6 @@ exports.placeTrade = async (req, res) => {
     }
 
     const available = user.balances?.USDT || 0;
-
     if (available < stakeNum) {
       return res.status(400).json({
         message: `Insufficient USDT balance. Available: ${available.toFixed(2)} USDT`,
@@ -177,14 +172,15 @@ exports.placeTrade = async (req, res) => {
       return res.status(503).json({ message: 'Entry price unavailable — please retry.' });
     }
 
-    // BUG 3 FIX: Only debit the RISKED amount (stake * multiplier) at placement.
-    const riskAmount = stakeNum * plan.multiplier;
-
-    user.balances.USDT = available - riskAmount;
+    // ── DEDUCT FULL STAKE at placement ──
+    // The resolver will credit back the correct amount on settlement:
+    //   WIN:  balance += stake + netGain          (stake returned + profit - fee)
+    //   LOSS: balance += stake - totalLoss        (stake returned minus risk+fee)
+    user.balances.USDT = available - stakeNum;
     user.markModified('balances');
     await user.save();
 
-    const now = new Date();
+    const now       = new Date();
     const expiresAt = new Date(now.getTime() + plan.durationSec * 1000);
 
     const trade = await Trade.create({
@@ -216,7 +212,8 @@ exports.placeTrade = async (req, res) => {
 // ── GET /api/trade/active ──
 exports.getActive = async (req, res) => {
   try {
-    const trades = await Trade.find({ userId: req.user._id, status: 'pending' }).sort({ createdAt: -1 }).lean();
+    const trades = await Trade.find({ userId: req.user._id, status: 'pending' })
+      .sort({ createdAt: -1 }).lean();
     return res.json({ trades });
   } catch (err) {
     console.error('[trade] getActive error:', err);
@@ -227,7 +224,7 @@ exports.getActive = async (req, res) => {
 // ── GET /api/trade/history ──
 exports.getHistory = async (req, res) => {
   try {
-    const limit  = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const limit  = Math.min(Math.max(parseInt(req.query.limit,  10) || 20, 1), 100);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
     const filter = { userId: req.user._id, status: { $ne: 'pending' } };
     const [trades, total] = await Promise.all([
@@ -256,14 +253,15 @@ exports.getOne = async (req, res) => {
 // ── GET /api/trade/admin/all ──
 exports.adminListAll = async (req, res) => {
   try {
-    const limit  = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const limit  = Math.min(Math.max(parseInt(req.query.limit,  10) || 50, 1), 200);
     const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
     const filter = {};
     if (req.query.userId) filter.userId = req.query.userId;
     if (req.query.status && ['pending','won','lost','cancelled'].includes(req.query.status)) filter.status = req.query.status;
     if (req.query.planKey && ['SILVER','GOLD','PLATINUM','DIAMOND','ELITE'].includes(req.query.planKey)) filter.planKey = req.query.planKey;
     const [trades, total] = await Promise.all([
-      Trade.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit).populate('userId', 'name email').lean(),
+      Trade.find(filter).sort({ createdAt: -1 }).skip(offset).limit(limit)
+        .populate('userId', 'name email').lean(),
       Trade.countDocuments(filter),
     ]);
     return res.json({ trades, total, limit, offset });
@@ -280,11 +278,16 @@ exports.adminUpdateConfig = async (req, res) => {
     const config = await getOrCreateConfig();
     if (Array.isArray(plans)) {
       for (const p of plans) {
-        if (!p || !['SILVER','GOLD','PLATINUM','DIAMOND','ELITE'].includes(p.key) || typeof p.multiplier !== 'number' || typeof p.durationSec !== 'number' || typeof p.minUsd !== 'number') {
+        if (!p || !['SILVER','GOLD','PLATINUM','DIAMOND','ELITE'].includes(p.key) ||
+            typeof p.multiplier !== 'number' || typeof p.durationSec !== 'number' ||
+            typeof p.minUsd !== 'number') {
           return res.status(400).json({ message: `Invalid plan entry: ${p?.key || 'unknown'}` });
         }
       }
-      config.plans = plans.map(p => ({ key: p.key, multiplier: p.multiplier, durationSec: p.durationSec, minUsd: p.minUsd, active: p.active !== false }));
+      config.plans = plans.map(p => ({
+        key: p.key, multiplier: p.multiplier, durationSec: p.durationSec,
+        minUsd: p.minUsd, active: p.active !== false,
+      }));
     }
     if (typeof feeBps === 'number' && feeBps >= 0 && feeBps <= 5000) config.feeBps = feeBps;
     if (Array.isArray(enabledPairs)) config.enabledPairs = enabledPairs.map(s => String(s).toUpperCase());

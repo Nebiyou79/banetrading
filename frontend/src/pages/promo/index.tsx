@@ -74,7 +74,7 @@ function PromoHeroSkeleton(): JSX.Element {
   );
 }
 
-const BRAND = process.env.NEXT_PUBLIC_BRAND_NAME || 'Capital Coin Trade';
+const BRAND =  'Capital Coin Trade';
 
 // ── Quick action button ──
 interface QuickBtnProps {

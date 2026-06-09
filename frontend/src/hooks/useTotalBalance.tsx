@@ -1,14 +1,7 @@
 // hooks/useTotalBalance.ts
 // ── Computes USD-equivalent total across ALL held assets ──
-//
-// Uses live prices from /api/market (already in the app) to convert
-// BTC / ETH / SOL / BNB / XRP balances to USDT before summing.
-// Falls back to 0 for any coin whose price can't be fetched.
-//
-// Returns:
-//   totalUsd       — sum of all assets in USD (use this for the headline)
-//   lockedTotalUsd — sum of all locked balances in USD
-//   priceOf(coin)  — live USD price for any supported coin
+// FIX: price endpoint updated from /market/ticker?symbol=X → /market/price/X
+//      to match the actual backend route (GET /api/market/price/:symbol)
 
 import { useCallback } from 'react';
 import { useQuery }    from '@tanstack/react-query';
@@ -16,28 +9,26 @@ import { apiClient }   from '@/services/apiClient';
 import { useBalance }  from './useBalance';
 import type { Coin }   from '@/types/funds';
 
-// Coins that need a price lookup (USDT is already 1:1)
-const PRICED_COINS: Coin[] = ['BTC', 'ETH'];
-
 interface PriceMap { [coin: string]: number }
 
 async function fetchPrices(): Promise<PriceMap> {
-  // Use the existing /api/market endpoint — adjust symbol format to match your backend
   const symbols = ['BTCUSDT', 'ETHUSDT'];
   const results: PriceMap = { USDT: 1 };
 
   await Promise.allSettled(
     symbols.map(async (sym) => {
       try {
-        const { data } = await apiClient.get(`/market/ticker?symbol=${sym}`);
-        // Handle both { price: number } and { data: { price: number } } shapes
-        const price = Number(data?.price ?? data?.data?.price ?? data?.last ?? 0);
+        // FIX: was /market/ticker?symbol=X — correct route is /market/price/:symbol
+        const { data } = await apiClient.get(`/market/price/${sym}`);
+        // Handle both { price } and { data: { price } } response shapes
+        const price = Number(
+          data?.data?.price ?? data?.price ?? data?.last ?? 0
+        );
         if (price > 0) {
-          const coin = sym.replace('USDT', '') as Coin;
-          results[coin] = price;
+          results[sym.replace('USDT', '') as Coin] = price;
         }
       } catch {
-        // leave undefined — will fall back to 0
+        // leave undefined — falls back to 0 in the sum
       }
     }),
   );
@@ -59,7 +50,7 @@ export function useTotalBalance(): UseTotalBalanceReturn {
   const priceQuery = useQuery<PriceMap>({
     queryKey:        ['prices', 'spot'],
     queryFn:         fetchPrices,
-    refetchInterval: 30_000,   // refresh every 30 s
+    refetchInterval: 30_000,
     staleTime:       20_000,
     retry:           2,
   });
@@ -68,16 +59,15 @@ export function useTotalBalance(): UseTotalBalanceReturn {
 
   const priceOf = useCallback(
     (coin: string): number => prices[coin] ?? 0,
-    [prices],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(prices)],
   );
 
-  // Sum available balances × price for each coin
   const totalUsd = Object.entries(balances).reduce((sum, [coin, amount]) => {
     const p = prices[coin] ?? (coin === 'USDT' ? 1 : 0);
     return sum + (Number(amount) || 0) * p;
   }, 0);
 
-  // Sum locked balances × price
   const lockedTotalUsd = Object.entries(lockedBalances).reduce((sum, [coin, amount]) => {
     const p = prices[coin] ?? (coin === 'USDT' ? 1 : 0);
     return sum + (Number(amount) || 0) * p;
